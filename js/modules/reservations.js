@@ -1,0 +1,358 @@
+/**
+ * Reservations & Front Desk Reception Module
+ * Check-in, Check-out, Folio settlements & Booking Management
+ */
+
+const ReservationsModule = {
+  currentBookings: [],
+
+  async init() {
+    await this.loadReservations();
+    this.setupEventListeners();
+  },
+
+  setupEventListeners() {
+    const searchInput = document.getElementById('search-reservations');
+    if (searchInput) {
+      let debounceTimer;
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          this.filterTable(e.target.value);
+        }, 300);
+      });
+    }
+
+    const filterStatus = document.getElementById('filter-res-status');
+    if (filterStatus) {
+      filterStatus.addEventListener('change', (e) => {
+        this.filterTable(document.getElementById('search-reservations')?.value || '', e.target.value);
+      });
+    }
+  },
+
+  async loadReservations() {
+    try {
+      const tbody = document.getElementById('reservations-table-body');
+      if (!tbody) return;
+
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px;"><i class="fas fa-spinner fa-spin"></i> Cargando reservas...</td></tr>`;
+
+      const { data, error } = await supabaseClient
+        .from('reservas')
+        .select('*, habitaciones(*, tipos_habitacion(*)), folios(*)')
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+
+      this.currentBookings = data || [];
+      this.renderTable(this.currentBookings);
+
+    } catch (err) {
+      console.error('Error al cargar reservas:', err);
+      showToast('Error al cargar reservas: ' + err.message, 'error');
+    }
+  },
+
+  renderTable(list) {
+    const tbody = document.getElementById('reservations-table-body');
+    if (!tbody) return;
+
+    if (!list || list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 32px; color: var(--text-muted);">No se encontraron reservas registradas.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    list.forEach(b => {
+      const hab = b.habitaciones || {};
+      const tipo = hab.tipos_habitacion || {};
+      const folio = (b.folios && b.folios.length > 0) ? b.folios[0] : {};
+      const saldoPendiente = folio.saldo_pendiente !== undefined ? folio.saldo_pendiente : b.monto_total;
+
+      const estadoBadge = this.getStatusBadge(b.estado);
+
+      html += `
+        <tr>
+          <td>
+            <strong style="color: var(--primary-navy);">${sanitizeInput(b.codigo_reserva)}</strong>
+            <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(b.canal_venta || 'Web')}</div>
+          </td>
+          <td>
+            <div style="font-weight: 600;">Habitación ${sanitizeInput(hab.numero || 'N/A')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(tipo.nombre || 'Estándar')}</div>
+          </td>
+          <td>
+            <div style="font-size: 12px;"><i class="far fa-calendar-alt" style="color: var(--info);"></i> ${formatDate(b.check_in_previsto)}</div>
+            <div style="font-size: 12px;"><i class="far fa-calendar-check" style="color: var(--danger);"></i> ${formatDate(b.check_out_previsto)}</div>
+          </td>
+          <td>${b.cantidad_huespedes || 1} pers.</td>
+          <td>
+            <div style="font-weight: bold; color: var(--primary-dark);">${formatGs(b.monto_total)}</div>
+            <div style="font-size: 11px; color: ${saldoPendiente > 0 ? 'var(--danger)' : 'var(--success)'};">
+              Saldo: ${formatGs(saldoPendiente)}
+            </div>
+          </td>
+          <td>${estadoBadge}</td>
+          <td>
+            <div style="display: flex; gap: 6px;">
+              ${b.estado !== 'Check-in' && b.estado !== 'Finalizada' && b.estado !== 'Cancelada' ? `
+                <button class="btn btn-sm btn-primary" onclick="ReservationsModule.openCheckInModal(${b.id})" title="Realizar Check-in">
+                  <i class="fas fa-sign-in-alt"></i> Check-in
+                </button>
+              ` : ''}
+
+              ${b.estado === 'Check-in' || b.estado === 'En estadía' ? `
+                <button class="btn btn-sm btn-gold" onclick="ReservationsModule.openCheckOutModal(${b.id})" title="Realizar Check-out y Cobro">
+                  <i class="fas fa-sign-out-alt"></i> Check-out
+                </button>
+              ` : ''}
+
+              <button class="btn btn-sm btn-outline" onclick="ReservationsModule.viewFolioDetail(${b.id})" title="Ver Folio / Cuenta">
+                <i class="fas fa-file-invoice-dollar"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  filterTable(query = '', statusFilter = 'ALL') {
+    const q = (query || '').toLowerCase().trim();
+    const filtered = this.currentBookings.filter(b => {
+      const code = (b.codigo_reserva || '').toLowerCase();
+      const hab = b.habitaciones ? (b.habitaciones.numero || '').toLowerCase() : '';
+      const state = (b.estado || '').toUpperCase();
+
+      const matchesQuery = q === '' || code.includes(q) || hab.includes(q);
+      const matchesStatus = statusFilter === 'ALL' || state === statusFilter.toUpperCase();
+
+      return matchesQuery && matchesStatus;
+    });
+
+    this.renderTable(filtered);
+  },
+
+  getStatusBadge(estado) {
+    const est = (estado || '').toLowerCase();
+    if (est === 'confirmada') return `<span class="badge badge-confirmada"><i class="fas fa-check-circle"></i> Confirmada</span>`;
+    if (est === 'check-in' || est === 'en estadía') return `<span class="badge badge-ocupada"><i class="fas fa-key"></i> En Estadía</span>`;
+    if (est === 'finalizada') return `<span class="badge badge-disponible"><i class="fas fa-flag-checkered"></i> Finalizada</span>`;
+    if (est === 'cancelada') return `<span class="badge badge-mantenimiento"><i class="fas fa-times-circle"></i> Cancelada</span>`;
+    return `<span class="badge badge-abierto">${sanitizeInput(estado || 'Pendiente')}</span>`;
+  },
+
+  openCheckInModal(bookingId) {
+    const booking = this.currentBookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    document.getElementById('checkin-booking-id').value = booking.id;
+    document.getElementById('checkin-room-id').value = booking.habitacion_id;
+    document.getElementById('checkin-res-code').innerText = booking.codigo_reserva;
+    document.getElementById('checkin-room-number').innerText = booking.habitaciones?.numero || 'N/A';
+    document.getElementById('checkin-dates').innerText = `${formatDate(booking.check_in_previsto)} al ${formatDate(booking.check_out_previsto)}`;
+    document.getElementById('checkin-total').innerText = formatGs(booking.monto_total);
+
+    openModal('modal-checkin');
+  },
+
+  async confirmCheckIn() {
+    try {
+      const bookingId = document.getElementById('checkin-booking-id').value;
+      const roomId = document.getElementById('checkin-room-id').value;
+      const docType = document.getElementById('checkin-doc-type').value;
+      const docNumber = document.getElementById('checkin-doc-number').value;
+      const keyDelivered = document.getElementById('checkin-key-checkbox').checked;
+
+      if (!keyDelivered) {
+        showToast('Debe confirmar la entrega de la llave/tarjeta', 'warning');
+        return;
+      }
+
+      // 1. Actualizar reserva a 'Check-in'
+      const { error: bookErr } = await supabaseClient
+        .from('reservas')
+        .update({ estado: 'Check-in' })
+        .eq('id', bookingId);
+
+      if (bookErr) throw bookErr;
+
+      // 2. Actualizar habitación a 'Ocupada'
+      const { error: roomErr } = await supabaseClient
+        .from('habitaciones')
+        .update({ estado: 'Ocupada' })
+        .eq('id', roomId);
+
+      if (roomErr) throw roomErr;
+
+      // 3. Registrar registro de check-in en tabla checkins si existe
+      try {
+        await supabaseClient.from('checkins').insert({
+          reserva_id: bookingId,
+          habitacion_id: roomId,
+          observaciones: `Documento: ${docType} ${docNumber} - Llave entregada`
+        });
+      } catch (e) {
+        console.warn('Checkin log table skip:', e);
+      }
+
+      closeModal('modal-checkin');
+      showToast('¡Check-in realizado con éxito! Habitación marcada como Ocupada', 'success');
+
+      await this.loadReservations();
+      await DashboardModule.loadKPIs();
+      await RoomsModule.loadRooms();
+
+    } catch (err) {
+      console.error('Error al realizar Check-in:', err);
+      showToast('Error al procesar check-in: ' + err.message, 'error');
+    }
+  },
+
+  openCheckOutModal(bookingId) {
+    const booking = this.currentBookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    const folio = (booking.folios && booking.folios.length > 0) ? booking.folios[0] : {};
+    const saldo = folio.saldo_pendiente !== undefined ? folio.saldo_pendiente : booking.monto_total;
+
+    document.getElementById('checkout-booking-id').value = booking.id;
+    document.getElementById('checkout-room-id').value = booking.habitacion_id;
+    document.getElementById('checkout-folio-id').value = folio.id || '';
+    document.getElementById('checkout-res-code').innerText = booking.codigo_reserva;
+    document.getElementById('checkout-room-number').innerText = booking.habitaciones?.numero || 'N/A';
+    document.getElementById('checkout-balance-amount').innerText = formatGs(saldo);
+    document.getElementById('checkout-payment-amount').value = saldo;
+
+    openModal('modal-checkout');
+  },
+
+  async confirmCheckOut() {
+    try {
+      const bookingId = document.getElementById('checkout-booking-id').value;
+      const roomId = document.getElementById('checkout-room-id').value;
+      const folioId = document.getElementById('checkout-folio-id').value;
+      const paymentMethod = document.getElementById('checkout-payment-method').value;
+      const paymentAmount = Number(document.getElementById('checkout-payment-amount').value) || 0;
+      const rucCi = document.getElementById('checkout-invoice-ruc').value || '44444401-7';
+      const clientName = document.getElementById('checkout-invoice-name').value || 'Huésped Final';
+
+      // 1. Actualizar folio (si existe)
+      if (folioId) {
+        await supabaseClient.from('folios').update({
+          saldo_pendiente: 0,
+          total_pagos: paymentAmount,
+          estado: 'Cerrado'
+        }).eq('id', folioId);
+
+        // Registrar pago de folio si la tabla existe
+        try {
+          await supabaseClient.from('pagos_folio').insert({
+            folio_id: folioId,
+            monto: paymentAmount,
+            metodo_pago: paymentMethod,
+            referencia: `Cobro Check-out Reserva #${bookingId}`
+          });
+        } catch (e) {
+          console.warn('pagos_folio insert skip:', e);
+        }
+      }
+
+      // 2. Emitir Factura
+      try {
+        const iva10 = Math.round(paymentAmount / 11);
+        await supabaseClient.from('facturas').insert({
+          reserva_id: bookingId,
+          ruc_ci: rucCi,
+          razon_social: clientName,
+          monto_total: paymentAmount,
+          monto_iva10: iva10,
+          metodo_pago: paymentMethod,
+          numero_factura: `001-001-${Math.floor(1000000 + Math.random() * 9000000)}`
+        });
+      } catch (e) {
+        console.warn('facturas insert skip:', e);
+      }
+
+      // 3. Actualizar reserva a 'Finalizada'
+      await supabaseClient
+        .from('reservas')
+        .update({ estado: 'Finalizada' })
+        .eq('id', bookingId);
+
+      // 4. Cambiar habitación a 'Sucia' para que Housekeeping la limpie
+      await supabaseClient
+        .from('habitaciones')
+        .update({
+          estado: 'Sucia',
+          observaciones: 'Check-out realizado. Limpieza e inspección requerida.'
+        })
+        .eq('id', roomId);
+
+      closeModal('modal-checkout');
+      showToast('¡Check-out completado! Habitación enviada a Housekeeping (Sucia)', 'success');
+
+      await this.loadReservations();
+      await DashboardModule.loadKPIs();
+      await HousekeepingModule.loadHousekeepingBoard();
+      await RoomsModule.loadRooms();
+
+    } catch (err) {
+      console.error('Error al realizar check-out:', err);
+      showToast('Error en check-out: ' + err.message, 'error');
+    }
+  },
+
+  viewFolioDetail(bookingId) {
+    const booking = this.currentBookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    const folio = (booking.folios && booking.folios.length > 0) ? booking.folios[0] : {};
+    const hab = booking.habitaciones || {};
+
+    const content = `
+      <div style="padding: 10px;">
+        <div style="display: flex; justify-content: space-between; border-bottom: 2px solid var(--primary-navy); padding-bottom: 12px; margin-bottom: 16px;">
+          <div>
+            <h4 style="color: var(--primary-navy); font-size: 18px;">Folio de Cuenta #${folio.id || booking.id}</h4>
+            <p style="font-size: 12px; color: var(--text-muted);">Reserva: ${booking.codigo_reserva}</p>
+          </div>
+          <div style="text-align: right;">
+            <span class="badge ${folio.estado === 'Cerrado' ? 'badge-cerrado' : 'badge-abierto'}">${folio.estado || 'Abierto'}</span>
+            <p style="font-size: 11px; margin-top: 4px;">Hab. ${hab.numero || 'N/A'}</p>
+          </div>
+        </div>
+
+        <table style="width: 100%; font-size: 13px; border-collapse: collapse; margin-bottom: 16px;">
+          <thead>
+            <tr style="background: #f1f5f9; text-align: left;">
+              <th style="padding: 8px;">Concepto</th>
+              <th style="padding: 8px; text-align: right;">Monto</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--border-color);">
+              <td style="padding: 8px;">Hospedaje (${formatDate(booking.check_in_previsto)} al ${formatDate(booking.check_out_previsto)})</td>
+              <td style="padding: 8px; text-align: right; font-weight: bold;">${formatGs(booking.monto_total)}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid var(--border-color);">
+              <td style="padding: 8px; color: var(--success);"><i class="fas fa-arrow-down"></i> Pagos Registrados</td>
+              <td style="padding: 8px; text-align: right; color: var(--success); font-weight: bold;">-${formatGs(folio.total_pagos || 0)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="background: var(--bg-main); padding: 14px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
+          <strong style="color: var(--primary-navy);">Saldo Pendiente:</strong>
+          <span style="font-size: 18px; font-weight: bold; color: var(--accent-gold);">${formatGs(folio.saldo_pendiente !== undefined ? folio.saldo_pendiente : booking.monto_total)}</span>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('folio-modal-content').innerHTML = content;
+    openModal('modal-folio');
+  }
+};

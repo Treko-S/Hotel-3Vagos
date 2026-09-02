@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hotel 3 Vagos - Sistema Integral de Gestión Hotelera (UTCD)</title>
+  
+  <!-- Google Fonts: Playfair Display & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- =========================================================
+       SIDEBAR NAVIGATION
+       ========================================================= -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-badge">3V</div>
+      <div class="logo-text">
+        <h1>Hotel <span>3</span> Vagos</h1>
+        <p>Hospitality UTCD</p>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-category">Operaciones Principales</div>
+      <a class="nav-item active" data-view="dashboard">
+        <i class="fas fa-chart-pie"></i>
+        <span>Dashboard & KPIs</span>
+      </a>
+      <a class="nav-item" data-view="reservations">
+        <i class="fas fa-concierge-bell"></i>
+        <span>Recepción & Reservas</span>
+      </a>
+      <a class="nav-item" data-view="rooms">
+        <i class="fas fa-bed"></i>
+        <span>Habitaciones & Tarifas</span>
+      </a>
+
+      <div class="nav-category">Servicios & Limpieza</div>
+      <a class="nav-item" data-view="housekeeping">
+        <i class="fas fa-broom"></i>
+        <span>Housekeeping</span>
+      </a>
+      <a class="nav-item" data-view="maintenance">
+        <i class="fas fa-tools"></i>
+        <span>Mantenimiento</span>
+      </a>
+
+      <div class="nav-category">Finanzas & Clientes</div>
+      <a class="nav-item" data-view="cash">
+        <i class="fas fa-cash-register"></i>
+        <span>Caja & Facturación</span>
+      </a>
+      <a class="nav-item" data-view="guests">
+        <i class="fas fa-user-friends"></i>
+        <span>Huéspedes & CRM</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" style="background: var(--accent-gold); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+          KS
+        </div>
+        <div class="user-details">
+          <h4>Kevin Santacruz</h4>
+          <p id="user-role-display">Administrador General</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- =========================================================
+       MAIN CONTENT WRAPPER
+       ========================================================= -->
+  <div class="main-wrapper">
+    <!-- Top Header Bar -->
+    <header class="top-header">
+      <div class="header-title">
+        <h2 id="page-title">Dashboard Ejecutivo & KPIs</h2>
+        <p id="page-subtitle">Métricas operativas y financieras en tiempo real</p>
+      </div>
+
+      <div class="header-actions">
+        <div class="role-badge">
+          <span class="status-dot"></span>
+          <span>Rol Activo:</span>
+          <select id="role-selector" style="border: none; background: transparent; font-weight: bold; color: var(--primary-navy); outline: none; cursor: pointer;">
+            <option value="admin">Administrador</option>
+            <option value="recepcionista">Recepcionista</option>
+            <option value="housekeeping">Housekeeping</option>
+            <option value="gerente">Gerente</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Views Container -->
+    <main class="content-body">
+
+      <!-- =====================================================
+           VIEW 1: DASHBOARD
+           ===================================================== -->
+      <section id="view-dashboard" class="view-section active">
+        <!-- KPI Metric Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card blue">
+            <div class="kpi-data">
+              <span>Tasa de Ocupación</span>
+              <h3 id="kpi-occupancy">0%</h3>
+              <small style="color: var(--info);">Tiempo Real</small>
+            </div>
+            <div class="kpi-icon blue">
+              <i class="fas fa-percentage"></i>
+            </div>
+          </div>
+
+          <div class="kpi-card green">
+            <div class="kpi-data">
+              <span>Habitaciones Libres</span>
+              <h3 id="kpi-available-rooms">0 / 0</h3>
+              <small style="color: var(--success);">Listas para venta</small>
+            </div>
+            <div class="kpi-icon green">
+              <i class="fas fa-door-open"></i>
+            </div>
+          </div>
+
+          <div class="kpi-card gold">
+            <div class="kpi-data">
+              <span>Ingresos Totales</span>
+              <h3 id="kpi-revenue">0 Gs.</h3>
+              <small style="color: #b45309;">Alojamiento & Consumos</small>
+            </div>
+            <div class="kpi-icon gold">
+              <i class="fas fa-coins"></i>
+            </div>
+          </div>
+
+          <div class="kpi-card purple">
+            <div class="kpi-data">
+              <span>ADR / RevPAR</span>
+              <h3 id="kpi-adr" style="font-size: 20px;">0 Gs.</h3>
+              <small style="color: var(--purple);">RevPAR: <span id="kpi-revpar">0 Gs.</span></small>
+            </div>
+            <div class="kpi-icon purple">
+              <i class="fas fa-chart-line"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Room Status Summary & Recent Activity Grid -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px;">
+          <!-- Estado de Habitaciones -->
+          <div class="card-panel" style="margin-bottom: 0;">
+            <div class="panel-header">
+              <h3 class="panel-title">Estado del Inventario Hotelero</h3>
+            </div>
+            <div style="padding: 24px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div style="background: var(--success-bg); padding: 16px; border-radius: var(--radius-md); text-align: center;">
+                  <span style="font-size: 24px; font-weight: bold; color: var(--success);" id="count-disponibles">0</span>
+                  <p style="font-size: 12px; font-weight: 600; color: #166534; margin-top: 4px;">Disponibles</p>
+                </div>
+                <div style="background: var(--info-bg); padding: 16px; border-radius: var(--radius-md); text-align: center;">
+                  <span style="font-size: 24px; font-weight: bold; color: var(--info);" id="count-ocupadas">0</span>
+                  <p style="font-size: 12px; font-weight: 600; color: #1e40af; margin-top: 4px;">Ocupadas / Reservadas</p>
+                </div>
+                <div style="background: var(--warning-bg); padding: 16px; border-radius: var(--radius-md); text-align: center;">
+                  <span style="font-size: 24px; font-weight: bold; color: var(--warning);" id="count-sucias">0</span>
+                  <p style="font-size: 12px; font-weight: 600; color: #9a3412; margin-top: 4px;">En Limpieza / Sucias</p>
+                </div>
+                <div style="background: var(--danger-bg); padding: 16px; border-radius: var(--radius-md); text-align: center;">
+                  <span style="font-size: 24px; font-weight: bold; color: var(--danger);" id="count-mantenimiento">0</span>
+                  <p style="font-size: 12px; font-weight: 600; color: #991b1b; margin-top: 4px;">Mantenimiento</p>
+                </div>
+              </div>
+
+              <div style="margin-top: 24px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; margin-bottom: 6px;">
+                  <span>Capacidad Operativa</span>
+                  <span>100% Habitaciones Integradas</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden;">
+                  <div id="occupancy-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary-navy), var(--accent-gold)); transition: width 0.5s ease;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actividad Reciente de Reservas -->
+          <div class="card-panel" style="margin-bottom: 0;">
+            <div class="panel-header">
+              <h3 class="panel-title">Últimas Reservas & Entradas</h3>
+            </div>
+            <div id="recent-activity-list">
+              <!-- Cargado dinámicamente -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           VIEW 2: RECEPCIÓN & RESERVAS
+           ===================================================== -->
+      <section id="view-reservations" class="view-section">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Gestión de Reservas & Front Desk</h3>
+            <div class="panel-tools">
+              <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-reservations" placeholder="Buscar por código o habitación...">
+              </div>
+              <select id="filter-res-status" class="form-control" style="width: auto; padding: 7px 12px;">
+                <option value="ALL">Todos los Estados</option>
+                <option value="CONFIRMADA">Confirmadas</option>
+                <option value="CHECK-IN">En Estadía (Check-in)</option>
+                <option value="FINALIZADA">Finalizadas</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Código / Canal</th>
+                  <th>Habitación & Tipo</th>
+                  <th>Estadía (In / Out)</th>
+                  <th>Huéspedes</th>
+                  <th>Monto Total / Saldo</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="reservations-table-body">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           VIEW 3: HABITACIONES & TARIFAS
+           ===================================================== -->
+      <section id="view-rooms" class="view-section">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Inventario de Habitaciones</h3>
+            <div class="panel-tools">
+              <select id="filter-room-type" class="form-control" style="width: auto; padding: 7px 12px;">
+                <option value="ALL">Todos los Tipos</option>
+              </select>
+              <button class="btn btn-primary" onclick="RoomsModule.openNewRoomModal()">
+                <i class="fas fa-plus"></i> Nueva Habitación
+              </button>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Número</th>
+                  <th>Piso</th>
+                  <th>Tipo / Capacidad</th>
+                  <th>Tarifa x Noche</th>
+                  <th>Equipamiento</th>
+                  <th>Estado Actual</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="rooms-table-body">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           VIEW 4: HOUSEKEEPING & LIMPIEZA
+           ===================================================== -->
+      <section id="view-housekeeping" class="view-section">
+        <div class="card-panel">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">Tablero Operativo de Limpieza (Housekeeping)</h3>
+              <p style="font-size: 12px; color: var(--text-muted);">Inspección y liberación de habitaciones con checklist de 5 áreas</p>
+            </div>
+            <button class="btn btn-outline" onclick="HousekeepingModule.loadHousekeepingBoard()">
+              <i class="fas fa-sync-alt"></i> Actualizar Tablero
+            </button>
+          </div>
+
+          <div style="padding: 24px;">
+            <div id="housekeeping-grid" class="rooms-matrix">
+              <!-- Dinámico -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           VIEW 5: MANTENIMIENTO & INCIDENCIAS
+           ===================================================== -->
+      <section id="view-maintenance" class="view-section">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Órdenes de Trabajo & Mantenimiento</h3>
+            <button class="btn btn-primary" onclick="MaintenanceModule.openNewOrderModal()">
+              <i class="fas fa-plus"></i> Registrar Incidencia
+            </button>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Ubicación</th>
+                  <th>Tipo / Descripción</th>
+                  <th>Prioridad</th>
+                  <th>Técnico Asignado</th>
+                  <th>Costo Est.</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="maintenance-table-body">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           VIEW 6: CAJA & FACTURACIÓN
+           ===================================================== -->
+      <section id="view-cash" class="view-section">
+        <!-- Estado de Caja Activa -->
+        <div id="cash-status-box" style="margin-bottom: 24px;">
+          <!-- Dinámico -->
+        </div>
+
+        <!-- Facturas Emitidas -->
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Comprobantes & Facturación Legal (SET Paraguay)</h3>
+          </div>
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>N° Factura</th>
+                  <th>RUC / CI</th>
+                  <th>Razón Social</th>
+                  <th>Total Liquidado</th>
+                  <th>IVA 10%</th>
+                  <th>Medio de Pago</th>
+                </tr>
+              </thead>
+              <tbody id="invoices-table-body">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           VIEW 7: HUÉSPEDES & CRM
+           ===================================================== -->
+      <section id="view-guests" class="view-section">
+        <div class="card-panel">
+          <div class="panel-header">
+            <h3 class="panel-title">Directorio de Huéspedes Registrados</h3>
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="search-guests" placeholder="Buscar por CI, nombre o correo...">
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Huésped</th>
+                  <th>Documento</th>
+                  <th>Nacionalidad</th>
+                  <th>Teléfono</th>
+                  <th>Rol</th>
+                  <th>Acción</th>
+                </tr>
+              </thead>
+              <tbody id="guests-table-body">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- =========================================================
+       MODAL DIALOGS
+       ========================================================= -->
+
+  <!-- Modal Check-in -->
+  <div id="modal-checkin" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fas fa-sign-in-alt" style="color: var(--primary-navy);"></i> Check-in de Huésped</h3>
+        <button class="modal-close" onclick="closeModal('modal-checkin')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="checkin-booking-id">
+        <input type="hidden" id="checkin-room-id">
+        <div style="background: var(--bg-main); padding: 14px; border-radius: var(--radius-md); margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span>Reserva: <strong id="checkin-res-code"></strong></span>
+            <span>Habitación: <strong id="checkin-room-number" style="color: var(--primary-navy);"></strong></span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted);">
+            Fechas: <span id="checkin-dates"></span> | Total: <strong id="checkin-total" style="color: var(--accent-gold);"></strong>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Tipo de Documento</label>
+          <select id="checkin-doc-type" class="form-control">
+            <option value="CI">Cédula de Identidad (CI)</option>
+            <option value="PASAPORTE">Pasaporte</option>
+            <option value="DNI">DNI Extranjero</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Número de Documento</label>
+          <input type="text" id="checkin-doc-number" class="form-control" placeholder="Ej: 6537648" value="6537648">
+        </div>
+        <div class="checklist-item" style="margin-top: 14px; padding: 10px; background: #f8fafc; border-radius: var(--radius-sm);">
+          <input type="checkbox" id="checkin-key-checkbox" checked>
+          <label for="checkin-key-checkbox" style="font-weight: 600; cursor: pointer;">Entrega de Llave / Tarjeta Magnética de Habitación</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-checkin')">Cancelar</button>
+        <button class="btn btn-primary" onclick="ReservationsModule.confirmCheckIn()">Confirmar Check-in</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Check-out -->
+  <div id="modal-checkout" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fas fa-sign-out-alt" style="color: var(--accent-gold);"></i> Check-out & Facturación</h3>
+        <button class="modal-close" onclick="closeModal('modal-checkout')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="checkout-booking-id">
+        <input type="hidden" id="checkout-room-id">
+        <input type="hidden" id="checkout-folio-id">
+
+        <div style="background: var(--bg-main); padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <span>Reserva: <strong id="checkout-res-code"></strong></span>
+            <span>Habitación: <strong id="checkout-room-number"></strong></span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+            <span style="font-weight: bold; color: var(--primary-navy);">Saldo Pendiente de Folio:</span>
+            <span id="checkout-balance-amount" style="font-size: 18px; font-weight: bold; color: var(--danger);"></span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Monto a Cobrar (Gs.)</label>
+          <input type="number" id="checkout-payment-amount" class="form-control" style="font-weight: bold; font-size: 16px;">
+        </div>
+        <div class="form-group">
+          <label>Medio de Pago</label>
+          <select id="checkout-payment-method" class="form-control">
+            <option value="Efectivo">Efectivo</option>
+            <option value="Tarjeta de Débito/Crédito">Tarjeta de Débito / Crédito</option>
+            <option value="Transferencia Bancaria (SIPAP)">Transferencia Bancaria (SIPAP)</option>
+            <option value="QR / Billetera Digital">QR / Billetera Digital</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>RUC o Cédula para Factura Legal</label>
+          <input type="text" id="checkout-invoice-ruc" class="form-control" value="44444401-7">
+        </div>
+        <div class="form-group">
+          <label>Razón Social / Nombre del Huésped</label>
+          <input type="text" id="checkout-invoice-name" class="form-control" value="Consumidor Final">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-checkout')">Cancelar</button>
+        <button class="btn btn-gold" onclick="ReservationsModule.confirmCheckOut()">Cobrar & Liberar para Housekeeping</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Housekeeping Checklist -->
+  <div id="modal-housekeeping" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fas fa-clipboard-check" style="color: var(--primary-navy);"></i> Checklist de Limpieza & Calidad</h3>
+        <button class="modal-close" onclick="closeModal('modal-housekeeping')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="hk-modal-room-id">
+        <div style="background: var(--warning-bg); padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 18px;">
+          <h4 style="color: #9a3412;">Habitación <span id="hk-modal-room-number"></span> (<span id="hk-modal-room-type"></span>)</h4>
+          <p style="font-size: 11px; color: #7c2d12;">Verifique los 5 estándares de calidad antes de liberar la habitación para venta.</p>
+        </div>
+
+        <div style="background: #f8fafc; padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
+          <div class="checklist-item">
+            <input type="checkbox" id="chk-cama">
+            <label for="chk-cama">1. Cama & Ropa blanca (Sábanas, almohadas limpias y piso aspirado)</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="chk-bano">
+            <label for="chk-bano">2. Baño & Sanitarios (Ducha, espejos, toallas y reposición de amenities)</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="chk-equipamiento">
+            <label for="chk-equipamiento">3. Equipamiento (Aire acondicionado a 24°C, TV y control remoto operativo)</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="chk-minibar">
+            <label for="chk-minibar">4. Frigobar & Minibar (Bebidas completas, limpio y refrigerando)</label>
+          </div>
+          <div class="checklist-item">
+            <input type="checkbox" id="chk-inspeccion">
+            <label for="chk-inspeccion">5. Inspección Final de Calidad (Aromaterapia y habitación impecable)</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Responsable de Limpieza</label>
+          <input type="text" id="hk-cleaner-name" class="form-control" value="Camarera de Turno">
+        </div>
+        <div class="form-group">
+          <label>Observaciones de Inspección (Opcional)</label>
+          <input type="text" id="hk-observations" class="form-control" placeholder="Ej: Faltaba toalla, fue repuesta.">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="HousekeepingModule.startCleaning()">Marcar En Limpieza</button>
+        <button class="btn btn-success" onclick="HousekeepingModule.completeCleaningAndLiberate()">
+          <i class="fas fa-check-circle"></i> Aprobar & Liberar (Disponible)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Folio Detalle -->
+  <div id="modal-folio" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fas fa-file-invoice-dollar" style="color: var(--primary-navy);"></i> Detalle de Cuenta / Folio</h3>
+        <button class="modal-close" onclick="closeModal('modal-folio')">&times;</button>
+      </div>
+      <div class="modal-body" id="folio-modal-content">
+        <!-- Dinámico -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" onclick="closeModal('modal-folio')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nueva Habitación -->
+  <div id="modal-new-room" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fas fa-bed"></i> Registrar Nueva Habitación</h3>
+        <button class="modal-close" onclick="closeModal('modal-new-room')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Número de Habitación</label>
+          <input type="text" id="new-room-number" class="form-control" placeholder="Ej: 303">
+        </div>
+        <div class="form-group">
+          <label>Piso</label>
+          <input type="number" id="new-room-floor" class="form-control" value="1" min="1" max="10">
+        </div>
+        <div class="form-group">
+          <label>Tipo de Habitación</label>
+          <select id="new-room-type" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label>Observaciones Iniciales</label>
+          <input type="text" id="new-room-obs" class="form-control" placeholder="Ej: Lista para operar">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-new-room')">Cancelar</button>
+        <button class="btn btn-primary" onclick="RoomsModule.createNewRoom()">Crear Habitación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nuevo Mantenimiento -->
+  <div id="modal-new-maintenance" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fas fa-tools"></i> Registrar Orden de Mantenimiento</h3>
+        <button class="modal-close" onclick="closeModal('modal-new-maintenance')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Habitación / Área</label>
+          <select id="maint-room-select" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label>Tipo de Incidencia</label>
+          <select id="maint-type" class="form-control">
+            <option value="Aire Acondicionado">Aire Acondicionado</option>
+            <option value="Plomería / Baño">Plomería / Baño</option>
+            <option value="Electricidad / Luces">Electricidad / Luces</option>
+            <option value="Mobiliario / Puertas">Mobiliario / Puertas</option>
+            <option value="Equipamiento / TV">Equipamiento / TV</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Prioridad</label>
+          <select id="maint-priority" class="form-control">
+            <option value="Alta">Alta (Urgente)</option>
+            <option value="Media" selected>Media</option>
+            <option value="Baja">Baja</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Técnico Asignado</label>
+          <input type="text" id="maint-tech" class="form-control" placeholder="Ej: Mario Gómez">
+        </div>
+        <div class="form-group">
+          <label>Costo Estimado (Gs.)</label>
+          <input type="number" id="maint-cost" class="form-control" value="0">
+        </div>
+        <div class="form-group">
+          <label>Descripción del Problema</label>
+          <input type="text" id="maint-desc" class="form-control" placeholder="Ej: Fuga de agua en el lavatorio">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-new-maintenance')">Cancelar</button>
+        <button class="btn btn-primary" onclick="MaintenanceModule.createOrder()">Registrar & Bloquear Habitación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Apertura Caja -->
+  <div id="modal-apertura-caja" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fas fa-cash-register"></i> Apertura de Turno de Caja</h3>
+        <button class="modal-close" onclick="closeModal('modal-apertura-caja')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Monto Inicial en Efectivo (Gs.)</label>
+          <input type="number" id="caja-monto-inicial" class="form-control" value="500000">
+        </div>
+        <div class="form-group">
+          <label>Responsable de Turno</label>
+          <input type="text" id="caja-responsable" class="form-control" value="Kevin Santacruz (Recepcionista)">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-apertura-caja')">Cancelar</button>
+        <button class="btn btn-primary" onclick="CashBillingModule.confirmAperturaCaja()">Abrir Turno de Caja</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="js/supabase_client.js"></script>
+  <script src="js/modules/dashboard.js"></script>
+  <script src="js/modules/reservations.js"></script>
+  <script src="js/modules/rooms.js"></script>
+  <script src="js/modules/housekeeping.js"></script>
+  <script src="js/modules/maintenance.js"></script>
+  <script src="js/modules/cash_billing.js"></script>
+  <script src="js/modules/guests.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
