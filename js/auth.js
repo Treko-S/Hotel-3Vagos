@@ -18,35 +18,35 @@ const AuthModule = {
       username: "admin",
       name: "Kevin Santacruz",
       role: "administrador",
-      passwordHash: "29fbe9f93502ea29b61d331aa5ecf81c9b60ef681423149d562137ea6c6014e3" // admin123 + salt
+      passwordHash: "470764cd464e81f20ed76fc2e4bd7f690489ce0bc2da5dd69f9772c66caa23f8" // admin123 + salt
     },
     {
       email: "gerente@hotel3vagos.com",
       username: "gerente",
       name: "Lic. Andrea Benítez",
       role: "gerente",
-      passwordHash: "8cbff7b52695c024d265ae0f5bb896dfa2ce58aa35dbda82d7c0f165b4c194b6" // gerente123 + salt
+      passwordHash: "0a93516fc345e5417e2bc53617c3eee0b2fbe1a3e9800d58169ac3e5dfbe7e40" // gerente123 + salt
     },
     {
       email: "recepcion@hotel3vagos.com",
       username: "recepcion",
       name: "Marcos Rolón",
       role: "recepcionista",
-      passwordHash: "2d7ec55c6eecb313ef0469b8277ee47b9bf1385f81255c2f829f07a7e8e50b07" // recepcion123 + salt
+      passwordHash: "79bc62f88ec490bd0b06c764858949f3c0186f4283d05d833f3359636387edb9" // recepcion123 + salt
     },
     {
       email: "housekeeping@hotel3vagos.com",
       username: "housekeeping",
       name: "Elena Morales",
       role: "housekeeping",
-      passwordHash: "46f882be35c6fe29b7aa36cbbbe84b6567ddcf3ee8555987178cf2f0f46c6530" // housekeeping123 + salt
+      passwordHash: "43b520eee83e83ee1aeac02520d15d731cb6ff4ed196be818b5be9278f2ded36" // housekeeping123 + salt
     },
     {
       email: "guest@hotel3vagos.com",
       username: "guest",
       name: "Huésped Consulta",
       role: "guest",
-      passwordHash: "f156d9be723467b5b5463ae37a2889e924a4804128f73129ba47cb6b9ea04d7c" // guest123 + salt
+      passwordHash: "abd18a6a0fbbe00cec62b03908c72304f2c62e4af6a2a0a7d4dbc7acb7f5c63d" // guest123 + salt
     }
   ],
 
@@ -235,26 +235,28 @@ const AuthModule = {
       }
     }
 
-    // 2. Si no es Staff local, intentar autenticación con Supabase Auth
-    try {
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email: cleanId,
-        password: password
-      });
+    // 2. Si no es Staff local y tiene formato de email, intentar autenticación con Supabase Auth
+    if (cleanId.includes('@')) {
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email: cleanId,
+          password: password
+        });
 
-      if (!error && data.user) {
-        this.resetFailedAttempts();
-        const role = data.user.user_metadata?.role || 'guest';
-        const userObj = {
-          email: data.user.email,
-          name: data.user.user_metadata?.full_name || data.user.email.split('@')[0],
-          role: role
-        };
-        this.createDeviceSession(userObj);
-        return true;
+        if (!error && data.user) {
+          this.resetFailedAttempts();
+          const role = data.user.user_metadata?.role || 'guest';
+          const userObj = {
+            email: data.user.email,
+            name: data.user.user_metadata?.full_name || data.user.email.split('@')[0],
+            role: role
+          };
+          this.createDeviceSession(userObj);
+          return true;
+        }
+      } catch (e) {
+        console.warn('Supabase Auth error:', e);
       }
-    } catch (e) {
-      console.warn('Supabase Auth error:', e);
     }
 
     // Fallo de autenticación
