@@ -252,7 +252,11 @@ const RoomsModule = {
       { key: 'jacuzzi', label: 'Jacuzzi / Tina de Hidromasaje', icon: 'fas fa-hot-tub' },
       { key: 'escritorio', label: 'Escritorio Ergonómico de Trabajo', icon: 'fas fa-laptop' },
       { key: 'desayuno', label: 'Desayuno Buffet Incluido', icon: 'fas fa-utensils' },
-      { key: 'bano_privado', label: 'Baño Privado con Amenities', icon: 'fas fa-shower' }
+      { key: 'bano_privado', label: 'Baño Privado con Amenities', icon: 'fas fa-shower' },
+      { key: 'pava_electrica', label: 'Cafetera / Pava Eléctrica', icon: 'fas fa-mug-hot' },
+      { key: 'secador', label: 'Secador de Cabello de Alta Potencia', icon: 'fas fa-wind' },
+      { key: 'room_service', label: 'Servicio a la Habitación 24/7', icon: 'fas fa-concierge-bell' },
+      { key: 'accesibilidad', label: 'Accesible para Movilidad Reducida', icon: 'fas fa-wheelchair' }
     ];
 
     const amenContainer = document.getElementById('detail-amenities-container');
@@ -330,14 +334,29 @@ const RoomsModule = {
     document.getElementById('edit-room-id').value = r.id;
     document.getElementById('edit-room-number').value = r.numero || '';
     document.getElementById('edit-room-floor').value = r.piso || 1;
-    document.getElementById('edit-room-type').value = r.tipo_id || 1;
+    
+    // Asignar tipo de habitación garantizando que el select refleje el valor
+    const typeSelect = document.getElementById('edit-room-type');
+    if (typeSelect) {
+      if (this.roomTypes && this.roomTypes.length > 0) {
+        typeSelect.innerHTML = this.roomTypes.map(t =>
+          `<option value="${t.id}">${sanitizeInput(t.nombre)} • ${formatGs(t.precio_base_noche)}/noche (hasta ${t.capacidad_personas} pers.)</option>`
+        ).join('');
+      }
+      typeSelect.value = String(r.tipo_id || 1);
+    }
+
     document.getElementById('edit-room-status').value = r.estado || 'Disponible';
     document.getElementById('edit-room-bed').value = carac.camas || '1 Cama King Size';
     document.getElementById('edit-room-size').value = carac.tamano_m2 || 24;
     document.getElementById('edit-room-obs').value = r.observaciones || '';
 
-    // Llenar checkboxes de comodidades
-    const amenities = ['wifi', 'ac', 'tv', 'minibar', 'caja_fuerte', 'balcon', 'jacuzzi', 'escritorio', 'desayuno', 'bano_privado'];
+    // Llenar checkboxes de comodidades extendidas
+    const amenities = [
+      'wifi', 'ac', 'tv', 'minibar', 'caja_fuerte', 'balcon', 'jacuzzi', 
+      'escritorio', 'desayuno', 'bano_privado', 'pava_electrica', 'secador', 
+      'room_service', 'accesibilidad'
+    ];
     amenities.forEach(k => {
       const ch = document.querySelector(`#modal-room-editor input[name="${k}"]`);
       if (ch) ch.checked = !!carac[k];
@@ -446,6 +465,10 @@ const RoomsModule = {
         escritorio: !!document.querySelector('#modal-room-editor input[name="escritorio"]')?.checked,
         desayuno: !!document.querySelector('#modal-room-editor input[name="desayuno"]')?.checked,
         bano_privado: !!document.querySelector('#modal-room-editor input[name="bano_privado"]')?.checked,
+        pava_electrica: !!document.querySelector('#modal-room-editor input[name="pava_electrica"]')?.checked,
+        secador: !!document.querySelector('#modal-room-editor input[name="secador"]')?.checked,
+        room_service: !!document.querySelector('#modal-room-editor input[name="room_service"]')?.checked,
+        accesibilidad: !!document.querySelector('#modal-room-editor input[name="accesibilidad"]')?.checked,
         camas: camas,
         tamano_m2: tamano,
         imagenes: this.currentGalleryImages

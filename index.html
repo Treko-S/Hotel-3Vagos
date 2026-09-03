@@ -829,8 +829,12 @@
           <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
             <div class="form-group" style="margin: 0;">
               <label>Categoría / Tipo de Habitación *</label>
-              <select id="edit-room-type" class="form-control" required>
-                <!-- Opciones dinámicas de tipos_habitacion -->
+              <select id="edit-room-type" class="form-control" required style="background: #fff; color: #0F172A; font-weight: 500;">
+                <option value="1">1. Habitacion Standard Single • 180.000 Gs. (1 huésped)</option>
+                <option value="2">2. Habitacion Doble Twin • 260.000 Gs. (2 huéspedes)</option>
+                <option value="3">3. Matrimonial Confort • 320.000 Gs. (2 huéspedes)</option>
+                <option value="4">4. Familiar Superior • 450.000 Gs. (4 huéspedes)</option>
+                <option value="5">5. Suite Presidencial Imperial • 750.000 Gs. (2 huéspedes)</option>
               </select>
             </div>
             <div class="form-group" style="margin: 0;">
@@ -897,6 +901,26 @@
               <input type="checkbox" name="bano_privado" checked>
               <i class="fas fa-shower" style="color: #06B6D4;"></i>
               <span style="font-size: 12.5px;">Baño Privado con Ducha</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; background: #FAFAFA;">
+              <input type="checkbox" name="pava_electrica">
+              <i class="fas fa-mug-hot" style="color: #B45309;"></i>
+              <span style="font-size: 12.5px;">Cafetera / Pava Eléctrica</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; background: #FAFAFA;">
+              <input type="checkbox" name="secador">
+              <i class="fas fa-wind" style="color: #64748B;"></i>
+              <span style="font-size: 12.5px;">Secador de Cabello</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; background: #FAFAFA;">
+              <input type="checkbox" name="room_service">
+              <i class="fas fa-concierge-bell" style="color: #10B981;"></i>
+              <span style="font-size: 12.5px;">Room Service 24/7</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px; cursor: pointer; background: #FAFAFA;">
+              <input type="checkbox" name="accesibilidad">
+              <i class="fas fa-wheelchair" style="color: #2563EB;"></i>
+              <span style="font-size: 12.5px;">Accesible (Movilidad Reducida)</span>
             </label>
           </div>
 
