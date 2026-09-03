@@ -161,11 +161,20 @@ const RatesSeasonsModule = {
   switchTab(tabId) {
     this.currentTab = tabId;
     document.querySelectorAll('.rates-tab-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.tab === tabId);
+      const isActive = btn.dataset.tab === tabId;
+      btn.classList.toggle('active', isActive);
+      btn.style.color = isActive ? 'var(--primary-navy)' : '#64748B';
+      btn.style.borderBottom = isActive ? '3px solid var(--primary-blue)' : '3px solid transparent';
     });
     document.querySelectorAll('.rates-tab-content').forEach(content => {
-      content.classList.toggle('active', content.id === tabId);
+      const isActive = content.id === tabId;
+      content.style.display = isActive ? 'block' : 'none';
+      content.classList.toggle('active', isActive);
     });
+
+    if (tabId === 'tab-simulator') {
+      this.populateSimulatorRooms();
+    }
   },
 
   openSeasonModal(seasonId = null) {
@@ -382,14 +391,22 @@ const RatesSeasonsModule = {
 
   populateSimulatorRooms() {
     const select = document.getElementById('sim-room');
-    if (!select || !RoomsModule.rooms) return;
+    if (!select) return;
 
-    select.innerHTML = RoomsModule.rooms.map(r => {
-      const tipo = r.tipos_habitacion || {};
-      const carac = (r.caracteristicas && typeof r.caracteristicas === 'object') ? r.caracteristicas : {};
-      const price = carac.precio_personalizado || tipo.precio_base_noche || 180000;
-      return `<option value="${r.id}" data-price="${price}">Habitación ${r.numero} - ${tipo.nombre || 'Estándar'} (${formatGs(price)}/noche)</option>`;
-    }).join('');
+    const list = (typeof RoomsModule !== 'undefined' && Array.isArray(RoomsModule.rooms) && RoomsModule.rooms.length > 0)
+      ? RoomsModule.rooms
+      : [];
+
+    if (list.length === 0) {
+      select.innerHTML = '<option value="1" data-price="180000">Habitación 101 - Standard Single (180.000 Gs./noche)</option>';
+    } else {
+      select.innerHTML = list.map(r => {
+        const tipo = r.tipos_habitacion || {};
+        const carac = (r.caracteristicas && typeof r.caracteristicas === 'object') ? r.caracteristicas : {};
+        const price = carac.precio_personalizado || tipo.precio_base_noche || 180000;
+        return `<option value="${r.id}" data-price="${price}">Habitación ${r.numero} - ${tipo.nombre || 'Estándar'} (${formatGs(price)}/noche)</option>`;
+      }).join('');
+    }
 
     this.calculateSimulation();
   },
