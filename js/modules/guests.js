@@ -32,7 +32,8 @@ const GuestsModule = {
       const { data, error } = await supabaseClient
         .from('users')
         .select('*')
-        .order('id', { ascending: false });
+        .eq('role_id', 5)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
