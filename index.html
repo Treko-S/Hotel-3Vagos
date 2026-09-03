@@ -14,8 +14,16 @@
         var sessionStr = localStorage.getItem('hotel_admin_session');
         if (!sessionStr) {
           window.location.replace('login.html');
+          return;
+        }
+        var s = JSON.parse(sessionStr);
+        if (!s || !s.user || (Date.now() - s.timestamp > 8 * 60 * 60 * 1000)) {
+          localStorage.removeItem('hotel_admin_session');
+          window.location.replace('login.html');
+          return;
         }
       } catch (e) {
+        localStorage.removeItem('hotel_admin_session');
         window.location.replace('login.html');
       }
     })();

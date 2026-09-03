@@ -49,18 +49,34 @@ const AuthModule = {
     }
   ],
 
+  isLoginPage() {
+    const p = (window.location.pathname || '').toLowerCase();
+    return p.includes('login');
+  },
+
   async init() {
     await this.getOrGenerateDeviceFingerprint();
     this.checkRateLimitStatus();
-    await this.validateSession();
+    
+    // Solo validar sesión restrictiva si estamos en el panel de control
+    if (!this.isLoginPage()) {
+      await this.validateSession();
+    }
   },
 
   /**
-   * Obtiene o genera la huella digital del dispositivo de forma segura
+   * Obtiene o genera la huella digital persistente del dispositivo
    */
   async getOrGenerateDeviceFingerprint() {
-    if (this.deviceFingerprint) return this.deviceFingerprint;
+    let saved = localStorage.getItem('hotel_device_id');
+    if (saved) {
+      this.deviceFingerprint = saved;
+      return saved;
+    }
     this.deviceFingerprint = await this.generateDeviceFingerprint();
+    try {
+      localStorage.setItem('hotel_device_id', this.deviceFingerprint);
+    } catch (e) {}
     return this.deviceFingerprint;
   },
 
@@ -74,13 +90,12 @@ const AuthModule = {
         navigator.language || 'es',
         screen.width + 'x' + screen.height,
         screen.colorDepth,
-        Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-        navigator.hardwareConcurrency || 4
+        Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
       ].join('###');
 
       return await this.sha256(components);
     } catch (e) {
-      return 'dev_' + Math.random().toString(36).substring(2, 15);
+      return 'dev_' + Math.random().toString(36).substring(2, 12);
     }
   },
 
@@ -98,28 +113,22 @@ const AuthModule = {
    * Valida si el dispositivo actual cuenta con una sesión autorizada y no expirada
    */
   async validateSession() {
+    if (this.isLoginPage()) return;
+
     const sessionStr = localStorage.getItem('hotel_admin_session');
     if (!sessionStr) {
-      this.requireLogin('Nuevo dispositivo detectado. Inicie sesión para continuar.');
+      this.requireLogin();
       return;
     }
 
     try {
       const session = JSON.parse(sessionStr);
+      const now = Date.now();
 
       // Validar caducidad (8 horas de sesión activa)
-      const now = Date.now();
-      if (now - session.timestamp > 8 * 60 * 60 * 1000) {
+      if (!session || !session.user || (now - session.timestamp > 8 * 60 * 60 * 1000)) {
         localStorage.removeItem('hotel_admin_session');
-        this.requireLogin('Su sesión ha caducado por inactividad. Ingrese nuevamente.');
-        return;
-      }
-
-      // Validar si el fingerprint coincide si está definido
-      const currentFp = await this.getOrGenerateDeviceFingerprint();
-      if (session.deviceFingerprint && session.deviceFingerprint !== currentFp) {
-        localStorage.removeItem('hotel_admin_session');
-        this.requireLogin('Dispositivo no reconocido o cambio de entorno.');
+        this.requireLogin('Su sesión ha caducado por inactividad.');
         return;
       }
 
@@ -128,32 +137,24 @@ const AuthModule = {
 
     } catch (e) {
       localStorage.removeItem('hotel_admin_session');
-      this.requireLogin('Error de verificación de sesión.');
+      this.requireLogin();
     }
   },
 
   requireLogin(reasonMessage = '') {
-    const isLoginPage = window.location.pathname.endsWith('login.html');
-
-    if (!isLoginPage) {
-      window.location.replace('login.html');
+    if (this.isLoginPage()) {
+      const alertEl = document.getElementById('login-security-alert');
+      const alertText = document.getElementById('login-alert-text');
+      if (alertEl && reasonMessage) {
+        if (alertText) alertText.innerText = reasonMessage;
+        else alertEl.innerText = reasonMessage;
+        alertEl.style.display = 'flex';
+      }
       return;
     }
 
-    const deviceEl = document.getElementById('login-device-id');
-    if (deviceEl && this.deviceFingerprint) {
-      deviceEl.innerText = this.deviceFingerprint.substring(0, 16) + '...';
-    }
-
-    const alertEl = document.getElementById('login-security-alert');
-    const alertText = document.getElementById('login-alert-text');
-    if (alertEl && reasonMessage) {
-      if (alertText) alertText.innerText = reasonMessage;
-      else alertEl.innerText = reasonMessage;
-      alertEl.style.display = 'flex';
-    }
-
-    this.checkRateLimitStatus();
+    // Redirigir a login si estamos en el panel
+    window.location.replace('login.html');
   },
 
   /**
@@ -215,7 +216,7 @@ const AuthModule = {
     } else {
       const remaining = this.MAX_FAILED_ATTEMPTS - attempts;
       if (typeof showToast === 'function') {
-        showToast(`Credenciales inválidas. Quedan ${remaining} intento(s) antes del bloqueo.`, 'warning');
+        showToast(`Credenciales inválidas. Quedan ${remaining} intento(s).`, 'warning');
       }
     }
   },
@@ -231,16 +232,10 @@ const AuthModule = {
   async login(identifier, password) {
     if (this.checkRateLimitStatus()) {
       if (typeof showToast === 'function') {
-        showToast('Dispositivo bloqueado temporalmente por seguridad.', 'error');
+        showToast('Dispositivo bloqueado temporalmente.', 'error');
       }
       return false;
     }
-
-    // Asegurar huella del dispositivo
-    await this.getOrGenerateDeviceFingerprint();
-
-    // Jitter delay artificial para evitar ataques de timing / bots
-    await new Promise(r => setTimeout(r, 200 + Math.random() * 150));
 
     const cleanId = (identifier || '').trim().toLowerCase();
     const hash = await this.sha256(password);

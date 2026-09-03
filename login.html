@@ -323,21 +323,26 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-      // 1. Si ya existe sesión activa, ingresar directamente a index.html
+      // 1. Si ya existe sesión activa en este dispositivo, ingresar directamente
       const sessionStr = localStorage.getItem('hotel_admin_session');
       if (sessionStr) {
         try {
           const session = JSON.parse(sessionStr);
           const now = Date.now();
-          if (session && (now - session.timestamp < 8 * 60 * 60 * 1000)) {
+          if (session && session.user && (now - session.timestamp < 8 * 60 * 60 * 1000)) {
             window.location.replace('index.html');
             return;
           }
         } catch (e) {}
       }
 
-      // 2. Inicializar huella de dispositivo y Rate Limiter
-      await AuthModule.init();
+      // 2. Inicializar huella de dispositivo y Rate Limiter de forma segura
+      await AuthModule.getOrGenerateDeviceFingerprint();
+      const devEl = document.getElementById('login-device-id');
+      if (devEl && AuthModule.deviceFingerprint) {
+        devEl.innerText = AuthModule.deviceFingerprint.substring(0, 16) + '...';
+      }
+      AuthModule.checkRateLimitStatus();
     });
 
     async function submitLogin() {
@@ -352,7 +357,7 @@
 
       const ok = await AuthModule.login(u, p);
       if (ok) {
-        btn.innerHTML = '<i class="fas fa-check"></i> Acceso autorizado...';
+        btn.innerHTML = '<i class="fas fa-check"></i> Redirigiendo...';
         window.location.replace('index.html');
       } else {
         btn.disabled = false;
