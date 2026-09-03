@@ -122,10 +122,12 @@ const AuthModule = {
   },
 
   requireLogin(reasonMessage = '') {
-    const overlay = document.getElementById('login-modal-overlay');
-    if (overlay) {
-      overlay.style.display = 'flex';
-      overlay.classList.add('open');
+    const isLoginPage = window.location.pathname.endsWith('login.html');
+
+    if (!isLoginPage) {
+      // Redirigir de inmediato a la página independiente de login
+      window.location.replace('login.html');
+      return;
     }
 
     const deviceEl = document.getElementById('login-device-id');
@@ -134,9 +136,11 @@ const AuthModule = {
     }
 
     const alertEl = document.getElementById('login-security-alert');
+    const alertText = document.getElementById('login-alert-text');
     if (alertEl && reasonMessage) {
-      alertEl.innerText = reasonMessage;
-      alertEl.style.display = 'block';
+      if (alertText) alertText.innerText = reasonMessage;
+      else alertEl.innerText = reasonMessage;
+      alertEl.style.display = 'flex';
     }
 
     this.checkRateLimitStatus();
@@ -313,7 +317,9 @@ const AuthModule = {
   logout() {
     if (!confirm('¿Desea cerrar la sesión de este dispositivo?')) return;
     localStorage.removeItem('hotel_admin_session');
-    supabaseClient.auth.signOut();
-    location.reload();
+    try {
+      supabaseClient.auth.signOut();
+    } catch (e) {}
+    window.location.replace('login.html');
   }
 };

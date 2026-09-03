@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceso Seguro • Hotel 3 Vagos PMS</title>
+  
+  <!-- Blindaje de Consola y Seguridad (Primero en cargar) -->
+  <script src="js/shield.js"></script>
+
+  <!-- Google Fonts & FontAwesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Estilos del Sistema -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 50% 20%, #1E3A8A 0%, #0A192F 70%, #060D1A 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', sans-serif;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Fondo decorativo con patrones sutiles */
+    body::before {
+      content: '';
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(197, 168, 128, 0.08) 0%, transparent 70%);
+      top: -150px;
+      right: -100px;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 450px;
+      padding: 20px;
+      position: relative;
+      z-index: 10;
+    }
+
+    .login-card {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      animation: modalScale 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .login-header {
+      background: linear-gradient(135deg, #0A192F 0%, #172E54 100%);
+      padding: 32px 24px;
+      text-align: center;
+      color: #fff;
+      position: relative;
+      border-bottom: 2px solid #C5A880;
+    }
+
+    .brand-badge {
+      width: 60px;
+      height: 60px;
+      border-radius: 18px;
+      background: #C5A880;
+      color: #0A192F;
+      font-size: 26px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px;
+      box-shadow: 0 8px 20px rgba(197, 168, 128, 0.35);
+      font-family: 'Playfair Display', serif;
+    }
+
+    .login-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 24px;
+      margin: 0 0 4px 0;
+      letter-spacing: 0.5px;
+    }
+
+    .login-header p {
+      font-size: 13px;
+      color: #94A3B8;
+      margin: 0;
+    }
+
+    .device-pill {
+      margin-top: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      font-size: 11px;
+      color: #E2E8F0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .login-body {
+      padding: 32px 28px;
+    }
+
+    .form-group label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #1E293B;
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-wrapper i {
+      position: absolute;
+      left: 16px;
+      top: 14px;
+      color: #94A3B8;
+      font-size: 15px;
+      transition: color 0.2s;
+    }
+
+    .input-wrapper input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 13px 16px 13px 44px;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s ease;
+      background: #F8FAFC;
+    }
+
+    .input-wrapper input:focus {
+      background: #fff;
+      border-color: #1E3A8A;
+      box-shadow: 0 0 0 4px rgba(30, 58, 138, 0.1);
+    }
+
+    .input-wrapper input:focus + i {
+      color: #1E3A8A;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #0A192F 0%, #1E3A8A 100%);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 10px 15px -3px rgba(10, 25, 47, 0.3);
+      transition: all 0.2s ease;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 20px -3px rgba(10, 25, 47, 0.4);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .demo-accounts {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid #F1F5F9;
+      text-align: center;
+    }
+
+    .demo-accounts p {
+      font-size: 11.5px;
+      color: #64748B;
+      margin: 0 0 10px 0;
+      font-weight: 500;
+    }
+
+    .demo-badges {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .demo-btn {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 5px 9px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .demo-btn:hover {
+      background: #EFF6FF;
+      border-color: #3B82F6;
+      color: #1D4ED8;
+    }
+
+    .alert-box {
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 12.5px;
+      margin-bottom: 20px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .alert-warning {
+      background: #FEF3C7;
+      border: 1px solid #FDE68A;
+      color: #92400E;
+    }
+
+    .alert-danger {
+      background: #FEE2E2;
+      border: 1px solid #FECACA;
+      color: #991B1B;
+      text-align: center;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="brand-badge">3V</div>
+        <h1>Hotel 3 Vagos</h1>
+        <p>Sistema de Gestión PMS • UTCD</p>
+        <div class="device-pill">
+          <i class="fas fa-shield-alt" style="color: #10B981;"></i>
+          <span>Dispositivo: <span id="login-device-id" style="font-family: monospace;">Verificando...</span></span>
+        </div>
+      </div>
+
+      <div class="login-body">
+        <div id="login-security-alert" class="alert-box alert-warning">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span id="login-alert-text"></span>
+        </div>
+
+        <div id="login-lockout-box" class="alert-box alert-danger">
+          <i class="fas fa-ban" style="font-size: 20px; margin-bottom: 6px; display: block;"></i>
+          <strong>Acceso Bloqueado por Seguridad</strong>
+          <p style="margin: 4px 0 0 0; font-size: 12px;">Demasiados intentos fallidos. Reintente en: <span id="lockout-countdown" style="font-weight: bold; font-size: 14px;">05:00</span></p>
+        </div>
+
+        <form id="login-form" onsubmit="event.preventDefault(); submitLogin();">
+          <div class="form-group" style="margin-bottom: 18px;">
+            <label for="login-username">Usuario o Correo Electrónico</label>
+            <div class="input-wrapper">
+              <input type="text" id="login-username" placeholder="admin@hotel3vagos.com o admin" required autocomplete="username">
+              <i class="fas fa-user"></i>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 24px;">
+            <label for="login-password">Contraseña Cifrada</label>
+            <div class="input-wrapper">
+              <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+              <i class="fas fa-lock"></i>
+            </div>
+          </div>
+
+          <button type="submit" id="btn-login-submit" class="btn-submit">
+            <i class="fas fa-key"></i> Autenticar Dispositivo
+          </button>
+        </form>
+
+        <div class="demo-accounts">
+          <p><i class="fas fa-bolt" style="color: #D97706;"></i> Acceso Rápido por Rol:</p>
+          <div class="demo-badges">
+            <button class="demo-btn" onclick="quickFill('admin', 'admin123')">Administrador</button>
+            <button class="demo-btn" onclick="quickFill('gerente', 'gerente123')">Gerente</button>
+            <button class="demo-btn" onclick="quickFill('recepcion', 'recepcion123')">Recepción</button>
+            <button class="demo-btn" onclick="quickFill('housekeeping', 'housekeeping123')">Housekeeping</button>
+            <button class="demo-btn" onclick="quickFill('guest', 'guest123')">Guest</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase_client.js"></script>
+  <script src="js/auth.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 1. Si el usuario ya tiene sesión activa en este dispositivo, enviar directamente al Dashboard
+      const sessionStr = localStorage.getItem('hotel_admin_session');
+      if (sessionStr) {
+        try {
+          const session = JSON.parse(sessionStr);
+          const fp = await AuthModule.generateDeviceFingerprint();
+          const now = Date.now();
+          if (session.deviceFingerprint === fp && (now - session.timestamp < 8 * 60 * 60 * 1000)) {
+            window.location.replace('index.html');
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // 2. Inicializar huella de dispositivo y Rate Limiter
+      AuthModule.deviceFingerprint = await AuthModule.generateDeviceFingerprint();
+      const devEl = document.getElementById('login-device-id');
+      if (devEl && AuthModule.deviceFingerprint) {
+        devEl.innerText = AuthModule.deviceFingerprint.substring(0, 16) + '...';
+      }
+      AuthModule.checkRateLimitStatus();
+    });
+
+    async function submitLogin() {
+      const u = document.getElementById('login-username').value;
+      const p = document.getElementById('login-password').value;
+      const btn = document.getElementById('btn-login-submit');
+
+      if (!u || !p) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando credenciales...';
+
+      const ok = await AuthModule.login(u, p);
+      if (ok) {
+        btn.innerHTML = '<i class="fas fa-check"></i> Acceso autorizado...';
+        setTimeout(() => {
+          window.location.replace('index.html');
+        }, 500);
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-key"></i> Autenticar Dispositivo';
+      }
+    }
+
+    function quickFill(u, p) {
+      document.getElementById('login-username').value = u;
+      document.getElementById('login-password').value = p;
+    }
+  </script>
+</body>
+</html>
