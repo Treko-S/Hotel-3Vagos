@@ -70,14 +70,19 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-info">
-        <div class="user-avatar" style="background: var(--accent-gold); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold;">
-          KS
+      <div class="user-info" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="user-avatar" style="background: var(--accent-gold); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+            <i class="fas fa-user-shield"></i>
+          </div>
+          <div class="user-details">
+            <h4 id="user-name-display">Kevin Santacruz</h4>
+            <p id="user-role-display">Administrador General</p>
+          </div>
         </div>
-        <div class="user-details">
-          <h4>Kevin Santacruz</h4>
-          <p id="user-role-display">Administrador General</p>
-        </div>
+        <button onclick="AuthModule.logout()" title="Cerrar sesión en este dispositivo" style="background: none; border: none; color: #EF4444; cursor: pointer; font-size: 16px; padding: 6px;" aria-label="Cerrar Sesión">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
       </div>
     </div>
   </aside>
@@ -98,10 +103,11 @@
           <span class="status-dot"></span>
           <span>Rol Activo:</span>
           <select id="role-selector" style="border: none; background: transparent; font-weight: bold; color: var(--primary-navy); outline: none; cursor: pointer;">
-            <option value="admin">Administrador</option>
+            <option value="administrador">Administrador</option>
+            <option value="gerente">Gerente</option>
             <option value="recepcionista">Recepcionista</option>
             <option value="housekeeping">Housekeeping</option>
-            <option value="gerente">Gerente</option>
+            <option value="guest">Guest (Huésped)</option>
           </select>
         </div>
       </div>
@@ -140,9 +146,9 @@
 
           <div class="kpi-card gold">
             <div class="kpi-data">
-              <span>Ingresos Totales</span>
+              <span>Ingresos Cobrados (Real)</span>
               <h3 id="kpi-revenue">0 Gs.</h3>
-              <small style="color: #b45309;">Alojamiento & Consumos</small>
+              <small id="kpi-revenue-sub" style="color: #b45309;">Cobros Reales Efectuados</small>
             </div>
             <div class="kpi-icon gold">
               <i class="fas fa-coins"></i>
@@ -412,6 +418,28 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
+           VIEW GUEST: RESTRICCION DE ACCESO A CONSOLA PMS
+           ===================================================== -->
+      <section id="view-guest" class="view-section">
+        <div style="max-width: 600px; margin: 40px auto; background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 40px; text-align: center; box-shadow: var(--shadow-sm);">
+          <div style="width: 70px; height: 70px; background: #FEF3C7; color: #D97706; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; margin: 0 auto 20px;">
+            <i class="fas fa-user-lock"></i>
+          </div>
+          <h2 style="color: var(--primary-navy); margin-bottom: 12px; font-family: 'Playfair Display', serif;">Portal de Huéspedes</h2>
+          <p style="color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+            Esta consola administrativa es de uso interno exclusivo para el personal del <strong>Hotel 3 Vagos</strong> (Administración, Gerencia, Recepción y Housekeeping).
+          </p>
+          <div style="background: var(--bg-light); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px; text-align: left; font-size: 13px; color: var(--primary-dark); border: 1px solid var(--border-color);">
+            <div style="margin-bottom: 10px;"><i class="fas fa-mobile-alt" style="color: var(--primary-blue); margin-right: 8px;"></i> <strong>¿Deseas gestionar tus reservas?</strong> Descarga o utiliza nuestra app móvil para huéspedes.</div>
+            <div><i class="fas fa-id-badge" style="color: var(--primary-blue); margin-right: 8px;"></i> <strong>¿Eres colaborador del hotel?</strong> Inicia sesión con tus credenciales de equipo.</div>
+          </div>
+          <button class="btn btn-outline" onclick="AuthModule.logout()" style="margin: 0 auto;">
+            <i class="fas fa-sign-out-alt"></i> Cerrar Sesión / Cambiar Usuario
+          </button>
         </div>
       </section>
 
@@ -695,11 +723,75 @@
     </div>
   </div>
 
+  <!-- =========================================================
+       MODAL DE AUTENTICACIÓN SEGURA & VERIFICACIÓN DE DISPOSITIVO
+       ========================================================= -->
+  <div id="login-modal-overlay" class="modal-backdrop" style="display: none; z-index: 99999; background: rgba(10, 25, 47, 0.94); backdrop-filter: blur(8px); align-items: center; justify-content: center;">
+    <div class="modal-card" style="width: 100%; max-width: 440px; border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.15); background: #fff;">
+      <div style="background: linear-gradient(135deg, #0A192F 0%, #1E3A8A 100%); padding: 28px 24px; text-align: center; color: #fff;">
+        <div style="width: 54px; height: 54px; border-radius: 16px; background: #C5A880; color: #0A192F; font-size: 22px; font-weight: bold; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 12px rgba(197, 168, 128, 0.3);">
+          3V
+        </div>
+        <h2 style="font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 4px;">Hotel 3 Vagos</h2>
+        <p style="font-size: 12px; color: #94A3B8;">Consola de Gestión PMS • UTCD</p>
+        <div style="margin-top: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; background: rgba(255, 255, 255, 0.1); font-size: 11px; color: #E2E8F0;">
+          <i class="fas fa-shield-alt" style="color: #10B981;"></i>
+          <span>Dispositivo: <span id="login-device-id" style="font-family: monospace;">Verificando...</span></span>
+        </div>
+      </div>
+
+      <div class="modal-body" style="padding: 24px;">
+        <div id="login-security-alert" style="display: none; background: #FEF3C7; border: 1px solid #FDE68A; color: #92400E; padding: 10px 14px; border-radius: 10px; font-size: 12px; margin-bottom: 16px;">
+        </div>
+
+        <div id="login-lockout-box" style="display: none; background: #FEE2E2; border: 1px solid #FECACA; color: #991B1B; padding: 12px; border-radius: 10px; font-size: 12px; margin-bottom: 16px; text-align: center;">
+          <i class="fas fa-ban" style="font-size: 18px; margin-bottom: 6px; display: block;"></i>
+          <strong>Acceso Bloqueado por Seguridad</strong>
+          <p style="margin-top: 4px;">Demasiados intentos fallidos. Espere: <span id="lockout-countdown" style="font-weight: bold;">05:00</span></p>
+        </div>
+
+        <form id="login-form" onsubmit="event.preventDefault(); handleLoginSubmit();">
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px;">Email o Usuario</label>
+            <div style="position: relative;">
+              <i class="fas fa-user" style="position: absolute; left: 14px; top: 12px; color: #94A3B8;"></i>
+              <input type="text" id="login-username" class="form-control" placeholder="admin@hotel3vagos.com o admin" required style="padding-left: 38px;">
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label style="display: block; font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 6px;">Contraseña Segura</label>
+            <div style="position: relative;">
+              <i class="fas fa-lock" style="position: absolute; left: 14px; top: 12px; color: #94A3B8;"></i>
+              <input type="password" id="login-password" class="form-control" placeholder="••••••••" required style="padding-left: 38px;">
+            </div>
+          </div>
+
+          <button type="submit" id="btn-login-submit" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 14px; justify-content: center; font-weight: bold; border-radius: 12px;">
+            <i class="fas fa-key"></i> Autenticar Dispositivo
+          </button>
+        </form>
+
+        <div style="margin-top: 20px; padding-top: 14px; border-top: 1px solid #F1F5F9; text-align: center;">
+          <p style="font-size: 11px; color: #64748B; margin-bottom: 8px;">Acceso Rápido por Rol:</p>
+          <div style="display: flex; gap: 5px; justify-content: center; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-outline" style="font-size: 10.5px; padding: 4px 7px;" onclick="fillDemoLogin('admin', 'admin123')">Admin</button>
+            <button class="btn btn-sm btn-outline" style="font-size: 10.5px; padding: 4px 7px;" onclick="fillDemoLogin('gerente', 'gerente123')">Gerente</button>
+            <button class="btn btn-sm btn-outline" style="font-size: 10.5px; padding: 4px 7px;" onclick="fillDemoLogin('recepcion', 'recepcion123')">Recepción</button>
+            <button class="btn btn-sm btn-outline" style="font-size: 10.5px; padding: 4px 7px;" onclick="fillDemoLogin('housekeeping', 'housekeeping123')">Limpieza</button>
+            <button class="btn btn-sm btn-outline" style="font-size: 10.5px; padding: 4px 7px;" onclick="fillDemoLogin('guest', 'guest123')">Guest</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
   <div id="toast-container"></div>
 
   <!-- Scripts -->
   <script src="js/supabase_client.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/modules/dashboard.js"></script>
   <script src="js/modules/reservations.js"></script>
   <script src="js/modules/rooms.js"></script>
@@ -708,5 +800,29 @@
   <script src="js/modules/cash_billing.js"></script>
   <script src="js/modules/guests.js"></script>
   <script src="js/app.js"></script>
+
+  <script>
+    async function handleLoginSubmit() {
+      const u = document.getElementById('login-username').value;
+      const p = document.getElementById('login-password').value;
+      const btn = document.getElementById('btn-login-submit');
+
+      if (!u || !p) return;
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando credenciales...';
+
+      const ok = await AuthModule.login(u, p);
+      if (!ok) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-key"></i> Autenticar Dispositivo';
+      }
+    }
+
+    function fillDemoLogin(u, p) {
+      document.getElementById('login-username').value = u;
+      document.getElementById('login-password').value = p;
+    }
+  </script>
 </body>
 </html>

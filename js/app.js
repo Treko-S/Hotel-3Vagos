@@ -1,14 +1,46 @@
 /**
  * HOTEL 3 VAGOS - UTCD
- * Master Application Controller & Navigation
+ * Master Application Controller, Navigation & RBAC (Role-Based Access Control)
  */
 
 // Estado global de la aplicación
 const AppState = {
-  currentRole: 'admin', // admin, recepcionista, housekeeping, gerente
-  currentUser: {
-    name: 'Kevin Santacruz',
-    role: 'Administrador General'
+  currentRole: 'administrador', // administrador, gerente, recepcionista, housekeeping, guest
+  currentUser: null,
+  activeView: 'dashboard'
+};
+
+// Matriz Oficial de Permisos RBAC por Rol
+const RolePermissions = {
+  administrador: {
+    name: 'Administrador General',
+    allowedViews: ['dashboard', 'reservations', 'rooms', 'housekeeping', 'maintenance', 'cash', 'guests'],
+    defaultView: 'dashboard',
+    canSwitchRoles: true
+  },
+  gerente: {
+    name: 'Gerente General',
+    allowedViews: ['dashboard', 'reservations', 'cash', 'guests'],
+    defaultView: 'dashboard',
+    canSwitchRoles: false
+  },
+  recepcionista: {
+    name: 'Recepcionista Front Desk',
+    allowedViews: ['reservations', 'rooms', 'cash', 'guests'],
+    defaultView: 'reservations',
+    canSwitchRoles: false
+  },
+  housekeeping: {
+    name: 'Supervisora Housekeeping',
+    allowedViews: ['housekeeping', 'rooms', 'maintenance'],
+    defaultView: 'housekeeping',
+    canSwitchRoles: false
+  },
+  guest: {
+    name: 'Huésped (Acceso Restringido)',
+    allowedViews: ['guest'],
+    defaultView: 'guest',
+    canSwitchRoles: false
   }
 };
 
@@ -16,16 +48,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   initNavigation();
   initRoleSwitcher();
 
-  // Iniciar módulos
-  await DashboardModule.init();
-  await ReservationsModule.init();
-  await RoomsModule.init();
-  await HousekeepingModule.init();
-  await MaintenanceModule.init();
-  await CashBillingModule.init();
-  await GuestsModule.init();
+  // 1. Inicializar Módulo de Seguridad y Autenticación por Dispositivo
+  await AuthModule.init();
 
-  // Suscribirse a cambios en tiempo real en Supabase para habitaciones y reservas
+  // 2. Suscribirse a cambios en tiempo real en Supabase para habitaciones y reservas
   initRealtimeSubscriptions();
 });
 
@@ -44,6 +70,15 @@ function initNavigation() {
 }
 
 function switchView(viewId) {
+  // Validación de Permisos RBAC
+  const roleConfig = RolePermissions[AppState.currentRole] || RolePermissions.guest;
+  if (!roleConfig.allowedViews.includes(viewId)) {
+    showToast(`Acceso denegado: El rol "${roleConfig.name}" no tiene autorización para esta vista.`, 'warning');
+    return;
+  }
+
+  AppState.activeView = viewId;
+
   // 1. Actualizar menú lateral
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const activeNavItem = document.querySelector(`.nav-item[data-view="${viewId}"]`);
@@ -65,12 +100,14 @@ function switchView(viewId) {
     'maintenance': { title: 'Mantenimiento & Incidencias', subtitle: 'Control de órdenes técnicas, costos y reparaciones' },
     'cash': { title: 'Caja & Facturación Legal', subtitle: 'Control de sesiones de caja, arqueo e IVA Paraguay' },
     'guests': { title: 'Huéspedes & CRM', subtitle: 'Directorio de clientes, documentos y fidelización' },
-    'reports': { title: 'Reportes & Estadísticas', subtitle: 'Informes de ocupación, ADR, RevPAR y rentabilidad' }
+    'guest': { title: 'Portal de Huéspedes', subtitle: 'Consola interna exclusiva para colaboradores del hotel' }
   };
 
   const meta = titles[viewId] || { title: 'Panel de Gestión', subtitle: 'Sistema Hotelero UTCD' };
-  document.getElementById('page-title').innerText = meta.title;
-  document.getElementById('page-subtitle').innerText = meta.subtitle;
+  const pageTitle = document.getElementById('page-title');
+  const pageSubtitle = document.getElementById('page-subtitle');
+  if (pageTitle) pageTitle.innerText = meta.title;
+  if (pageSubtitle) pageSubtitle.innerText = meta.subtitle;
 
   // Refrescar datos según la pestaña activa
   if (viewId === 'dashboard') DashboardModule.init();
@@ -83,25 +120,55 @@ function switchView(viewId) {
 }
 
 /**
- * Simulador de Roles de Usuario
+ * Aplica las restricciones de seguridad RBAC en el Sidebar y vistas
+ */
+function applyRoleBasedAccess(role) {
+  AppState.currentRole = role;
+  const roleConfig = RolePermissions[role] || RolePermissions.guest;
+
+  // 1. Filtrar elementos de navegación del sidebar
+  document.querySelectorAll('.nav-item[data-view]').forEach(item => {
+    const viewId = item.getAttribute('data-view');
+    if (roleConfig.allowedViews.includes(viewId)) {
+      item.style.display = 'flex';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+
+  // 2. Control del selector de roles en la cabecera
+  const selectorWrapper = document.querySelector('.role-badge');
+  const select = document.getElementById('role-selector');
+  if (select) {
+    select.value = role;
+    if (roleConfig.canSwitchRoles || (AppState.currentUser && AppState.currentUser.role === 'administrador')) {
+      select.disabled = false;
+      if (selectorWrapper) selectorWrapper.style.opacity = '1';
+    } else {
+      select.disabled = true;
+      if (selectorWrapper) selectorWrapper.style.opacity = '0.75';
+    }
+  }
+
+  // 3. Ajustar vista activa si no está permitida para este rol
+  if (!roleConfig.allowedViews.includes(AppState.activeView)) {
+    switchView(roleConfig.defaultView);
+  } else {
+    switchView(AppState.activeView);
+  }
+}
+
+/**
+ * Simulador y Selector de Roles de Usuario (Auditoría para Administradores)
  */
 function initRoleSwitcher() {
   const select = document.getElementById('role-selector');
   if (!select) return;
 
   select.addEventListener('change', (e) => {
-    const role = e.target.value;
-    AppState.currentRole = role;
-
-    const roleNames = {
-      'admin': 'Administrador General',
-      'recepcionista': 'Recepcionista Front Desk',
-      'housekeeping': 'Supervisora Housekeeping',
-      'gerente': 'Gerente General'
-    };
-
-    document.getElementById('user-role-display').innerText = roleNames[role] || 'Usuario';
-    showToast(`Modo cambiado a: ${roleNames[role]}`, 'info');
+    const newRole = e.target.value;
+    applyRoleBasedAccess(newRole);
+    showToast(`Modo cambiado para auditoría a: ${RolePermissions[newRole]?.name || newRole}`, 'info');
   });
 }
 
@@ -149,9 +216,9 @@ function closeModal(modalId) {
   if (modal) modal.classList.remove('open');
 }
 
-// Cerrar modales con clic fuera
+// Cerrar modales con clic fuera (excepto modal de login obligatorio)
 document.addEventListener('click', (e) => {
-  if (e.target.classList.contains('modal-backdrop')) {
+  if (e.target.classList.contains('modal-backdrop') && e.target.id !== 'login-modal-overlay') {
     e.target.classList.remove('open');
   }
 });
@@ -164,17 +231,21 @@ function initRealtimeSubscriptions() {
     supabaseClient
       .channel('public:habitaciones')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habitaciones' }, () => {
-        DashboardModule.loadKPIs();
-        RoomsModule.loadRooms();
-        HousekeepingModule.loadHousekeepingBoard();
+        if (AppState.currentRole !== 'guest') {
+          DashboardModule.loadKPIs();
+          RoomsModule.loadRooms();
+          HousekeepingModule.loadHousekeepingBoard();
+        }
       })
       .subscribe();
 
     supabaseClient
       .channel('public:reservas')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' }, () => {
-        DashboardModule.loadKPIs();
-        ReservationsModule.loadReservations();
+        if (AppState.currentRole !== 'guest') {
+          DashboardModule.loadKPIs();
+          ReservationsModule.loadReservations();
+        }
       })
       .subscribe();
   } catch (err) {
