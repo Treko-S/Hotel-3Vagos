@@ -15,32 +15,27 @@ const RolePermissions = {
   administrador: {
     name: 'Administrador General',
     allowedViews: ['dashboard', 'reservations', 'rooms', 'housekeeping', 'maintenance', 'cash', 'guests'],
-    defaultView: 'dashboard',
-    canSwitchRoles: true
+    defaultView: 'dashboard'
   },
   gerente: {
     name: 'Gerente General',
     allowedViews: ['dashboard', 'reservations', 'cash', 'guests'],
-    defaultView: 'dashboard',
-    canSwitchRoles: false
+    defaultView: 'dashboard'
   },
   recepcionista: {
     name: 'Recepcionista Front Desk',
     allowedViews: ['reservations', 'rooms', 'cash', 'guests'],
-    defaultView: 'reservations',
-    canSwitchRoles: false
+    defaultView: 'reservations'
   },
   housekeeping: {
     name: 'Supervisora Housekeeping',
     allowedViews: ['housekeeping', 'rooms', 'maintenance'],
-    defaultView: 'housekeeping',
-    canSwitchRoles: false
+    defaultView: 'housekeeping'
   },
   guest: {
     name: 'Huésped (Acceso Restringido)',
     allowedViews: ['guest'],
-    defaultView: 'guest',
-    canSwitchRoles: false
+    defaultView: 'guest'
   }
 };
 
@@ -78,7 +73,7 @@ function switchView(viewId) {
 
   AppState.activeView = viewId;
 
-  // 1. Actualizar menú lateral
+  // 1. Actualizar menú lateral activo
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   const activeNavItem = document.querySelector(`.nav-item[data-view="${viewId}"]`);
   if (activeNavItem) activeNavItem.classList.add('active');
@@ -109,13 +104,13 @@ function switchView(viewId) {
   if (pageSubtitle) pageSubtitle.innerText = meta.subtitle;
 
   // Refrescar datos según la pestaña activa
-  if (viewId === 'dashboard') DashboardModule.init();
-  if (viewId === 'reservations') ReservationsModule.loadReservations();
-  if (viewId === 'rooms') RoomsModule.loadRooms();
-  if (viewId === 'housekeeping') HousekeepingModule.loadHousekeepingBoard();
-  if (viewId === 'maintenance') MaintenanceModule.loadOrders();
-  if (viewId === 'cash') CashBillingModule.init();
-  if (viewId === 'guests') GuestsModule.loadGuests();
+  if (viewId === 'dashboard' && typeof DashboardModule !== 'undefined') DashboardModule.init();
+  if (viewId === 'reservations' && typeof ReservationsModule !== 'undefined') ReservationsModule.loadReservations();
+  if (viewId === 'rooms' && typeof RoomsModule !== 'undefined') RoomsModule.loadRooms();
+  if (viewId === 'housekeeping' && typeof HousekeepingModule !== 'undefined') HousekeepingModule.loadHousekeepingBoard();
+  if (viewId === 'maintenance' && typeof MaintenanceModule !== 'undefined') MaintenanceModule.loadOrders();
+  if (viewId === 'cash' && typeof CashBillingModule !== 'undefined') CashBillingModule.init();
+  if (viewId === 'guests' && typeof GuestsModule !== 'undefined') GuestsModule.loadGuests();
 }
 
 /**
@@ -125,7 +120,7 @@ function applyRoleBasedAccess(role) {
   AppState.currentRole = role;
   const roleConfig = RolePermissions[role] || RolePermissions.guest;
 
-  // 1. Filtrar elementos de navegación del sidebar
+  // 1. Filtrar elementos individuales de navegación del sidebar
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
     const viewId = item.getAttribute('data-view');
     if (roleConfig.allowedViews.includes(viewId)) {
@@ -135,22 +130,26 @@ function applyRoleBasedAccess(role) {
     }
   });
 
-  // 2. Ajustar vista activa si no está permitida para este rol
-  if (!roleConfig.allowedViews.includes(AppState.activeView)) {
-    switchView(roleConfig.defaultView);
-  } else {
-    switchView(AppState.activeView);
-  }
-}
+  // 2. Filtrar dinámicamente las cabeceras de categoría (.nav-category)
+  // Si ninguno de los nav-items que le siguen está visible, la categoría se oculta
+  document.querySelectorAll('.nav-category').forEach(cat => {
+    let sibling = cat.nextElementSibling;
+    let hasVisibleItem = false;
 
-/**
- * Simulador y Selector de Roles de Usuario (Retirado del header para seguridad)
- */
-function initRoleSwitcher() {
-  // Selector de roles removido del encabezado por diseño y seguridad
-}
-    showToast(`Modo cambiado para auditoría a: ${RolePermissions[newRole]?.name || newRole}`, 'info');
+    while (sibling && !sibling.classList.contains('nav-category')) {
+      if (sibling.classList.contains('nav-item') && sibling.style.display !== 'none') {
+        hasVisibleItem = true;
+        break;
+      }
+      sibling = sibling.nextElementSibling;
+    }
+
+    cat.style.display = hasVisibleItem ? 'block' : 'none';
   });
+
+  // 3. Conmutar a la vista por defecto autorizada para este rol y cargar sus datos
+  const targetView = roleConfig.allowedViews.includes(AppState.activeView) ? AppState.activeView : roleConfig.defaultView;
+  switchView(targetView);
 }
 
 /**
@@ -197,9 +196,9 @@ function closeModal(modalId) {
   if (modal) modal.classList.remove('open');
 }
 
-// Cerrar modales con clic fuera (excepto modal de login obligatorio)
+// Cerrar modales con clic fuera
 document.addEventListener('click', (e) => {
-  if (e.target.classList.contains('modal-backdrop') && e.target.id !== 'login-modal-overlay') {
+  if (e.target.classList.contains('modal-backdrop')) {
     e.target.classList.remove('open');
   }
 });
@@ -213,9 +212,9 @@ function initRealtimeSubscriptions() {
       .channel('public:habitaciones')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habitaciones' }, () => {
         if (AppState.currentRole !== 'guest') {
-          DashboardModule.loadKPIs();
-          RoomsModule.loadRooms();
-          HousekeepingModule.loadHousekeepingBoard();
+          if (typeof DashboardModule !== 'undefined') DashboardModule.loadKPIs();
+          if (typeof RoomsModule !== 'undefined') RoomsModule.loadRooms();
+          if (typeof HousekeepingModule !== 'undefined') HousekeepingModule.loadHousekeepingBoard();
         }
       })
       .subscribe();
@@ -224,12 +223,12 @@ function initRealtimeSubscriptions() {
       .channel('public:reservas')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' }, () => {
         if (AppState.currentRole !== 'guest') {
-          DashboardModule.loadKPIs();
-          ReservationsModule.loadReservations();
+          if (typeof DashboardModule !== 'undefined') DashboardModule.loadKPIs();
+          if (typeof ReservationsModule !== 'undefined') ReservationsModule.loadReservations();
         }
       })
       .subscribe();
   } catch (err) {
-    console.warn('Realtime subscription not supported in current mode:', err);
+    // Modo silencioso
   }
 }
