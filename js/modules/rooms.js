@@ -190,7 +190,7 @@ const RoomsModule = {
    * Visualización Completa / Ficha Técnica de la Habitación
    */
   viewRoomDetails(roomId) {
-    const r = this.rooms.find(x => x.id === roomId);
+    const r = this.rooms.find(x => x.id == roomId);
     if (!r) return;
 
     const tipo = r.tipos_habitacion || {};
@@ -313,7 +313,7 @@ const RoomsModule = {
    * Abrir modal en modo "Editar Habitación"
    */
   openEditRoomModal(roomId) {
-    const r = this.rooms.find(x => x.id === roomId);
+    const r = this.rooms.find(x => x.id == roomId);
     if (!r) return;
 
     this.currentEditingRoomId = roomId;
