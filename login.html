@@ -31,7 +31,6 @@
       overflow-x: hidden;
     }
 
-    /* Fondo decorativo con patrones sutiles */
     body::before {
       content: '';
       position: absolute;
@@ -212,8 +211,8 @@
       background: #F8FAFC;
       border: 1px solid #E2E8F0;
       border-radius: 8px;
-      padding: 5px 9px;
-      font-size: 11px;
+      padding: 6px 10px;
+      font-size: 11.5px;
       font-weight: 600;
       color: #334155;
       cursor: pointer;
@@ -221,9 +220,10 @@
     }
 
     .demo-btn:hover {
-      background: #EFF6FF;
-      border-color: #3B82F6;
-      color: #1D4ED8;
+      background: #1E3A8A;
+      border-color: #1E3A8A;
+      color: #fff;
+      transform: translateY(-1px);
     }
 
     .alert-box {
@@ -300,13 +300,13 @@
         </form>
 
         <div class="demo-accounts">
-          <p><i class="fas fa-bolt" style="color: #D97706;"></i> Acceso Rápido por Rol:</p>
+          <p><i class="fas fa-bolt" style="color: #D97706;"></i> Iniciar sesión con un clic:</p>
           <div class="demo-badges">
-            <button class="demo-btn" onclick="quickFill('admin', 'admin123')">Administrador</button>
-            <button class="demo-btn" onclick="quickFill('gerente', 'gerente123')">Gerente</button>
-            <button class="demo-btn" onclick="quickFill('recepcion', 'recepcion123')">Recepción</button>
-            <button class="demo-btn" onclick="quickFill('housekeeping', 'housekeeping123')">Housekeeping</button>
-            <button class="demo-btn" onclick="quickFill('guest', 'guest123')">Guest</button>
+            <button class="demo-btn" onclick="quickLogin('admin', 'admin123')">Administrador</button>
+            <button class="demo-btn" onclick="quickLogin('gerente', 'gerente123')">Gerente</button>
+            <button class="demo-btn" onclick="quickLogin('recepcion', 'recepcion123')">Recepción</button>
+            <button class="demo-btn" onclick="quickLogin('housekeeping', 'housekeeping123')">Housekeeping</button>
+            <button class="demo-btn" onclick="quickLogin('guest', 'guest123')">Guest</button>
           </div>
         </div>
       </div>
@@ -323,14 +323,13 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-      // 1. Si el usuario ya tiene sesión activa en este dispositivo, enviar directamente al Dashboard
+      // 1. Si ya existe sesión activa, ingresar directamente a index.html
       const sessionStr = localStorage.getItem('hotel_admin_session');
       if (sessionStr) {
         try {
           const session = JSON.parse(sessionStr);
-          const fp = await AuthModule.generateDeviceFingerprint();
           const now = Date.now();
-          if (session.deviceFingerprint === fp && (now - session.timestamp < 8 * 60 * 60 * 1000)) {
+          if (session && (now - session.timestamp < 8 * 60 * 60 * 1000)) {
             window.location.replace('index.html');
             return;
           }
@@ -338,12 +337,7 @@
       }
 
       // 2. Inicializar huella de dispositivo y Rate Limiter
-      AuthModule.deviceFingerprint = await AuthModule.generateDeviceFingerprint();
-      const devEl = document.getElementById('login-device-id');
-      if (devEl && AuthModule.deviceFingerprint) {
-        devEl.innerText = AuthModule.deviceFingerprint.substring(0, 16) + '...';
-      }
-      AuthModule.checkRateLimitStatus();
+      await AuthModule.init();
     });
 
     async function submitLogin() {
@@ -354,23 +348,22 @@
       if (!u || !p) return;
 
       btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando credenciales...';
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Autenticando...';
 
       const ok = await AuthModule.login(u, p);
       if (ok) {
         btn.innerHTML = '<i class="fas fa-check"></i> Acceso autorizado...';
-        setTimeout(() => {
-          window.location.replace('index.html');
-        }, 500);
+        window.location.replace('index.html');
       } else {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-key"></i> Autenticar Dispositivo';
       }
     }
 
-    function quickFill(u, p) {
+    async function quickLogin(u, p) {
       document.getElementById('login-username').value = u;
       document.getElementById('login-password').value = p;
+      await submitLogin();
     }
   </script>
 </body>

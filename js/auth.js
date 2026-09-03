@@ -11,7 +11,6 @@ const AuthModule = {
   lockoutTimerInterval: null,
 
   // Directorio de Cuentas del Personal con contraseñas seguras pre-hasheadas (SHA-256 + Salt)
-  // Hashes calculados para: admin123, gerente123, recepcion123, housekeeping123, guest123
   STAFF_ACCOUNTS: [
     {
       email: "admin@hotel3vagos.com",
@@ -51,9 +50,18 @@ const AuthModule = {
   ],
 
   async init() {
-    this.deviceFingerprint = await this.generateDeviceFingerprint();
+    await this.getOrGenerateDeviceFingerprint();
     this.checkRateLimitStatus();
     await this.validateSession();
+  },
+
+  /**
+   * Obtiene o genera la huella digital del dispositivo de forma segura
+   */
+  async getOrGenerateDeviceFingerprint() {
+    if (this.deviceFingerprint) return this.deviceFingerprint;
+    this.deviceFingerprint = await this.generateDeviceFingerprint();
+    return this.deviceFingerprint;
   },
 
   /**
@@ -72,7 +80,6 @@ const AuthModule = {
 
       return await this.sha256(components);
     } catch (e) {
-      console.warn('Fallback device id generation:', e);
       return 'dev_' + Math.random().toString(36).substring(2, 15);
     }
   },
@@ -100,16 +107,19 @@ const AuthModule = {
     try {
       const session = JSON.parse(sessionStr);
 
-      // Validar si la sesión corresponde a este mismo dispositivo físico
-      if (session.deviceFingerprint !== this.deviceFingerprint) {
-        this.requireLogin('Dispositivo no reconocido o cambio de entorno. Por favor verifique sus credenciales.');
-        return;
-      }
-
       // Validar caducidad (8 horas de sesión activa)
       const now = Date.now();
       if (now - session.timestamp > 8 * 60 * 60 * 1000) {
+        localStorage.removeItem('hotel_admin_session');
         this.requireLogin('Su sesión ha caducado por inactividad. Ingrese nuevamente.');
+        return;
+      }
+
+      // Validar si el fingerprint coincide si está definido
+      const currentFp = await this.getOrGenerateDeviceFingerprint();
+      if (session.deviceFingerprint && session.deviceFingerprint !== currentFp) {
+        localStorage.removeItem('hotel_admin_session');
+        this.requireLogin('Dispositivo no reconocido o cambio de entorno.');
         return;
       }
 
@@ -117,6 +127,7 @@ const AuthModule = {
       this.onSessionAuthenticated(session.user);
 
     } catch (e) {
+      localStorage.removeItem('hotel_admin_session');
       this.requireLogin('Error de verificación de sesión.');
     }
   },
@@ -125,7 +136,6 @@ const AuthModule = {
     const isLoginPage = window.location.pathname.endsWith('login.html');
 
     if (!isLoginPage) {
-      // Redirigir de inmediato a la página independiente de login
       window.location.replace('login.html');
       return;
     }
@@ -199,10 +209,14 @@ const AuthModule = {
       const lockUntil = Date.now() + this.LOCKOUT_DURATION_MS;
       localStorage.setItem('auth_locked_until', lockUntil);
       this.checkRateLimitStatus();
-      showToast('Demasiados intentos fallidos. Acceso bloqueado por 5 minutos.', 'error');
+      if (typeof showToast === 'function') {
+        showToast('Demasiados intentos fallidos. Acceso bloqueado por 5 minutos.', 'error');
+      }
     } else {
       const remaining = this.MAX_FAILED_ATTEMPTS - attempts;
-      showToast(`Credenciales inválidas. Quedan ${remaining} intento(s) antes del bloqueo.`, 'warning');
+      if (typeof showToast === 'function') {
+        showToast(`Credenciales inválidas. Quedan ${remaining} intento(s) antes del bloqueo.`, 'warning');
+      }
     }
   },
 
@@ -216,17 +230,22 @@ const AuthModule = {
    */
   async login(identifier, password) {
     if (this.checkRateLimitStatus()) {
-      showToast('Dispositivo bloqueado temporalmente por seguridad.', 'error');
+      if (typeof showToast === 'function') {
+        showToast('Dispositivo bloqueado temporalmente por seguridad.', 'error');
+      }
       return false;
     }
 
+    // Asegurar huella del dispositivo
+    await this.getOrGenerateDeviceFingerprint();
+
     // Jitter delay artificial para evitar ataques de timing / bots
-    await new Promise(r => setTimeout(r, 400 + Math.random() * 200));
+    await new Promise(r => setTimeout(r, 200 + Math.random() * 150));
 
     const cleanId = (identifier || '').trim().toLowerCase();
     const hash = await this.sha256(password);
 
-    // 1. Verificar primero en cuentas de Staff local con Hash SHA-256
+    // 1. Verificar en cuentas de Staff local con Hash SHA-256
     const staffUser = this.STAFF_ACCOUNTS.find(u => 
       (u.email.toLowerCase() === cleanId || u.username.toLowerCase() === cleanId)
     );
@@ -234,12 +253,12 @@ const AuthModule = {
     if (staffUser) {
       if (staffUser.passwordHash === hash) {
         this.resetFailedAttempts();
-        this.createDeviceSession(staffUser);
+        await this.createDeviceSession(staffUser);
         return true;
       }
     }
 
-    // 2. Si no es Staff local y tiene formato de email, intentar autenticación con Supabase Auth
+    // 2. Si no es Staff local y tiene formato de email, intentar con Supabase Auth
     if (cleanId.includes('@')) {
       try {
         const { data, error } = await supabaseClient.auth.signInWithPassword({
@@ -255,12 +274,10 @@ const AuthModule = {
             name: data.user.user_metadata?.full_name || data.user.email.split('@')[0],
             role: role
           };
-          this.createDeviceSession(userObj);
+          await this.createDeviceSession(userObj);
           return true;
         }
-      } catch (e) {
-        console.warn('Supabase Auth error:', e);
-      }
+      } catch (e) {}
     }
 
     // Fallo de autenticación
@@ -268,9 +285,10 @@ const AuthModule = {
     return false;
   },
 
-  createDeviceSession(user) {
+  async createDeviceSession(user) {
+    const fp = await this.getOrGenerateDeviceFingerprint();
     const sessionData = {
-      deviceFingerprint: this.deviceFingerprint,
+      deviceFingerprint: fp,
       timestamp: Date.now(),
       user: {
         email: user.email,
@@ -280,23 +298,17 @@ const AuthModule = {
     };
 
     localStorage.setItem('hotel_admin_session', JSON.stringify(sessionData));
-
-    const overlay = document.getElementById('login-modal-overlay');
-    if (overlay) {
-      overlay.style.display = 'none';
-      overlay.classList.remove('open');
-    }
-
-    showToast(`¡Bienvenido ${user.name}! Sesión autorizada.`, 'success');
     this.onSessionAuthenticated(user);
   },
 
   onSessionAuthenticated(user) {
-    AppState.currentUser = user;
-    AppState.currentRole = user.role;
+    if (typeof AppState !== 'undefined') {
+      AppState.currentUser = user;
+      AppState.currentRole = user.role;
+    }
 
-    // Actualizar nombre y rol en UI del sidebar
-    const nameEl = document.querySelector('.user-details h4');
+    // Actualizar nombre y rol en UI del sidebar si existe
+    const nameEl = document.getElementById('user-name-display');
     if (nameEl) nameEl.innerText = user.name;
 
     const roleNames = {
@@ -310,16 +322,36 @@ const AuthModule = {
     const roleDisplay = document.getElementById('user-role-display');
     if (roleDisplay) roleDisplay.innerText = roleNames[user.role] || user.role;
 
-    // Aplicar RBAC dinámico en navegación
-    applyRoleBasedAccess(user.role);
+    // Aplicar RBAC dinámico en navegación si estamos en el panel
+    if (typeof applyRoleBasedAccess === 'function') {
+      applyRoleBasedAccess(user.role);
+    }
   },
 
-  logout() {
-    if (!confirm('¿Desea cerrar la sesión de este dispositivo?')) return;
+  openLogoutModal() {
+    if (typeof openModal === 'function') {
+      openModal('modal-logout-confirm');
+    } else {
+      const m = document.getElementById('modal-logout-confirm');
+      if (m) m.classList.add('open');
+    }
+  },
+
+  confirmLogout() {
+    if (typeof closeModal === 'function') {
+      closeModal('modal-logout-confirm');
+    } else {
+      const m = document.getElementById('modal-logout-confirm');
+      if (m) m.classList.remove('open');
+    }
     localStorage.removeItem('hotel_admin_session');
     try {
       supabaseClient.auth.signOut();
     } catch (e) {}
     window.location.replace('login.html');
+  },
+
+  logout() {
+    this.openLogoutModal();
   }
 };

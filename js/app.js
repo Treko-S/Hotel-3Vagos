@@ -46,7 +46,6 @@ const RolePermissions = {
 
 document.addEventListener('DOMContentLoaded', async () => {
   initNavigation();
-  initRoleSwitcher();
 
   // 1. Inicializar Módulo de Seguridad y Autenticación por Dispositivo
   await AuthModule.init();
@@ -136,21 +135,7 @@ function applyRoleBasedAccess(role) {
     }
   });
 
-  // 2. Control del selector de roles en la cabecera
-  const selectorWrapper = document.querySelector('.role-badge');
-  const select = document.getElementById('role-selector');
-  if (select) {
-    select.value = role;
-    if (roleConfig.canSwitchRoles || (AppState.currentUser && AppState.currentUser.role === 'administrador')) {
-      select.disabled = false;
-      if (selectorWrapper) selectorWrapper.style.opacity = '1';
-    } else {
-      select.disabled = true;
-      if (selectorWrapper) selectorWrapper.style.opacity = '0.75';
-    }
-  }
-
-  // 3. Ajustar vista activa si no está permitida para este rol
+  // 2. Ajustar vista activa si no está permitida para este rol
   if (!roleConfig.allowedViews.includes(AppState.activeView)) {
     switchView(roleConfig.defaultView);
   } else {
@@ -159,15 +144,11 @@ function applyRoleBasedAccess(role) {
 }
 
 /**
- * Simulador y Selector de Roles de Usuario (Auditoría para Administradores)
+ * Simulador y Selector de Roles de Usuario (Retirado del header para seguridad)
  */
 function initRoleSwitcher() {
-  const select = document.getElementById('role-selector');
-  if (!select) return;
-
-  select.addEventListener('change', (e) => {
-    const newRole = e.target.value;
-    applyRoleBasedAccess(newRole);
+  // Selector de roles removido del encabezado por diseño y seguridad
+}
     showToast(`Modo cambiado para auditoría a: ${RolePermissions[newRole]?.name || newRole}`, 'info');
   });
 }

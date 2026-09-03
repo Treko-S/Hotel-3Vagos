@@ -96,7 +96,7 @@
             <p id="user-role-display">Administrador General</p>
           </div>
         </div>
-        <button onclick="AuthModule.logout()" title="Cerrar sesión en este dispositivo" style="background: none; border: none; color: #EF4444; cursor: pointer; font-size: 16px; padding: 6px;" aria-label="Cerrar Sesión">
+        <button onclick="AuthModule.openLogoutModal()" title="Cerrar sesión en este dispositivo" style="background: none; border: none; color: #EF4444; cursor: pointer; font-size: 16px; padding: 6px;" aria-label="Cerrar Sesión">
           <i class="fas fa-sign-out-alt"></i>
         </button>
       </div>
@@ -112,20 +112,6 @@
       <div class="header-title">
         <h2 id="page-title">Dashboard Ejecutivo & KPIs</h2>
         <p id="page-subtitle">Métricas operativas y financieras en tiempo real</p>
-      </div>
-
-      <div class="header-actions">
-        <div class="role-badge">
-          <span class="status-dot"></span>
-          <span>Rol Activo:</span>
-          <select id="role-selector" style="border: none; background: transparent; font-weight: bold; color: var(--primary-navy); outline: none; cursor: pointer;">
-            <option value="administrador">Administrador</option>
-            <option value="gerente">Gerente</option>
-            <option value="recepcionista">Recepcionista</option>
-            <option value="housekeeping">Housekeeping</option>
-            <option value="guest">Guest (Huésped)</option>
-          </select>
-        </div>
       </div>
     </header>
 
@@ -735,6 +721,27 @@
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-apertura-caja')">Cancelar</button>
         <button class="btn btn-primary" onclick="CashBillingModule.confirmAperturaCaja()">Abrir Turno de Caja</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmación de Cierre de Sesión (Emergente Nativa de la App) -->
+  <div id="modal-logout-confirm" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 420px; text-align: center; padding: 28px; border-radius: var(--radius-xl);">
+      <div style="width: 56px; height: 56px; border-radius: 50%; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 24px; margin: 0 auto 16px;">
+        <i class="fas fa-sign-out-alt"></i>
+      </div>
+      <h3 style="font-family: var(--font-heading); font-size: 20px; color: var(--primary-navy); margin-bottom: 8px;">Cerrar Sesión</h3>
+      <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 24px;">
+        ¿Está seguro de que desea salir del sistema administrativo en este dispositivo?
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button class="btn btn-outline" style="flex: 1; padding: 10px;" onclick="closeModal('modal-logout-confirm')">
+          Cancelar
+        </button>
+        <button class="btn btn-danger" style="flex: 1; padding: 10px; background: #DC2626;" onclick="AuthModule.confirmLogout()">
+          <i class="fas fa-check"></i> Sí, Salir
+        </button>
       </div>
     </div>
   </div>
