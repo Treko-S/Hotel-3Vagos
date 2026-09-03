@@ -14,12 +14,12 @@ const AppState = {
 const RolePermissions = {
   administrador: {
     name: 'Administrador General',
-    allowedViews: ['dashboard', 'reservations', 'rooms', 'housekeeping', 'maintenance', 'cash', 'guests'],
+    allowedViews: ['dashboard', 'reservations', 'rooms', 'rates', 'housekeeping', 'maintenance', 'cash', 'guests'],
     defaultView: 'dashboard'
   },
   gerente: {
     name: 'Gerente General',
-    allowedViews: ['dashboard', 'reservations', 'cash', 'guests'],
+    allowedViews: ['dashboard', 'reservations', 'rooms', 'rates', 'cash', 'guests'],
     defaultView: 'dashboard'
   },
   recepcionista: {
@@ -90,6 +90,7 @@ function switchView(viewId) {
     'dashboard': { title: 'Dashboard Ejecutivo & KPIs', subtitle: 'Métricas operativas y financieras en tiempo real' },
     'reservations': { title: 'Recepción & Reservas', subtitle: 'Front Desk, Check-in, Check-out y asignación de habitaciones' },
     'rooms': { title: 'Inventario de Habitaciones & Tarifas', subtitle: 'Gestión de categorías, estados y precios base' },
+    'rates': { title: 'Estrategia de Precios & Revenue Management', subtitle: 'Gestión de temporadas anuales, promociones, recargos y paquetes' },
     'housekeeping': { title: 'Housekeeping & Calidad', subtitle: 'Control de limpieza, checklist de 5 áreas e inspección' },
     'maintenance': { title: 'Mantenimiento & Incidencias', subtitle: 'Control de órdenes técnicas, costos y reparaciones' },
     'cash': { title: 'Caja & Facturación Legal', subtitle: 'Control de sesiones de caja, arqueo e IVA Paraguay' },
@@ -107,6 +108,7 @@ function switchView(viewId) {
   if (viewId === 'dashboard' && typeof DashboardModule !== 'undefined') DashboardModule.init();
   if (viewId === 'reservations' && typeof ReservationsModule !== 'undefined') ReservationsModule.loadReservations();
   if (viewId === 'rooms' && typeof RoomsModule !== 'undefined') RoomsModule.loadRooms();
+  if (viewId === 'rates' && typeof RatesSeasonsModule !== 'undefined') RatesSeasonsModule.init();
   if (viewId === 'housekeeping' && typeof HousekeepingModule !== 'undefined') HousekeepingModule.loadHousekeepingBoard();
   if (viewId === 'maintenance' && typeof MaintenanceModule !== 'undefined') MaintenanceModule.loadOrders();
   if (viewId === 'cash' && typeof CashBillingModule !== 'undefined') CashBillingModule.init();

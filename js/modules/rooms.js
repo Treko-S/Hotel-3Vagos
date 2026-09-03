@@ -50,16 +50,24 @@ const RoomsModule = {
           this.roomTypes.map(t => `<option value="${t.id}">${sanitizeInput(t.nombre)}</option>`).join('');
       }
 
-      // Poblar selector de tipos en modal de edición
+      // Poblar selector de tipos en modal de edición (solo categoría y capacidad, precio aparte)
       const editTypeSelect = document.getElementById('edit-room-type');
       if (editTypeSelect) {
         editTypeSelect.innerHTML = this.roomTypes.map(t =>
-          `<option value="${t.id}">${sanitizeInput(t.nombre)} • ${formatGs(t.precio_base_noche)}/noche (hasta ${t.capacidad_personas} pers.)</option>`
+          `<option value="${t.id}">${sanitizeInput(t.nombre)} (hasta ${t.capacidad_personas} pers.)</option>`
         ).join('');
       }
 
     } catch (err) {
       console.error('Error al cargar tipos de habitación:', err);
+    }
+  },
+
+  onRoomTypeChange(typeId) {
+    const t = this.roomTypes.find(x => x.id == typeId);
+    const priceInput = document.getElementById('edit-room-price');
+    if (t && priceInput) {
+      priceInput.value = t.precio_base_noche || 180000;
     }
   },
 
@@ -141,8 +149,8 @@ const RoomsModule = {
             <div style="font-size: 11.5px; color: var(--text-muted);"><i class="fas fa-users" style="font-size: 10px;"></i> Capacidad: ${tipo.capacidad_personas || 1} huéspedes</div>
           </td>
           <td>
-            <div style="font-weight: 700; color: var(--accent-gold); font-size: 14.5px;">${formatGs(tipo.precio_base_noche || 150000)}</div>
-            <small style="font-size: 10.5px; color: var(--text-muted);">por noche (IVA inc.)</small>
+            <div style="font-weight: 700; color: var(--accent-gold); font-size: 14.5px;">${formatGs(carac.precio_personalizado || tipo.precio_base_noche || 150000)}</div>
+            <small style="font-size: 10.5px; color: var(--text-muted);">${carac.precio_personalizado ? '<span style="color: #10B981; font-weight: 600;"><i class="fas fa-tag"></i> Tarifa propia</span>' : 'Base categoría'}</small>
           </td>
           <td>
             <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px;">
@@ -236,7 +244,7 @@ const RoomsModule = {
 
     setVal('detail-room-piso', `Piso ${r.piso || 1}`);
     setVal('detail-room-capacidad', `${tipo.capacidad_personas || 1} Huéspedes`);
-    setVal('detail-room-precio', formatGs(tipo.precio_base_noche || 150000));
+    setVal('detail-room-precio', formatGs(carac.precio_personalizado || tipo.precio_base_noche || 150000));
     setVal('detail-room-camas', carac.camas || '1 Cama King o 2 Twin');
     setVal('detail-room-tamano', `${carac.tamano_m2 || (20 + (tipo.capacidad_personas || 1) * 4)} m²`);
     setVal('detail-room-obs', r.observaciones || 'Habitación en excelentes condiciones higiénicas y operativas.');
@@ -300,6 +308,7 @@ const RoomsModule = {
     document.getElementById('edit-room-status').value = 'Disponible';
     document.getElementById('edit-room-bed').value = '1 Cama King Size';
     document.getElementById('edit-room-size').value = '24';
+    document.getElementById('edit-room-price').value = '180000';
     document.getElementById('edit-room-obs').value = 'Habitación lista para operar.';
 
     // Checkboxes por defecto
@@ -335,16 +344,20 @@ const RoomsModule = {
     document.getElementById('edit-room-number').value = r.numero || '';
     document.getElementById('edit-room-floor').value = r.piso || 1;
     
-    // Asignar tipo de habitación garantizando que el select refleje el valor
+    // Asignar tipo de habitación garantizando que el select refleje el valor sin precio incrustado
     const typeSelect = document.getElementById('edit-room-type');
     if (typeSelect) {
       if (this.roomTypes && this.roomTypes.length > 0) {
         typeSelect.innerHTML = this.roomTypes.map(t =>
-          `<option value="${t.id}">${sanitizeInput(t.nombre)} • ${formatGs(t.precio_base_noche)}/noche (hasta ${t.capacidad_personas} pers.)</option>`
+          `<option value="${t.id}">${sanitizeInput(t.nombre)} (hasta ${t.capacidad_personas} pers.)</option>`
         ).join('');
       }
       typeSelect.value = String(r.tipo_id || 1);
     }
+
+    const effectivePrice = carac.precio_personalizado || (r.tipos_habitacion?.precio_base_noche) || 180000;
+    const priceInput = document.getElementById('edit-room-price');
+    if (priceInput) priceInput.value = effectivePrice;
 
     document.getElementById('edit-room-status').value = r.estado || 'Disponible';
     document.getElementById('edit-room-bed').value = carac.camas || '1 Cama King Size';
@@ -471,6 +484,7 @@ const RoomsModule = {
         accesibilidad: !!document.querySelector('#modal-room-editor input[name="accesibilidad"]')?.checked,
         camas: camas,
         tamano_m2: tamano,
+        precio_personalizado: parseInt(document.getElementById('edit-room-price')?.value) || 180000,
         imagenes: this.currentGalleryImages
       };
 

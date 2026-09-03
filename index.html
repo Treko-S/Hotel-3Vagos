@@ -87,6 +87,10 @@
         <i class="fas fa-cash-register"></i>
         <span>Caja & Facturación</span>
       </a>
+      <a class="nav-item" data-view="rates">
+        <i class="fas fa-tags"></i>
+        <span>Tarifas & Temporadas</span>
+      </a>
       <a class="nav-item" data-view="guests">
         <i class="fas fa-user-friends"></i>
         <span>Huéspedes & CRM</span>
@@ -450,6 +454,238 @@
           <button class="btn btn-outline" onclick="AuthModule.logout()" style="margin: 0 auto;">
             <i class="fas fa-sign-out-alt"></i> Cerrar Sesión / Cambiar Usuario
           </button>
+        </div>
+      <!-- =====================================================
+           VIEW: TARIFAS, TEMPORADAS & REVENUE MANAGEMENT
+           ===================================================== -->
+      <section id="view-rates" class="view-section">
+        <div class="card-panel">
+          <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
+            <div>
+              <h3 class="panel-title"><i class="fas fa-chart-line" style="color: var(--accent-gold);"></i> Estrategia de Precios & Revenue Management</h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                Gestión de temporadas anuales, reglas de fin de semana, cupones, convenios corporativos y paquetes add-ons
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-outline" onclick="RatesSeasonsModule.loadSeasons()">
+                <i class="fas fa-sync-alt"></i> Sincronizar
+              </button>
+              <button class="btn btn-primary" onclick="RatesSeasonsModule.openSeasonModal()">
+                <i class="fas fa-plus"></i> Nueva Temporada
+              </button>
+            </div>
+          </div>
+
+          <!-- Barra de Pestañas (Tabs) -->
+          <div style="display: flex; gap: 6px; border-bottom: 2px solid #E2E8F0; padding: 0 20px; overflow-x: auto; background: #F8FAFC;">
+            <button class="rates-tab-btn active" data-tab="tab-seasons" onclick="RatesSeasonsModule.switchTab('tab-seasons')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: var(--primary-navy); cursor: pointer; border-bottom: 3px solid var(--primary-blue); margin-bottom: -2px;">
+              <i class="fas fa-calendar-alt"></i> Temporadas & Calendario
+            </button>
+            <button class="rates-tab-btn" data-tab="tab-occupancy" onclick="RatesSeasonsModule.switchTab('tab-occupancy')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
+              <i class="fas fa-users"></i> Huéspedes & Fines de Semana
+            </button>
+            <button class="rates-tab-btn" data-tab="tab-promos" onclick="RatesSeasonsModule.switchTab('tab-promos')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
+              <i class="fas fa-tags"></i> Promociones & Corporativos
+            </button>
+            <button class="rates-tab-btn" data-tab="tab-addons" onclick="RatesSeasonsModule.switchTab('tab-addons')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
+              <i class="fas fa-concierge-bell"></i> Paquetes & Add-ons
+            </button>
+            <button class="rates-tab-btn" data-tab="tab-simulator" onclick="RatesSeasonsModule.switchTab('tab-simulator')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
+              <i class="fas fa-calculator"></i> Cotizador / Simulador en Vivo
+            </button>
+          </div>
+
+          <div style="padding: 24px;">
+
+            <!-- TAB 1: TEMPORADAS & CALENDARIO -->
+            <div id="tab-seasons" class="rates-tab-content active">
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Nombre de la Temporada</th>
+                      <th>Fecha Inicio</th>
+                      <th>Fecha Fin</th>
+                      <th>Multiplicador / Variación</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="seasons-table-body">
+                    <!-- Dinámico desde Supabase -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- TAB 2: REGLAS DE OCUPACIÓN Y FIN DE SEMANA -->
+            <div id="tab-occupancy" class="rates-tab-content" style="display: none;">
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;">
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
+                  <h4 style="font-size: 15px; font-weight: 600; color: var(--primary-navy); margin: 0 0 14px 0;">
+                    <i class="fas fa-users-cog" style="color: var(--primary-blue);"></i> Política de Ocupación y Huéspedes Adicionales
+                  </h4>
+                  <div class="form-group">
+                    <label>Huéspedes Base Incluidos en Tarifa</label>
+                    <input type="number" id="rule-base-guests" class="form-control" value="2" min="1" max="6">
+                    <small style="color: var(--text-muted); font-size: 11px;">Capacidad base antes de aplicar suplementos</small>
+                  </div>
+                  <div class="form-group">
+                    <label>Recargo por Adulto Adicional (Gs. / noche)</label>
+                    <input type="number" id="rule-extra-adult" class="form-control" value="60000" step="5000">
+                    <small style="color: var(--text-muted); font-size: 11px;">Aplica para mayores de 12 años</small>
+                  </div>
+                  <div class="form-group">
+                    <label>Recargo por Niño Adicional (Gs. / noche)</label>
+                    <input type="number" id="rule-extra-child" class="form-control" value="30000" step="5000">
+                    <small style="color: var(--text-muted); font-size: 11px;">Tarifa familiar bonificada para menores de 12 años</small>
+                  </div>
+                </div>
+
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
+                  <div>
+                    <h4 style="font-size: 15px; font-weight: 600; color: var(--primary-navy); margin: 0 0 14px 0;">
+                      <i class="fas fa-glass-cheers" style="color: var(--accent-gold);"></i> Regla de Fines de Semana (Viernes & Sábado)
+                    </h4>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 16px;">
+                      <input type="checkbox" id="rule-weekend-enabled" checked style="width: 18px; height: 18px;">
+                      <span style="font-size: 13.5px; font-weight: 600; color: var(--primary-navy);">Habilitar recargo automático de fin de semana</span>
+                    </label>
+                    <div class="form-group">
+                      <label>Porcentaje de Recargo de Fin de Semana (%)</label>
+                      <input type="number" id="rule-weekend-pct" class="form-control" value="15" min="0" max="100">
+                      <small style="color: var(--text-muted); font-size: 11px;">Se aplica automáticamente a las noches de viernes y sábado</small>
+                    </div>
+                  </div>
+                  <button class="btn btn-primary" onclick="RatesSeasonsModule.saveGeneralRules()" style="margin-top: 20px;">
+                    <i class="fas fa-save"></i> Guardar Políticas de Precios
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: PROMOCIONES & CONVENIOS CORPORATIVOS -->
+            <div id="tab-promos" class="rates-tab-content" style="display: none;">
+              <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
+                  <h4 style="font-size: 15px; font-weight: 600; color: var(--primary-navy); margin: 0 0 14px 0;">
+                    <i class="fas fa-ticket-alt" style="color: var(--primary-blue);"></i> Crear Nueva Promoción / Convenio
+                  </h4>
+                  <div class="form-group">
+                    <label>Código del Cupón / Empresa *</label>
+                    <input type="text" id="new-promo-code" class="form-control" placeholder="Ej: PROMOVERANO, CORP_BANCO" style="text-transform: uppercase; font-family: monospace; font-weight: bold;">
+                  </div>
+                  <div class="form-group">
+                    <label>Tipo de Beneficio</label>
+                    <select id="new-promo-type" class="form-control">
+                      <option value="percent">Promoción Abierta (Cupón Huésped)</option>
+                      <option value="corporate">Convenio Corporativo / Empresa</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Porcentaje de Descuento (%)</label>
+                    <input type="number" id="new-promo-val" class="form-control" value="15" min="1" max="50">
+                  </div>
+                  <div class="form-group">
+                    <label>Descripción / Observación</label>
+                    <input type="text" id="new-promo-desc" class="form-control" placeholder="Ej: Convenio especial 2026">
+                  </div>
+                  <button class="btn btn-primary" onclick="RatesSeasonsModule.addNewPromo()" style="width: 100%;">
+                    <i class="fas fa-plus"></i> Registrar Promoción
+                  </button>
+                </div>
+
+                <div>
+                  <div style="overflow-x: auto;">
+                    <table class="custom-table">
+                      <thead>
+                        <tr>
+                          <th>Código</th>
+                          <th>Tipo</th>
+                          <th>Descuento</th>
+                          <th>Descripción</th>
+                          <th>Estado</th>
+                          <th>Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody id="promotions-table-body">
+                        <!-- Dinámico -->
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 4: ADD-ONS & PAQUETES -->
+            <div id="tab-addons" class="rates-tab-content" style="display: none;">
+              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+                Servicios adicionales y paquetes opcionales que se suman de forma transparente a la reserva y a la cuenta del huésped (Folio).
+              </p>
+              <div id="addons-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+                <!-- Dinámico -->
+              </div>
+            </div>
+
+            <!-- TAB 5: SIMULADOR DE TARIFAS EN TIEMPO REAL -->
+            <div id="tab-simulator" class="rates-tab-content" style="display: none;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 14px; padding: 20px;">
+                  <h4 style="font-size: 15px; font-weight: 600; color: var(--primary-navy); margin: 0 0 14px 0;">
+                    <i class="fas fa-sliders-h" style="color: var(--primary-blue);"></i> Parámetros de Simulación de Reserva
+                  </h4>
+
+                  <div class="form-group">
+                    <label>Habitación Seleccionada</label>
+                    <select id="sim-room" class="form-control" onchange="RatesSeasonsModule.calculateSimulation()">
+                      <!-- Opciones dinámicas -->
+                    </select>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                    <div class="form-group" style="margin: 0;">
+                      <label>Check-in</label>
+                      <input type="date" id="sim-checkin" class="form-control" onchange="RatesSeasonsModule.calculateSimulation()">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                      <label>Check-out</label>
+                      <input type="date" id="sim-checkout" class="form-control" onchange="RatesSeasonsModule.calculateSimulation()">
+                    </div>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+                    <div class="form-group" style="margin: 0;">
+                      <label>Adultos</label>
+                      <input type="number" id="sim-adults" class="form-control" value="2" min="1" max="6" onchange="RatesSeasonsModule.calculateSimulation()">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                      <label>Niños (&lt; 12 años)</label>
+                      <input type="number" id="sim-children" class="form-control" value="0" min="0" max="4" onchange="RatesSeasonsModule.calculateSimulation()">
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Código Promocional o Corporativo (Opcional)</label>
+                    <input type="text" id="sim-promocode" class="form-control" placeholder="Ej: VERANO2026, CORP_UTCD" style="text-transform: uppercase; font-family: monospace;" oninput="RatesSeasonsModule.calculateSimulation()">
+                  </div>
+
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label>Agregar Servicios & Add-ons</label>
+                    <div id="sim-addons-list">
+                      <!-- Checkboxes dinámicos -->
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Resultado del Cálculo -->
+                <div id="sim-breakdown-result">
+                  <!-- Renderizado dinámico de la cotización -->
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
       </section>
 
@@ -826,17 +1062,24 @@
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px;">
             <div class="form-group" style="margin: 0;">
               <label>Categoría / Tipo de Habitación *</label>
-              <select id="edit-room-type" class="form-control" required style="background: #fff; color: #0F172A; font-weight: 500;">
-                <option value="1">1. Habitacion Standard Single • 180.000 Gs. (1 huésped)</option>
-                <option value="2">2. Habitacion Doble Twin • 260.000 Gs. (2 huéspedes)</option>
-                <option value="3">3. Matrimonial Confort • 320.000 Gs. (2 huéspedes)</option>
-                <option value="4">4. Familiar Superior • 450.000 Gs. (4 huéspedes)</option>
-                <option value="5">5. Suite Presidencial Imperial • 750.000 Gs. (2 huéspedes)</option>
+              <select id="edit-room-type" class="form-control" required style="background: #fff; color: #0F172A; font-weight: 500;" onchange="RoomsModule.onRoomTypeChange(this.value)">
+                <option value="1">Habitación Standard Single (hasta 1 huésped)</option>
+                <option value="2">Habitación Doble Twin (hasta 2 huéspedes)</option>
+                <option value="3">Matrimonial Confort (hasta 2 huéspedes)</option>
+                <option value="4">Familiar Superior (hasta 4 huéspedes)</option>
+                <option value="5">Suite Presidencial Imperial (hasta 2 huéspedes)</option>
               </select>
             </div>
+            <div class="form-group" style="margin: 0;">
+              <label>Tarifa x Noche (Gs.) *</label>
+              <input type="number" id="edit-room-price" class="form-control" required min="50000" step="5000" value="180000" style="font-weight: 700; color: #B45309; background: #FFFBEB; border-color: #FCD34D;">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 20px;">
             <div class="form-group" style="margin: 0;">
               <label>Configuración de Cama</label>
               <input type="text" id="edit-room-bed" class="form-control" placeholder="1 King o 2 Twin" value="1 Cama King Size">
@@ -970,6 +1213,44 @@
     </div>
   </div>
 
+  <!-- Modal Editor de Temporadas -->
+  <div id="modal-season-editor" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 480px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <h3 id="season-modal-title" style="font-size: 18px; color: var(--primary-navy); margin: 0;">Nueva Temporada</h3>
+        <button class="modal-close" onclick="closeModal('modal-season-editor')">&times;</button>
+      </div>
+      <form id="form-season-editor" onsubmit="event.preventDefault(); RatesSeasonsModule.saveSeason();">
+        <input type="hidden" id="season-id">
+        <div class="form-group">
+          <label>Nombre de la Temporada *</label>
+          <input type="text" id="season-name" class="form-control" placeholder="Ej: Temporada Alta Verano" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+          <div class="form-group" style="margin: 0;">
+            <label>Fecha Inicio *</label>
+            <input type="date" id="season-start" class="form-control" required>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label>Fecha Fin *</label>
+            <input type="date" id="season-end" class="form-control" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Multiplicador de Tarifa *</label>
+          <input type="number" id="season-mult" class="form-control" step="0.05" min="0.5" max="3.0" value="1.25" required>
+          <small style="color: var(--text-muted); font-size: 11px;">1.00 = Tarifa estándar | 1.25 = +25% (Alta) | 0.85 = -15% (Baja)</small>
+        </div>
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-season-editor')">Cancelar</button>
+          <button type="submit" id="btn-save-season" class="btn btn-primary">
+            <i class="fas fa-save"></i> Guardar Temporada
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal de Confirmación de Cierre de Sesión (Emergente Nativa de la App) -->
   <div id="modal-logout-confirm" class="modal-backdrop">
     <div class="modal-box" style="max-width: 420px; text-align: center; padding: 28px; border-radius: var(--radius-xl);">
@@ -1000,6 +1281,7 @@
   <script src="js/modules/dashboard.js"></script>
   <script src="js/modules/reservations.js"></script>
   <script src="js/modules/rooms.js"></script>
+  <script src="js/modules/rates_seasons.js"></script>
   <script src="js/modules/housekeeping.js"></script>
   <script src="js/modules/maintenance.js"></script>
   <script src="js/modules/cash_billing.js"></script>
