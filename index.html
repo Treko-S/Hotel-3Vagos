@@ -730,6 +730,16 @@
           <label>Número de Documento</label>
           <input type="text" id="checkin-doc-number" class="form-control" placeholder="Ej: 6537648" value="6537648">
         </div>
+
+        <!-- Acompañantes Registrados Legalmente -->
+        <div id="checkin-companions-container" style="margin-top: 14px; display: none;">
+          <label style="font-weight: 600; font-size: 12.5px; color: var(--primary-navy); display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-users" style="color: var(--accent-gold);"></i> Acompañantes Registrados (Legal):
+          </label>
+          <div id="checkin-companions-list" style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 12px; margin-top: 6px; max-height: 120px; overflow-y: auto;">
+          </div>
+        </div>
+
         <div class="checklist-item" style="margin-top: 14px; padding: 10px; background: #f8fafc; border-radius: var(--radius-sm);">
           <input type="checkbox" id="checkin-key-checkbox" checked>
           <label for="checkin-key-checkbox" style="font-weight: 600; cursor: pointer;">Entrega de Llave / Tarjeta Magnética de Habitación</label>

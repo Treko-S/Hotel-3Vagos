@@ -1,14 +1,14 @@
 /**
- * HOTEL 3 VAGOS - UTCD
- * Security Shield: Anti-Tampering, Console Silencer & DevTools Blocker
- * Protege contra ingeniería inversa y oculta peticiones y trazas en consola.
- */
+* HOTEL 3 VAGOS - UTCD
+* Security Shield: Anti-Tampering, Console Silencer & DevTools Blocker
+* Protege contra ingeniería inversa y oculta peticiones y trazas en consola.
+*/
 
 (function () {
   'use strict';
 
   // 1. Silenciar y neutralizar métodos de la consola en todos los navegadores
-  const noop = function () {};
+  const noop = function () { };
   const methods = ['log', 'debug', 'info', 'warn', 'error', 'table', 'trace', 'dir', 'dirxml', 'group', 'groupCollapsed', 'groupEnd', 'time', 'timeEnd', 'timeLog'];
 
   try {
@@ -16,15 +16,15 @@
       methods.forEach(method => {
         try {
           window.console[method] = noop;
-        } catch (e) {}
+        } catch (e) { }
       });
 
       // Congelar el objeto console para evitar que scripts externos restauren los logs
       try {
         Object.freeze(window.console);
-      } catch (e) {}
+      } catch (e) { }
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // 2. Suprimir errores no capturados y promesas rechazadas para no exponer trazas ni URLs
   window.addEventListener('error', function (event) {

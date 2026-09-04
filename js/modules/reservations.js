@@ -40,7 +40,7 @@ const ReservationsModule = {
 
       const { data, error } = await supabaseClient
         .from('reservas')
-        .select('*, habitaciones(*, tipos_habitacion(*)), folios(*)')
+        .select('*, habitaciones(*, tipos_habitacion(*)), folios(*), acompanantes(*)')
         .order('id', { ascending: false });
 
       if (error) throw error;
@@ -86,7 +86,14 @@ const ReservationsModule = {
             <div style="font-size: 12px;"><i class="far fa-calendar-alt" style="color: var(--info);"></i> ${formatDate(b.check_in_previsto)}</div>
             <div style="font-size: 12px;"><i class="far fa-calendar-check" style="color: var(--danger);"></i> ${formatDate(b.check_out_previsto)}</div>
           </td>
-          <td>${b.cantidad_huespedes || 1} pers.</td>
+          <td>
+            <div>${b.cantidad_huespedes || 1} pers.</div>
+            ${b.acompanantes && b.acompanantes.length > 0 ? `
+              <span class="badge badge-confirmada" style="font-size: 9.5px; padding: 2px 6px; cursor: help; margin-top: 3px; display: inline-block;" title="${b.acompanantes.map(a => a.full_name).join(', ')}">
+                <i class="fas fa-users"></i> +${b.acompanantes.length} legal
+              </span>
+            ` : ''}
+          </td>
           <td>
             <div style="font-weight: bold; color: var(--primary-dark);">${formatGs(b.monto_total)}</div>
             <div style="font-size: 11px; color: ${saldoPendiente > 0 ? 'var(--danger)' : 'var(--success)'};">
@@ -155,6 +162,28 @@ const ReservationsModule = {
     document.getElementById('checkin-room-number').innerText = booking.habitaciones?.numero || 'N/A';
     document.getElementById('checkin-dates').innerText = `${formatDate(booking.check_in_previsto)} al ${formatDate(booking.check_out_previsto)}`;
     document.getElementById('checkin-total').innerText = formatGs(booking.monto_total);
+
+    // Mostrar acompañantes registrados legalmente si existen
+    const compContainer = document.getElementById('checkin-companions-container');
+    const compList = document.getElementById('checkin-companions-list');
+    if (compContainer && compList) {
+      const companions = booking.acompanantes || [];
+      if (companions.length > 0) {
+        compContainer.style.display = 'block';
+        compList.innerHTML = companions.map((c, idx) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #e2e8f0; font-size: 11.5px;">
+            <div>
+              <strong>${sanitizeInput(c.full_name || 'Acompañante ' + (idx + 1))}</strong>
+              <span style="color: var(--text-muted); font-size: 10.5px;">(${c.is_adult === false ? 'Menor' : 'Adulto'}${c.relationship ? ' - ' + sanitizeInput(c.relationship) : ''})</span>
+            </div>
+            <span class="badge badge-confirmada" style="font-size: 10px;">${sanitizeInput(c.document_type || 'Doc')}: ${sanitizeInput(c.document_number || 'N/D')}</span>
+          </div>
+        `).join('');
+      } else {
+        compContainer.style.display = 'none';
+        compList.innerHTML = '';
+      }
+    }
 
     openModal('modal-checkin');
   },
