@@ -175,22 +175,22 @@ const ReservationsModule = {
           <td>
             <div style="display: flex; gap: 5px; align-items: center;">
               ${b.estado !== 'Check-in' && b.estado !== 'Finalizada' && b.estado !== 'Cancelada' ? `
-                <button class="btn btn-sm btn-primary" onclick="ReservationsModule.openCheckInModal(${b.id})" title="Realizar Check-in">
+                <button class="btn btn-sm btn-primary" onclick="ReservationsModule.openCheckInModal('${b.id}')" title="Realizar Check-in">
                   <i class="fas fa-sign-in-alt"></i> Check-in
                 </button>
               ` : ''}
 
               ${b.estado === 'Check-in' || b.estado === 'En estadía' ? `
-                <button class="btn btn-sm btn-gold" onclick="ReservationsModule.openCheckOutModal(${b.id})" title="Realizar Check-out y Cobro">
+                <button class="btn btn-sm btn-gold" onclick="ReservationsModule.openCheckOutModal('${b.id}')" title="Realizar Check-out y Cobro">
                   <i class="fas fa-sign-out-alt"></i> Check-out
                 </button>
               ` : ''}
 
-              <button class="btn btn-sm btn-outline" onclick="ReservationsModule.viewFolioDetail(${b.id})" title="Ver Folio & Comprobante SET">
+              <button class="btn btn-sm btn-outline" onclick="ReservationsModule.viewFolioDetail('${b.id}')" title="Ver Folio & Comprobante SET">
                 <i class="fas fa-file-invoice-dollar"></i>
               </button>
 
-              <button class="btn btn-sm btn-outline" style="color: #4F46E5; border-color: #C7D2FE;" onclick="ReservationsModule.quickSendEmail(${b.id})" title="Enviar Comprobante por Correo (Resend)">
+              <button class="btn btn-sm btn-outline" style="color: #4F46E5; border-color: #C7D2FE;" onclick="ReservationsModule.quickSendEmail('${b.id}')" title="Enviar Comprobante por Correo (Resend)">
                 <i class="fas fa-paper-plane"></i>
               </button>
             </div>
@@ -595,37 +595,422 @@ const ReservationsModule = {
   },
 
   /**
+   * Obtiene el historial de envíos de correo para un código de reserva
+   */
+  getFolioEmailHistory(codigoReserva) {
+    try {
+      const raw = localStorage.getItem('folio_email_history_' + codigoReserva);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {
+      console.warn('getFolioEmailHistory error:', e);
+    }
+    return { sentCount: 0, dispatches: [] };
+  },
+
+  /**
+   * Guarda un despacho de correo en el historial local para auditoría
+   */
+  saveFolioEmailDispatch(codigoReserva, dispatchInfo) {
+    const history = this.getFolioEmailHistory(codigoReserva);
+    history.sentCount = (history.sentCount || 0) + 1;
+    if (!history.dispatches) history.dispatches = [];
+    history.dispatches.push(dispatchInfo);
+    try {
+      localStorage.setItem('folio_email_history_' + codigoReserva, JSON.stringify(history));
+    } catch (e) {
+      console.warn('saveFolioEmailDispatch error:', e);
+    }
+    return history;
+  },
+
+  setResendReason(text) {
+    const input = document.getElementById('resend-reason-text');
+    if (input) {
+      input.value = text;
+      input.focus();
+    }
+  },
+
+  /**
+   * Permite a recepción registrar un consumo extra rápido en el folio
+   */
+  async promptAddConsumption(bookingId) {
+    const desc = prompt('Ingrese el concepto del consumo (ej. Frigobar: 2x Agua + Snickers, Room Service):', 'Consumo Frigobar / Minibar');
+    if (!desc) return;
+    const montoStr = prompt('Ingrese el monto del consumo en Guaraníes (Gs.):', '35000');
+    if (!montoStr) return;
+    const monto = Number(montoStr.replace(/\D/g, '')) || 0;
+    if (monto <= 0) {
+      showToast('Monto inválido', 'warning');
+      return;
+    }
+
+    const booking = this.currentBookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
+    const nuevoConsumo = (Number(folio.total_consumos) || 0) + monto;
+    const nuevoSaldo = (Number(folio.saldo_pendiente) || 0) + monto;
+
+    try {
+      if (folio.id) {
+        await supabaseClient.from('folios').update({
+          total_consumos: nuevoConsumo,
+          saldo_pendiente: nuevoSaldo
+        }).eq('id', folio.id);
+      }
+      showToast(`¡Consumo de ${formatGs(monto)} registrado en folio!`, 'success');
+      await this.loadReservations();
+      this.viewFolioDetail(bookingId);
+    } catch (e) {
+      console.error('Error al agregar consumo:', e);
+      showToast('Error al registrar consumo: ' + e.message, 'error');
+    }
+  },
+
+  viewFolioDetail(bookingId) {
+    const booking = this.currentBookings.find(b => b.id === bookingId);
+    if (!booking) return;
+
+    this.currentActiveFolioBooking = booking;
+
+    const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
+    const hab = booking.habitaciones || {};
+    const tipo = hab.tipos_habitacion || {};
+    const user = booking.users || {};
+    const pagos = Array.isArray(folio.pagos_folio) ? folio.pagos_folio : [];
+
+    const montoTotal = Number(booking.monto_total || 0);
+    const totalConsumos = Number(folio.total_consumos || 0);
+    const granTotal = montoTotal + totalConsumos;
+    const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(booking.anticipo_pagado || 0);
+    const saldoPendiente = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, granTotal - anticipo);
+
+    // Cálculos Impositivos según normativa SET / DNIT Paraguay
+    const gravada10 = Math.round(granTotal / 1.10);
+    const iva10 = Math.round(granTotal / 11);
+
+    const dIn = new Date(booking.check_in_previsto);
+    const dOut = new Date(booking.check_out_previsto);
+    const nights = Math.max(1, Math.round((dOut - dIn) / (1000 * 60 * 60 * 24)) || 1);
+    const tarifaDiaria = nights > 0 ? Math.round(montoTotal / nights) : montoTotal;
+
+    const history = this.getFolioEmailHistory(booking.codigo_reserva);
+
+    const content = `
+      <div style="font-family: var(--font-sans); color: var(--text-main);">
+        <!-- Membrete Legal SET Paraguay -->
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 style="font-family: var(--font-heading); color: var(--primary-navy); margin: 0 0 4px; font-size: 18px; font-weight: 700;">HOTEL 3 VAGOS S.A.</h3>
+              <p style="margin: 0; font-size: 11.5px; color: var(--text-muted);">Servicios de Alojamiento y Hospedaje Turístico</p>
+              <p style="margin: 2px 0 0; font-size: 11.5px; color: var(--text-muted);"><i class="fas fa-map-marker-alt"></i> Asunción, Paraguay - Convenio UTCD</p>
+            </div>
+            <div style="text-align: right; background: #FFF; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 6px;">
+              <div style="font-size: 11px; font-weight: bold; color: var(--primary-navy);">RUC: 80092341-2</div>
+              <div style="font-size: 10.5px; color: var(--text-muted);">Timbrado N°: <strong>16789423</strong></div>
+              <div style="font-size: 9.5px; color: var(--text-light);">Válido hasta: 31/12/2026</div>
+              <div style="font-size: 11px; font-weight: bold; color: var(--accent-gold); margin-top: 3px;">
+                COMPROBANTE LEGAL / FOLIO
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estado de Auditoría de Envíos -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: ${history.sentCount > 0 ? '#F0FDF4' : '#F8FAFC'}; border: 1px solid ${history.sentCount > 0 ? '#BBF7D0' : '#E2E8F0'}; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <i class="${history.sentCount > 0 ? 'fas fa-envelope-circle-check' : 'fas fa-envelope'}" style="color: ${history.sentCount > 0 ? '#15803D' : '#64748B'}; font-size: 16px;"></i>
+            <div>
+              <strong style="font-size: 12.5px; color: ${history.sentCount > 0 ? '#166534' : 'var(--primary-navy)'};">
+                ${history.sentCount === 0 ? 'Comprobante no enviado aún al huésped' : `Comprobante despachado ${history.sentCount} vez${history.sentCount > 1 ? 'ces' : ''}`}
+              </strong>
+              <div style="font-size: 11px; color: var(--text-muted);">
+                ${history.sentCount === 0 ? 'El primer envío se remite directamente; los reenvíos solicitarán motivo obligatorio.' : `Último envío: ${formatDate(history.dispatches[history.dispatches.length - 1].timestamp)}`}
+              </div>
+            </div>
+          </div>
+          <span class="badge" style="background: ${history.sentCount > 0 ? '#DCFCE7' : '#E2E8F0'}; color: ${history.sentCount > 0 ? '#166534' : '#475569'}; font-size: 11px;">
+            ${history.sentCount === 0 ? 'Pendiente' : `Despacho #${history.sentCount}`}
+          </span>
+        </div>
+
+        <!-- Datos del Huésped y Reserva -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <div style="background: #FFF; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-md);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
+              <i class="fas fa-user"></i> Titular de la Reserva
+            </div>
+            <div style="font-weight: 700; color: var(--primary-dark); font-size: 13.5px;">${sanitizeInput(user.full_name || 'Huésped')}</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Doc / RUC: <strong>${sanitizeInput(user.document_number || 'S/D')}</strong></div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Email: <span style="color: var(--primary-blue); font-weight: 600;">${sanitizeInput(user.email || 'rc652107@gmail.com')}</span></div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Tel: ${sanitizeInput(user.phone || '+595 S/N')}</div>
+          </div>
+
+          <div style="background: #FFF; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-md);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
+              <i class="fas fa-door-open"></i> Detalles de Hospedaje
+            </div>
+            <div style="font-weight: 700; color: var(--primary-dark); font-size: 13.5px;">Habitación ${sanitizeInput(hab.numero || 'N/A')} - ${sanitizeInput(tipo.nombre || 'Estándar')}</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              Estadía: <strong>${formatDate(booking.check_in_previsto)}</strong> al <strong>${formatDate(booking.check_out_previsto)}</strong>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Duración: <strong>${nights} noche${nights > 1 ? 's' : ''}</strong> | ${booking.cantidad_huespedes || 1} Huésped(es)</div>
+            <div style="font-size: 11.5px; margin-top: 2px;">
+              Estado Folio: <span class="badge ${folio.estado === 'Cerrado' ? 'badge-cerrado' : 'badge-abierto'}">${folio.estado || 'Abierto'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desglose de Cargos y Consumos -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 0 0 8px;">
+          <h5 style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-list-ol"></i> Conceptos & Cargos del Folio
+          </h5>
+          <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 3px 8px;" onclick="ReservationsModule.promptAddConsumption('${booking.id}')">
+            <i class="fas fa-plus-circle"></i> Agregar Consumo
+          </button>
+        </div>
+
+        <table style="width: 100%; font-size: 12.5px; border-collapse: collapse; margin-bottom: 16px; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+          <thead>
+            <tr style="background: #F1F5F9; text-align: left;">
+              <th style="padding: 9px 12px; font-weight: 600;">Descripción del Servicio</th>
+              <th style="padding: 9px 12px; text-align: center; font-weight: 600;">Cant. / Noches</th>
+              <th style="padding: 9px 12px; text-align: right; font-weight: 600;">Tarifa Unit.</th>
+              <th style="padding: 9px 12px; text-align: right; font-weight: 600;">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid var(--border-color);">
+              <td style="padding: 9px 12px;">
+                <strong>Alojamiento: Habitación ${sanitizeInput(hab.numero || '')} (${sanitizeInput(tipo.nombre || 'Estándar')})</strong>
+                <div style="font-size: 11px; color: var(--text-muted);">${formatDate(booking.check_in_previsto)} a ${formatDate(booking.check_out_previsto)}</div>
+              </td>
+              <td style="padding: 9px 12px; text-align: center;">${nights}</td>
+              <td style="padding: 9px 12px; text-align: right;">${formatGs(tarifaDiaria)}</td>
+              <td style="padding: 9px 12px; text-align: right; font-weight: bold;">${formatGs(montoTotal)}</td>
+            </tr>
+            ${totalConsumos > 0 ? `
+              <tr style="border-bottom: 1px solid var(--border-color); background: #FFFBEB;">
+                <td style="padding: 9px 12px;">
+                  <strong style="color: #B45309;"><i class="fas fa-cocktail"></i> Consumos Extras (Frigobar, Lavandería, Room Service)</strong>
+                  <div style="font-size: 11px; color: var(--text-muted);">Cargos cargados a la cuenta de la habitación</div>
+                </td>
+                <td style="padding: 9px 12px; text-align: center;">1</td>
+                <td style="padding: 9px 12px; text-align: right;">${formatGs(totalConsumos)}</td>
+                <td style="padding: 9px 12px; text-align: right; font-weight: bold; color: #B45309;">${formatGs(totalConsumos)}</td>
+              </tr>
+            ` : ''}
+          </tbody>
+          <tfoot>
+            <tr style="background: #F8FAFC; font-weight: 700;">
+              <td colspan="3" style="padding: 9px 12px; text-align: right; color: var(--primary-navy);">Total Facturable de Cuenta:</td>
+              <td style="padding: 9px 12px; text-align: right; font-size: 14px; color: var(--primary-dark);">${formatGs(granTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- Historial de Pagos & Señas Registradas -->
+        <h5 style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin: 0 0 8px; display: flex; align-items: center; gap: 6px;">
+          <i class="fas fa-receipt" style="color: var(--success);"></i> Pagos & Señas Registradas
+        </h5>
+        <div style="border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; margin-bottom: 16px;">
+          ${pagos.length > 0 ? `
+            <table style="width: 100%; font-size: 12.5px; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #F0FDF4; text-align: left; color: #166534;">
+                  <th style="padding: 8px 12px;">Fecha</th>
+                  <th style="padding: 8px 12px;">Método de Pago</th>
+                  <th style="padding: 8px 12px;">Referencia / TRX</th>
+                  <th style="padding: 8px 12px; text-align: right;">Abono Recibido</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pagos.map(p => `
+                  <tr style="border-bottom: 1px solid #E2E8F0;">
+                    <td style="padding: 8px 12px;">${formatDate(p.fecha_pago || booking.created_at)}</td>
+                    <td style="padding: 8px 12px;">
+                      <span class="badge" style="background: #DCFCE7; color: #166534; font-size: 10.5px;">${sanitizeInput(p.metodo_pago)}</span>
+                    </td>
+                    <td style="padding: 8px 12px; font-family: monospace; font-size: 11.5px; color: var(--text-muted);">${sanitizeInput(p.referencia_transaccion || 'N/A')}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #15803D;">-${formatGs(p.monto)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : anticipo > 0 ? `
+            <div style="padding: 10px 14px; background: #F0FDF4; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: bold;">
+                  <i class="fas fa-check-circle"></i> Seña Abonada
+                </span>
+                <span style="font-size: 12px; color: var(--text-muted); margin-left: 8px;">Abono de reserva garantizada</span>
+              </div>
+              <strong style="color: #15803D; font-size: 13.5px;">-${formatGs(anticipo)}</strong>
+            </div>
+          ` : `
+            <div style="padding: 12px 16px; color: var(--text-muted); font-size: 12px; text-align: center;">
+              Aún no se registran pagos ni señas para este folio. El huésped liquidará al check-out o mediante la app.
+            </div>
+          `}
+        </div>
+
+        <!-- Liquidación Impositiva SET Paraguay & Saldos -->
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+            <div>
+              <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">
+                Liquidación Impositiva SET (IVA 10%)
+              </div>
+              <div style="font-size: 11.5px; color: var(--text-muted);">Gravadas 10%: <strong>${formatGs(gravada10)}</strong></div>
+              <div style="font-size: 11.5px; color: var(--text-muted);">Liquidación IVA 10%: <strong>${formatGs(iva10)}</strong></div>
+              <div style="font-size: 11.5px; color: var(--text-muted);">Subtotal Exentas: <strong>0 Gs.</strong></div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 12px; color: var(--text-muted);">Total Facturable: <strong style="color: var(--primary-dark);">${formatGs(granTotal)}</strong></div>
+              <div style="font-size: 12px; color: #15803D; margin: 3px 0;">Total Abonado / Seña: <strong>-${formatGs(anticipo)}</strong></div>
+              <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-color);">
+                <span style="font-size: 12px; font-weight: 600; color: var(--primary-navy);">Saldo Pendiente:</span>
+                <span style="font-size: 17px; font-weight: 800; color: ${saldoPendiente > 0 ? 'var(--danger)' : 'var(--success)'}; margin-left: 6px;">
+                  ${formatGs(saldoPendiente)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Auditoría de Reenvíos Anteriores con Motivos -->
+        ${history.dispatches && history.dispatches.length > 0 ? `
+          <div style="background: #FFF; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px 16px;">
+            <div style="font-size: 12px; font-weight: 700; color: var(--primary-navy); margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+              <span><i class="fas fa-history" style="color: var(--primary-blue);"></i> Auditoría de Despachos & Reenvíos (${history.dispatches.length})</span>
+              <span style="font-size: 10.5px; color: var(--text-muted); font-weight: normal;">Control de recepción & caja</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              ${history.dispatches.map((d, idx) => `
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 6px; font-size: 11.5px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong>Envío #${idx + 1} • ${formatDate(d.timestamp)}</strong>
+                    <span style="font-size: 10.5px; color: var(--text-muted);"><i class="fas fa-user-tag"></i> ${d.sender || 'Recepción'}</span>
+                  </div>
+                  ${d.reason ? `
+                    <div style="margin-top: 4px; background: #EFF6FF; border-left: 3px solid #3B82F6; padding: 4px 8px; border-radius: 4px; color: #1E3A8A;">
+                      <strong>Motivo de reenvío:</strong> ${sanitizeInput(d.reason)}
+                    </div>
+                  ` : `
+                    <div style="margin-top: 3px; color: var(--text-muted); font-size: 10.5px;">
+                      Primer despacho oficial de comprobante
+                    </div>
+                  `}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+
+    document.getElementById('folio-modal-content').innerHTML = content;
+
+    // Actualizar botón de envío de correo en el modal
+    const btnResend = document.getElementById('btn-folio-resend-email');
+    if (btnResend) {
+      if (history.sentCount === 0) {
+        btnResend.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Comprobante (Resend)';
+        btnResend.className = 'btn btn-gold btn-sm';
+        btnResend.title = 'Enviar comprobante por primera vez al correo del huésped';
+      } else {
+        btnResend.innerHTML = `<i class="fas fa-history"></i> Reenviar Cuenta Actualizada (${history.sentCount})`;
+        btnResend.className = 'btn btn-primary btn-sm';
+        btnResend.title = 'Reenviar comprobante actualizado (solicitará motivo por normativa)';
+      }
+    }
+
+    openModal('modal-folio');
+  },
+
+  /**
    * Envía el comprobante digital legal mediante la API de Resend
+   * Si ya fue enviado previamente, solicita obligatoriamente el motivo de reenvío
    */
   async sendFolioEmailCurrent() {
     if (!this.currentActiveFolioBooking) {
       showToast('Selecciona una reserva primero', 'warning');
       return;
     }
-    await this.dispatchResendEmail(this.currentActiveFolioBooking);
+
+    const booking = this.currentActiveFolioBooking;
+    const history = this.getFolioEmailHistory(booking.codigo_reserva);
+
+    if (history.sentCount === 0) {
+      // Primer envío: se remite directamente
+      await this.dispatchResendEmail(booking, null);
+    } else {
+      // Siguientes envíos: solicitar motivo obligatorio
+      const reasonInput = document.getElementById('resend-reason-text');
+      if (reasonInput) reasonInput.value = '';
+      openModal('modal-resend-reason');
+    }
+  },
+
+  /**
+   * Confirma y ejecuta el reenvío tras ingresar el motivo
+   */
+  async confirmResendFolioEmail() {
+    if (!this.currentActiveFolioBooking) return;
+    const reasonInput = document.getElementById('resend-reason-text');
+    const reason = reasonInput ? reasonInput.value.trim() : '';
+
+    if (!reason || reason.length < 4) {
+      showToast('Por favor ingrese el motivo del reenvío según la normativa del despacho', 'warning');
+      if (reasonInput) reasonInput.focus();
+      return;
+    }
+
+    closeModal('modal-resend-reason');
+    await this.dispatchResendEmail(this.currentActiveFolioBooking, reason);
   },
 
   async quickSendEmail(bookingId) {
     const booking = this.currentBookings.find(b => b.id === bookingId);
     if (!booking) return;
-    await this.dispatchResendEmail(booking);
+
+    this.currentActiveFolioBooking = booking;
+    const history = this.getFolioEmailHistory(booking.codigo_reserva);
+
+    if (history.sentCount === 0) {
+      await this.dispatchResendEmail(booking, null);
+    } else {
+      const reasonInput = document.getElementById('resend-reason-text');
+      if (reasonInput) reasonInput.value = '';
+      openModal('modal-resend-reason');
+    }
   },
 
-  async dispatchResendEmail(booking) {
+  async dispatchResendEmail(booking, reason = null) {
     const user = booking.users || {};
     const hab = booking.habitaciones || {};
     const tipo = hab.tipos_habitacion || {};
     const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
     
     const montoTotal = Number(booking.monto_total || 0);
+    const totalConsumos = Number(folio.total_consumos || 0);
+    const granTotal = montoTotal + totalConsumos;
     const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(booking.anticipo_pagado || 0);
-    const saldo = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, montoTotal - anticipo);
-    const iva10 = Math.round(montoTotal / 11);
+    const saldo = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, granTotal - anticipo);
+    const iva10 = Math.round(granTotal / 11);
 
     const clientEmail = user.email || 'rc652107@gmail.com';
     const clientName = user.full_name || 'Huésped Distinguido';
 
-    showToast(`Enviando comprobante legal a ${clientEmail} vía Resend...`, 'info');
+    const history = this.getFolioEmailHistory(booking.codigo_reserva);
+    const currentDispatchNum = (history.sentCount || 0) + 1;
+
+    showToast(reason 
+      ? `Reenviando cuenta actualizada #${currentDispatchNum} a ${clientEmail}...` 
+      : `Enviando comprobante oficial a ${clientEmail} vía Resend...`, 'info');
 
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
@@ -637,8 +1022,22 @@ const ReservationsModule = {
         <div style="padding: 24px;">
           <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
             <p style="margin: 0; font-size: 11px; color: #64748B;">RUC: <strong>80092341-2</strong> | Timbrado SET: <strong>16789423</strong> (Vig. 31/12/2026)</p>
-            <p style="margin: 3px 0 0; font-size: 13px; font-weight: 700; color: #0F172A;">COMPROBANTE OFICIAL DE RESERVA & PAGO</p>
+            <p style="margin: 3px 0 0; font-size: 13px; font-weight: 700; color: #0F172A;">COMPROBANTE OFICIAL DE RESERVA & FOLIO DE CUENTA</p>
           </div>
+
+          ${reason ? `
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-left: 5px solid #2563EB; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+              <div style="font-size: 11px; font-weight: 700; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px;">
+                ACTUALIZACIÓN OFICIAL DE CUENTA (Reenvío N° ${currentDispatchNum})
+              </div>
+              <div style="font-size: 13px; color: #1E3A8A; font-weight: 600; margin-top: 4px; line-height: 1.4;">
+                <strong>Motivo de la actualización:</strong> ${sanitizeInput(reason)}
+              </div>
+              <div style="font-size: 11px; color: #64748B; margin-top: 4px;">
+                Despacho de Recepción & Caja Central
+              </div>
+            </div>
+          ` : ''}
 
           <p style="font-size: 14px; color: #334155; margin-bottom: 16px;">
             Estimado/a <strong>${clientName}</strong>,<br>
@@ -663,8 +1062,18 @@ const ReservationsModule = {
               <td style="padding: 8px 0; text-align: right;">${formatDate(booking.check_out_previsto)} (Hasta las 11:00)</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B;">Monto Total de Estadía:</td>
-              <td style="padding: 8px 0; text-align: right; font-weight: 700;">${formatGs(montoTotal)}</td>
+              <td style="padding: 8px 0; color: #64748B;">Monto Alojamiento:</td>
+              <td style="padding: 8px 0; text-align: right; font-weight: 600;">${formatGs(montoTotal)}</td>
+            </tr>
+            ${totalConsumos > 0 ? `
+              <tr style="border-bottom: 1px solid #E2E8F0; background: #FFFBEB;">
+                <td style="padding: 8px 6px; color: #B45309; font-weight: 600;">Consumos Extras (Frigobar / Servicios):</td>
+                <td style="padding: 8px 6px; text-align: right; font-weight: 700; color: #B45309;">+${formatGs(totalConsumos)}</td>
+              </tr>
+            ` : ''}
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 8px 0; color: #64748B; font-weight: 700;">Total Facturable:</td>
+              <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #0F172A;">${formatGs(granTotal)}</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0; background: #F0FDF4;">
               <td style="padding: 8px 6px; color: #166534; font-weight: 600;">Seña / Pago Registrado:</td>
@@ -677,7 +1086,7 @@ const ReservationsModule = {
           </table>
 
           <div style="background: #F8FAFC; border-radius: 8px; padding: 12px; font-size: 11.5px; color: #64748B; margin-bottom: 20px;">
-            <strong>Desglose Impositivo SET Paraguay:</strong> Gravadas 10%: ${formatGs(Math.round(montoTotal / 1.10))} | IVA 10%: ${formatGs(iva10)} | Exentas: 0 Gs.
+            <strong>Desglose Impositivo SET Paraguay:</strong> Gravadas 10%: ${formatGs(Math.round(granTotal / 1.10))} | IVA 10%: ${formatGs(iva10)} | Exentas: 0 Gs.
           </div>
 
           <div style="text-align: center; color: #94A3B8; font-size: 12px; line-height: 1.5;">
@@ -690,6 +1099,10 @@ const ReservationsModule = {
 
     try {
       const resendApiKey = window.RESEND_API_KEY || atob('cmVfVHNKdjlTelJfNnJnVkZZNmZRQmJ6UFRtUlN4aG1iMmRp');
+      const subjectTitle = reason 
+        ? `[Cuenta Actualizada #${currentDispatchNum}] Folio & Reserva ${booking.codigo_reserva} | Hotel 3 Vagos` 
+        : `Comprobante de Reserva & Folio - ${booking.codigo_reserva} | Hotel 3 Vagos`;
+
       // Intentar envío por Resend API
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -700,7 +1113,7 @@ const ReservationsModule = {
         body: JSON.stringify({
           from: 'Hotel 3 Vagos <onboarding@resend.dev>',
           to: [clientEmail],
-          subject: `Comprobante de Reserva & Seña - ${booking.codigo_reserva} | Hotel 3 Vagos`,
+          subject: subjectTitle,
           html: emailHtml
         })
       });
@@ -719,19 +1132,35 @@ const ReservationsModule = {
             body: JSON.stringify({
               from: 'Hotel 3 Vagos <onboarding@resend.dev>',
               to: ['mckakucorpii@gmail.com'],
-              subject: `[Comprobante para ${clientEmail}] Reserva ${booking.codigo_reserva} - Hotel 3 Vagos`,
+              subject: `[Para: ${clientEmail}] ${subjectTitle}`,
               html: emailHtml
             })
           });
           if (fallbackRes.ok) {
-            showToast(`¡Comprobante enviado exitosamente por Resend! (Recibido en cuenta verificada mckakucorpii@gmail.com)`, 'success');
+            // Guardar auditoría del envío
+            this.saveFolioEmailDispatch(booking.codigo_reserva, {
+              timestamp: new Date().toISOString(),
+              recipient: clientEmail,
+              reason: reason,
+              sender: AppState.currentUser?.name || 'Recepción & Caja'
+            });
+            this.viewFolioDetail(booking.id);
+            showToast(`¡Comprobante ${reason ? 'actualizado' : ''} enviado exitosamente por Resend! (Recibido en cuenta verificada mckakucorpii@gmail.com)`, 'success');
             return;
           }
         }
         throw new Error(resData.message || 'Error en Resend');
       }
 
-      showToast(`¡Comprobante enviado exitosamente a ${clientEmail} vía Resend!`, 'success');
+      // Guardar auditoría del envío
+      this.saveFolioEmailDispatch(booking.codigo_reserva, {
+        timestamp: new Date().toISOString(),
+        recipient: clientEmail,
+        reason: reason,
+        sender: AppState.currentUser?.name || 'Recepción & Caja'
+      });
+      this.viewFolioDetail(booking.id);
+      showToast(`¡Comprobante ${reason ? 'actualizado' : ''} enviado exitosamente a ${clientEmail} vía Resend!`, 'success');
 
     } catch (e) {
       console.error('Error al enviar correo por Resend:', e);
