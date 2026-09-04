@@ -250,6 +250,9 @@
                 <option value="CHECK-IN">En Estadía (Check-in)</option>
                 <option value="FINALIZADA">Finalizadas</option>
               </select>
+              <button class="btn btn-primary" onclick="ReservationsModule.openNewReservationModal()">
+                <i class="fas fa-calendar-plus"></i> Nueva Reserva
+              </button>
             </div>
           </div>
 
@@ -698,6 +701,81 @@
        MODAL DIALOGS
        ========================================================= -->
 
+  <!-- Modal Nueva Reserva & Disponibilidad por Fechas -->
+  <div id="modal-new-reservation" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3><i class="fas fa-calendar-plus" style="color: var(--primary-navy);"></i> Crear Nueva Reserva</h3>
+        <button class="modal-close" onclick="closeModal('modal-new-reservation')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-bed"></i> Habitación</label>
+          <select id="new-res-room" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-sign-in-alt" style="color: var(--success);"></i> Check-in</label>
+            <input type="date" id="new-res-checkin" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()">
+          </div>
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-sign-out-alt" style="color: var(--danger);"></i> Check-out</label>
+            <input type="date" id="new-res-checkout" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()">
+          </div>
+        </div>
+
+        <!-- Feedback de Disponibilidad en Tiempo Real -->
+        <div id="new-res-availability-feedback" style="margin-bottom: 16px;"></div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-users"></i> Cantidad Huéspedes</label>
+            <input type="number" id="new-res-guests-count" class="form-control" value="1" min="1" max="6">
+          </div>
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-concierge-bell"></i> Canal de Venta</label>
+            <select id="new-res-channel" class="form-control">
+              <option value="Recepción / Walk-in">Recepción / Walk-in</option>
+              <option value="Reserva Telefónica">Reserva Telefónica</option>
+              <option value="WhatsApp Corporativo">WhatsApp Corporativo</option>
+              <option value="Web Administrativa">Web Administrativa</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-user"></i> Nombre del Huésped Titular</label>
+          <input type="text" id="new-res-guest-name" class="form-control" placeholder="Ej: Juan Pérez González">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-id-card"></i> Doc / Cédula</label>
+            <input type="text" id="new-res-guest-doc" class="form-control" placeholder="Ej: 4.567.890">
+          </div>
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-phone"></i> Teléfono</label>
+            <input type="text" id="new-res-guest-phone" class="form-control" placeholder="Ej: 0981 123456">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-envelope"></i> Correo Electrónico</label>
+          <input type="email" id="new-res-guest-email" class="form-control" placeholder="cliente@email.com">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-new-reservation')">Cancelar</button>
+        <button id="new-res-confirm-btn" class="btn btn-primary" onclick="ReservationsModule.confirmNewReservation()">
+          <i class="fas fa-check-circle"></i> Confirmar Reserva
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Check-in -->
   <div id="modal-checkin" class="modal-backdrop">
     <div class="modal-box">
@@ -1022,10 +1100,21 @@
         <p id="detail-room-obs" style="font-size: 12.5px; color: var(--text-muted); background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 8px; margin: 0 0 20px 0; line-height: 1.5;">
           -
         </p>
+
+        <!-- Disponibilidad & Calendario de Reservas -->
+        <h4 style="font-size: 14px; font-weight: 600; color: var(--primary-navy); margin: 0 0 8px 0;">
+          <i class="fas fa-calendar-alt" style="color: var(--accent-gold);"></i> Disponibilidad & Calendario de Fechas
+        </h4>
+        <div id="detail-room-schedule-container" style="margin-bottom: 20px;">
+          <!-- Dinámico -->
+        </div>
       </div>
 
       <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 16px; margin-top: 10px;">
         <button class="btn btn-outline" onclick="closeModal('modal-room-details')">Cerrar</button>
+        <button id="detail-btn-go-reserve" class="btn btn-gold">
+          <i class="fas fa-calendar-plus"></i> Reservar Fechas Libres
+        </button>
         <button id="detail-btn-go-edit" class="btn btn-primary">
           <i class="fas fa-sliders-h"></i> Editar Especificaciones & Fotos
         </button>

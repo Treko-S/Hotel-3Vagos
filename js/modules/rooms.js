@@ -165,11 +165,30 @@ const RoomsModule = {
               <span class="status-dot"></span>
               ${sanitizeInput(r.estado)}
             </span>
+            ${(() => {
+              const allB = (typeof ReservationsModule !== 'undefined' && ReservationsModule.currentBookings) ? ReservationsModule.currentBookings : [];
+              const roomB = allB.filter(x => x.habitacion_id == r.id && x.estado !== 'Cancelada' && x.estado !== 'Finalizada');
+              if (r.estado.toLowerCase() === 'ocupada') {
+                const active = roomB.find(x => x.estado === 'Check-in' || x.estado === 'En estadía' || x.estado === 'Ocupada') || roomB[0];
+                if (active && active.check_out_previsto) {
+                  return `<div style="font-size: 10px; color: #b45309; margin-top: 3px; font-weight: 500;"><i class="far fa-calendar-alt"></i> Libre: ${formatDate(active.check_out_previsto)}</div>`;
+                }
+              } else if (r.estado.toLowerCase() === 'disponible') {
+                const upcoming = [...roomB].sort((a,b) => (a.check_in_previsto||'').localeCompare(b.check_in_previsto||''))[0];
+                if (upcoming && upcoming.check_in_previsto) {
+                  return `<div style="font-size: 10px; color: #2563eb; margin-top: 3px; font-weight: 500;" title="Reserva programada"><i class="far fa-calendar-check"></i> Próx: ${formatDate(upcoming.check_in_previsto)}</div>`;
+                }
+              }
+              return '';
+            })()}
           </td>
           <td>
             <div style="display: flex; gap: 6px;">
               <button class="btn btn-sm btn-outline" onclick="RoomsModule.viewRoomDetails(${r.id})" title="Ver Ficha y Especificaciones Completas" style="padding: 6px 10px;">
                 <i class="fas fa-eye"></i> Ficha
+              </button>
+              <button class="btn btn-sm btn-gold" onclick="ReservationsModule.openNewReservationModal(${r.id})" title="Reservar Fechas Libres de esta Habitación" style="padding: 6px 8px;">
+                <i class="fas fa-calendar-plus"></i>
               </button>
               <button class="btn btn-sm btn-primary" onclick="RoomsModule.openEditRoomModal(${r.id})" title="Editar Especificaciones y Fotos" style="padding: 6px 10px;">
                 <i class="fas fa-sliders-h"></i> Editar
@@ -282,7 +301,60 @@ const RoomsModule = {
       }).join('');
     }
 
-    // 5. Botón directo de edición
+    // 5. Calendario y Disponibilidad de Fechas de esta Habitación
+    const schedContainer = document.getElementById('detail-room-schedule-container');
+    if (schedContainer) {
+      const allB = (typeof ReservationsModule !== 'undefined' && ReservationsModule.currentBookings) ? ReservationsModule.currentBookings : [];
+      const roomBookings = allB.filter(x => x.habitacion_id == r.id && x.estado !== 'Cancelada' && x.estado !== 'Finalizada')
+        .sort((a,b) => (a.check_in_previsto||'').localeCompare(b.check_in_previsto||''));
+
+      if (roomBookings.length === 0) {
+        schedContainer.innerHTML = `
+          <div style="background: #F0FDF4; border: 1px solid #BBF7D0; padding: 12px; border-radius: 8px; color: #166534; font-size: 12.5px; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-calendar-check" style="font-size: 16px;"></i>
+            <div>
+              <strong>Habitación 100% Libre:</strong> No posee reservas programadas. Lista para reservar cualquier rango de fechas.
+            </div>
+          </div>
+        `;
+      } else {
+        schedContainer.innerHTML = `
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px; border-radius: 8px;">
+            <div style="font-size: 12px; font-weight: 600; color: var(--primary-navy); margin-bottom: 8px;">
+              <i class="fas fa-calendar-times" style="color: var(--danger);"></i> Periodos Ocupados / Reservados:
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              ${roomBookings.map(b => `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; border: 1px solid #CBD5E1; padding: 6px 10px; border-radius: 6px; font-size: 11.5px;">
+                  <div>
+                    <strong>${formatDate(b.check_in_previsto)} al ${formatDate(b.check_out_previsto)}</strong>
+                    <span style="color: var(--text-muted); font-size: 10.5px;">(${sanitizeInput(b.codigo_reserva)})</span>
+                  </div>
+                  <span class="badge ${b.estado === 'Check-in' || b.estado === 'En estadía' ? 'badge-ocupada' : 'badge-confirmada'}" style="font-size: 10px;">
+                    ${sanitizeInput(b.estado)}
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+              <i class="fas fa-info-circle"></i> Los rangos fuera de estos periodos están completamente disponibles para reserva.
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // 6. Botones de acción
+    const reserveBtn = document.getElementById('detail-btn-go-reserve');
+    if (reserveBtn) {
+      reserveBtn.onclick = () => {
+        closeModal('modal-room-details');
+        if (typeof ReservationsModule !== 'undefined' && ReservationsModule.openNewReservationModal) {
+          ReservationsModule.openNewReservationModal(r.id);
+        }
+      };
+    }
+
     const editBtn = document.getElementById('detail-btn-go-edit');
     if (editBtn) {
       editBtn.onclick = () => {

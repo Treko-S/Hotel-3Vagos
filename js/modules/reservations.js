@@ -385,5 +385,232 @@ const ReservationsModule = {
 
     document.getElementById('folio-modal-content').innerHTML = content;
     openModal('modal-folio');
+  },
+
+  /**
+   * Apertura del Modal de Nueva Reserva con disponibilidad en tiempo real por fechas
+   */
+  openNewReservationModal(presetRoomId = null) {
+    const roomSelect = document.getElementById('new-res-room');
+    if (!roomSelect) return;
+
+    const rooms = RoomsModule.rooms || [];
+    if (rooms.length === 0) {
+      showToast('Cargando habitaciones...', 'info');
+      RoomsModule.loadRooms().then(() => this.openNewReservationModal(presetRoomId));
+      return;
+    }
+
+    roomSelect.innerHTML = rooms.map(r => {
+      const tipo = r.tipos_habitacion || {};
+      const carac = (r.caracteristicas && typeof r.caracteristicas === 'object') ? r.caracteristicas : {};
+      const price = carac.precio_personalizado || tipo.precio_base_noche || 150000;
+      const isSelected = presetRoomId && r.id == presetRoomId ? 'selected' : '';
+      return `<option value="${r.id}" data-price="${price}" data-capacidad="${tipo.capacidad_personas || 2}" ${isSelected}>
+        Habitación ${sanitizeInput(r.numero)} - ${sanitizeInput(tipo.nombre || 'Estándar')} (${formatGs(price)}/noche) - [${sanitizeInput(r.estado)}]
+      </option>`;
+    }).join('');
+
+    // Fechas por defecto: mañana a 3 días
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dayAfter = new Date(tomorrow);
+    dayAfter.setDate(dayAfter.getDate() + 2);
+
+    const toInputDate = (d) => d.toISOString().split('T')[0];
+
+    const checkInInput = document.getElementById('new-res-checkin');
+    const checkOutInput = document.getElementById('new-res-checkout');
+    if (checkInInput) checkInInput.value = toInputDate(tomorrow);
+    if (checkOutInput) checkOutInput.value = toInputDate(dayAfter);
+
+    this.checkNewReservationAvailability();
+    openModal('modal-new-reservation');
+  },
+
+  openNewReservationModalForRoom(roomId) {
+    closeModal('modal-room-details');
+    this.openNewReservationModal(roomId);
+  },
+
+  checkNewReservationAvailability() {
+    const roomSelect = document.getElementById('new-res-room');
+    const checkInInput = document.getElementById('new-res-checkin');
+    const checkOutInput = document.getElementById('new-res-checkout');
+    const feedbackEl = document.getElementById('new-res-availability-feedback');
+    const confirmBtn = document.getElementById('new-res-confirm-btn');
+
+    if (!roomSelect || !checkInInput || !checkOutInput || !feedbackEl) return;
+
+    const roomId = parseInt(roomSelect.value);
+    const checkInVal = checkInInput.value;
+    const checkOutVal = checkOutInput.value;
+
+    if (!roomId || !checkInVal || !checkOutVal) {
+      feedbackEl.innerHTML = '';
+      if (confirmBtn) confirmBtn.disabled = true;
+      return;
+    }
+
+    const dIn = new Date(checkInVal + 'T14:00:00');
+    const dOut = new Date(checkOutVal + 'T11:00:00');
+
+    if (dOut <= dIn) {
+      feedbackEl.innerHTML = `
+        <div style="background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 10px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>La fecha de Check-out debe ser posterior a la fecha de Check-in.</span>
+        </div>
+      `;
+      if (confirmBtn) confirmBtn.disabled = true;
+      return;
+    }
+
+    // Buscar reservas existentes no canceladas para esta habitación
+    const existingBookings = this.currentBookings.filter(b => {
+      const bSt = (b.estado || '').toLowerCase();
+      return b.habitacion_id == roomId && bSt !== 'cancelada' && bSt !== 'finalizada';
+    });
+
+    // Validar solapamiento: (newCheckIn < existingCheckOut && newCheckOut > existingCheckIn)
+    const collision = existingBookings.find(b => {
+      const bIn = b.check_in_previsto ? new Date(b.check_in_previsto + 'T14:00:00') : null;
+      const bOut = b.check_out_previsto ? new Date(b.check_out_previsto + 'T11:00:00') : null;
+      if (!bIn || !bOut) return false;
+      return dIn < bOut && dOut > bIn;
+    });
+
+    const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+    const pricePerNight = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+    const nights = Math.max(1, Math.round((new Date(checkOutVal) - new Date(checkInVal)) / (1000 * 60 * 60 * 24)));
+    const totalPrice = pricePerNight * nights;
+
+    if (collision) {
+      feedbackEl.innerHTML = `
+        <div style="background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 10px 14px; border-radius: 8px; font-size: 12px;">
+          <div style="font-weight: bold; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <i class="fas fa-calendar-times"></i> Conflicto de Fechas: Habitación Ocupada / Reservada
+          </div>
+          <div>Ya existe la reserva <strong>${sanitizeInput(collision.codigo_reserva)}</strong> del <strong>${formatDate(collision.check_in_previsto)}</strong> al <strong>${formatDate(collision.check_out_previsto)}</strong>. Por favor selecciona otro rango disponible.</div>
+        </div>
+      `;
+      if (confirmBtn) confirmBtn.disabled = true;
+    } else {
+      feedbackEl.innerHTML = `
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; padding: 10px 14px; border-radius: 8px; font-size: 12px;">
+          <div style="font-weight: bold; display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+            <i class="fas fa-check-circle"></i> ¡Habitación Totalmente Disponible para estas Fechas!
+          </div>
+          <div style="color: #15803D;">
+            <strong>${nights} noche${nights > 1 ? 's' : ''}</strong> (${formatGs(pricePerNight)} x ${nights}) = <strong>Total: ${formatGs(totalPrice)}</strong>
+          </div>
+        </div>
+      `;
+      if (confirmBtn) confirmBtn.disabled = false;
+    }
+  },
+
+  async confirmNewReservation() {
+    try {
+      const roomSelect = document.getElementById('new-res-room');
+      const roomId = parseInt(roomSelect?.value);
+      const checkInVal = document.getElementById('new-res-checkin')?.value;
+      const checkOutVal = document.getElementById('new-res-checkout')?.value;
+      const guestsCount = parseInt(document.getElementById('new-res-guests-count')?.value || 1);
+      const channel = document.getElementById('new-res-channel')?.value || 'Recepción / Walk-in';
+      const guestName = (document.getElementById('new-res-guest-name')?.value || '').trim();
+      const guestDoc = (document.getElementById('new-res-guest-doc')?.value || '').trim();
+      const guestPhone = (document.getElementById('new-res-guest-phone')?.value || '').trim();
+      const guestEmail = (document.getElementById('new-res-guest-email')?.value || '').trim();
+
+      if (!roomId || !checkInVal || !checkOutVal) {
+        showToast('Completa la habitación y las fechas de estadía', 'warning');
+        return;
+      }
+
+      if (!guestName) {
+        showToast('Ingresa el nombre del huésped titular', 'warning');
+        return;
+      }
+
+      const dIn = new Date(checkInVal + 'T14:00:00');
+      const dOut = new Date(checkOutVal + 'T11:00:00');
+      if (dOut <= dIn) {
+        showToast('El check-out debe ser posterior al check-in', 'warning');
+        return;
+      }
+
+      const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+      const pricePerNight = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+      const nights = Math.max(1, Math.round((new Date(checkOutVal) - new Date(checkInVal)) / (1000 * 60 * 60 * 24)));
+      const totalPrice = pricePerNight * nights;
+
+      // Obtener o asignar guestId si existe
+      let guestId = null;
+      try {
+        const { data: userFound } = await supabaseClient
+          .from('users')
+          .select('id')
+          .or(`email.eq.${guestEmail || 'none'},document_number.eq.${guestDoc || 'none'}`)
+          .limit(1)
+          .maybeSingle();
+        if (userFound) {
+          guestId = userFound.id;
+        } else {
+          const { data: firstUser } = await supabaseClient.from('users').select('id').limit(1).maybeSingle();
+          if (firstUser) guestId = firstUser.id;
+        }
+      } catch (_) {}
+
+      const codigoReserva = 'RES-' + Math.floor(100000 + Math.random() * 900000);
+
+      const { data: newBooking, error: bookErr } = await supabaseClient
+        .from('reservas')
+        .insert({
+          codigo_reserva: codigoReserva,
+          guest_id: guestId,
+          habitacion_id: roomId,
+          check_in_previsto: checkInVal,
+          check_out_previsto: checkOutVal,
+          cantidad_huespedes: guestsCount,
+          monto_total: totalPrice,
+          canal_venta: channel,
+          estado: 'Confirmada'
+        })
+        .select()
+        .single();
+
+      if (bookErr) throw bookErr;
+
+      // Crear Folio de cuenta
+      try {
+        await supabaseClient.from('folios').insert({
+          reserva_id: newBooking.id,
+          guest_id: guestId,
+          total_alojamiento: totalPrice,
+          saldo_pendiente: totalPrice,
+          total_pagos: 0,
+          estado: 'Abierto'
+        });
+      } catch (e) {
+        console.warn('Folio auto-create warning:', e);
+      }
+
+      closeModal('modal-new-reservation');
+      showToast(`¡Reserva ${codigoReserva} confirmada con éxito!`, 'success');
+
+      if (typeof notifyDataChanged === 'function') {
+        notifyDataChanged('reservas', { action: 'create', bookingId: newBooking.id });
+      }
+
+      await this.loadReservations();
+      await DashboardModule.loadKPIs();
+      await RoomsModule.loadRooms();
+
+    } catch (err) {
+      console.error('Error al confirmar nueva reserva:', err);
+      showToast('Error al registrar reserva: ' + err.message, 'error');
+    }
   }
 };
