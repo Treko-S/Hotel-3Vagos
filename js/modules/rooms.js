@@ -749,6 +749,7 @@ const RoomsModule = {
 
         if (error) throw error;
         showToast(`¡Especificaciones de Habitación ${numero} actualizadas con éxito!`, 'success');
+        if (typeof notifyDataChanged === 'function') notifyDataChanged('habitaciones', { action: 'update', numero });
       } else {
         // Modo Creación
         const { error } = await supabaseClient
@@ -757,6 +758,7 @@ const RoomsModule = {
 
         if (error) throw error;
         showToast(`¡Habitación ${numero} registrada exitosamente!`, 'success');
+        if (typeof notifyDataChanged === 'function') notifyDataChanged('habitaciones', { action: 'insert', numero });
       }
 
       closeModal('modal-room-editor');
@@ -793,6 +795,7 @@ const RoomsModule = {
       if (error) throw error;
 
       showToast(`Estado cambiado a '${newStatus}'`, 'success');
+      if (typeof notifyDataChanged === 'function') notifyDataChanged('habitaciones', { action: 'status_change', roomId, status: newStatus });
       await this.loadRooms();
       if (typeof DashboardModule !== 'undefined') DashboardModule.loadKPIs();
       if (typeof HousekeepingModule !== 'undefined') HousekeepingModule.loadHousekeepingBoard();

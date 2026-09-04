@@ -10,6 +10,32 @@ const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 // Cliente con privilegios administrativos para gestión total de inventario y datos
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
+// Canal de sincronización en tiempo real vía Broadcast hacia la app móvil Flutter
+const hotelBroadcastChannel = supabaseClient.channel('hotel_universal_sync');
+hotelBroadcastChannel.subscribe((status) => {
+  console.log('📡 [Broadcast Realtime] Canal hotel_universal_sync status:', status);
+});
+
+/**
+ * Notifica a todas las instancias de la app móvil y dashboards que hubo un cambio en la BD
+ */
+function notifyDataChanged(tableName, details = {}) {
+  try {
+    hotelBroadcastChannel.send({
+      type: 'broadcast',
+      event: 'hotel_data_updated',
+      payload: {
+        table: tableName,
+        timestamp: Date.now(),
+        ...details
+      }
+    });
+    console.log(`🚀 [Broadcast] Notificado cambio en tabla "${tableName}" a la app móvil.`);
+  } catch (err) {
+    console.warn('No se pudo enviar broadcast:', err);
+  }
+}
+
 /**
  * Sanitizador de entradas para evitar ataques XSS o inyecciones
  */

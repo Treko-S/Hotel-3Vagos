@@ -230,6 +230,7 @@ const ReservationsModule = {
 
       closeModal('modal-checkin');
       showToast('¡Check-in realizado con éxito! Habitación marcada como Ocupada', 'success');
+      if (typeof notifyDataChanged === 'function') notifyDataChanged('reservas', { action: 'checkin', bookingId, roomId });
 
       await this.loadReservations();
       await DashboardModule.loadKPIs();
@@ -323,6 +324,7 @@ const ReservationsModule = {
 
       closeModal('modal-checkout');
       showToast('¡Check-out completado! Habitación enviada a Housekeeping (Sucia)', 'success');
+      if (typeof notifyDataChanged === 'function') notifyDataChanged('reservas', { action: 'checkout', bookingId, roomId });
 
       await this.loadReservations();
       await DashboardModule.loadKPIs();
