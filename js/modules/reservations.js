@@ -623,6 +623,25 @@ const ReservationsModule = {
     return history;
   },
 
+  configureBrevoKey() {
+    const currentKey = localStorage.getItem('BREVO_API_KEY') || window.BREVO_API_KEY || '';
+    const currentEmail = localStorage.getItem('BREVO_SENDER_EMAIL') || window.BREVO_SENDER_EMAIL || 'rc652107@gmail.com';
+    const key = prompt('Ingrese su Brevo API Key (obtenida en Brevo -> SMTP & API -> API Keys, comienza con xkeysib-...):', currentKey);
+    if (key !== null) {
+      localStorage.setItem('BREVO_API_KEY', key.trim());
+      window.BREVO_API_KEY = key.trim();
+      const email = prompt('Ingrese el correo remitente verificado en Brevo (su cuenta):', currentEmail);
+      if (email !== null) {
+        localStorage.setItem('BREVO_SENDER_EMAIL', email.trim());
+        window.BREVO_SENDER_EMAIL = email.trim();
+      }
+      showToast('Configuración de Brevo guardada en Web Admin', 'success');
+      if (this.currentActiveFolioBooking) {
+        this.viewFolioDetail(this.currentActiveFolioBooking.id);
+      }
+    }
+  },
+
   setResendReason(text) {
     const input = document.getElementById('resend-reason-text');
     if (input) {
@@ -1098,12 +1117,59 @@ const ReservationsModule = {
     `;
 
     try {
-      const resendApiKey = window.RESEND_API_KEY || atob('cmVfVHNKdjlTelJfNnJnVkZZNmZRQmJ6UFRtUlN4aG1iMmRp');
       const subjectTitle = reason 
         ? `[Cuenta Actualizada #${currentDispatchNum}] Folio & Reserva ${booking.codigo_reserva} | Hotel 3 Vagos` 
         : `Comprobante de Reserva & Folio - ${booking.codigo_reserva} | Hotel 3 Vagos`;
 
-      // Intentar envío por Resend API
+      // 1. INTENTAR PRIMERO CON BREVO (Si está configurado, envía a cualquier email sin restricciones)
+      const brevoApiKey = window.BREVO_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_API_KEY') : null);
+      const brevoSenderEmail = window.BREVO_SENDER_EMAIL || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_SENDER_EMAIL') : null) || 'rc652107@gmail.com';
+      const brevoSenderName = 'Hotel 3 Vagos';
+
+      if (brevoApiKey && brevoApiKey.trim().length > 10) {
+        try {
+          console.log('Despachando correo transaccional vía Brevo API a:', clientEmail);
+          const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+              'api-key': brevoApiKey.trim(),
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              sender: { name: brevoSenderName, email: brevoSenderEmail.trim() },
+              to: [{ email: clientEmail, name: clientName }],
+              subject: subjectTitle,
+              htmlContent: emailHtml
+            })
+          });
+
+          if (brevoRes.ok) {
+            const brevoData = await brevoRes.json();
+            console.log('Brevo API response exitosa:', brevoData);
+
+            this.saveFolioEmailDispatch(booking.codigo_reserva, {
+              timestamp: new Date().toISOString(),
+              recipient: clientEmail,
+              reason: reason,
+              sender: (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name : 'Recepción & Caja',
+              provider: 'Brevo'
+            });
+            this.viewFolioDetail(booking.id);
+            showToast(`¡Comprobante ${reason ? 'actualizado' : ''} entregado a ${clientEmail} vía Brevo API!`, 'success');
+            return;
+          } else {
+            const brevoErr = await brevoRes.json();
+            console.warn('Brevo devolvió error, probando fallback a Resend:', brevoErr);
+          }
+        } catch (bErr) {
+          console.warn('Error al contactar Brevo API, continuando con fallback Resend:', bErr);
+        }
+      }
+
+      // 2. FALLBACK A RESEND API
+      const resendApiKey = window.RESEND_API_KEY || atob('cmVfVHNKdjlTelJfNnJnVkZZNmZRQmJ6UFRtUlN4aG1iMmRp');
+
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -1137,15 +1203,15 @@ const ReservationsModule = {
             })
           });
           if (fallbackRes.ok) {
-            // Guardar auditoría del envío
             this.saveFolioEmailDispatch(booking.codigo_reserva, {
               timestamp: new Date().toISOString(),
               recipient: clientEmail,
               reason: reason,
-              sender: AppState.currentUser?.name || 'Recepción & Caja'
+              sender: (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name : 'Recepción & Caja',
+              provider: 'Resend (Sandbox)'
             });
             this.viewFolioDetail(booking.id);
-            showToast(`¡Comprobante ${reason ? 'actualizado' : ''} enviado exitosamente por Resend! (Recibido en cuenta verificada mckakucorpii@gmail.com)`, 'success');
+            showToast(`¡Comprobante ${reason ? 'actualizado' : ''} enviado por Resend! (Recibido en cuenta verificada mckakucorpii@gmail.com)`, 'success');
             return;
           }
         }
@@ -1157,14 +1223,15 @@ const ReservationsModule = {
         timestamp: new Date().toISOString(),
         recipient: clientEmail,
         reason: reason,
-        sender: AppState.currentUser?.name || 'Recepción & Caja'
+        sender: (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name : 'Recepción & Caja',
+        provider: 'Resend'
       });
       this.viewFolioDetail(booking.id);
       showToast(`¡Comprobante ${reason ? 'actualizado' : ''} enviado exitosamente a ${clientEmail} vía Resend!`, 'success');
 
     } catch (e) {
-      console.error('Error al enviar correo por Resend:', e);
-      showToast('Error al enviar por Resend: ' + e.message, 'warning');
+      console.error('Error al enviar correo:', e);
+      showToast('Error al enviar correo: ' + e.message, 'warning');
     }
   },
 

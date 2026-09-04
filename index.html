@@ -1009,13 +1009,18 @@
       <div class="modal-body" id="folio-modal-content" style="padding: 18px 24px;">
         <!-- Dinámico -->
       </div>
-      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; border-top: 1px solid var(--border-color); background: #f8fafc;">
-        <button class="btn btn-outline btn-sm" onclick="window.print()" title="Imprimir Comprobante">
-          <i class="fas fa-print"></i> Imprimir
-        </button>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; border-top: 1px solid var(--border-color); background: #f8fafc; flex-wrap: wrap; gap: 8px;">
         <div style="display: flex; gap: 8px;">
-          <button id="btn-folio-resend-email" class="btn btn-gold btn-sm" onclick="ReservationsModule.sendFolioEmailCurrent()" title="Enviar copia legal por correo vía Resend">
-            <i class="fas fa-paper-plane"></i> Enviar Comprobante (Resend)
+          <button class="btn btn-outline btn-sm" onclick="window.print()" title="Imprimir Comprobante">
+            <i class="fas fa-print"></i> Imprimir
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="ReservationsModule.configureBrevoKey()" title="Configurar Brevo API (Envío a cualquier correo)">
+            <i class="fas fa-key"></i> Configurar Brevo
+          </button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-folio-resend-email" class="btn btn-gold btn-sm" onclick="ReservationsModule.sendFolioEmailCurrent()" title="Enviar copia legal oficial por correo al huésped">
+            <i class="fas fa-paper-plane"></i> Enviar Comprobante Digital
           </button>
           <button class="btn btn-primary btn-sm" onclick="closeModal('modal-folio')">Cerrar</button>
         </div>
