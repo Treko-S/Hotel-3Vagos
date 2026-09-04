@@ -1019,7 +1019,7 @@
           </button>
         </div>
         <div style="display: flex; gap: 8px;">
-          <button id="btn-folio-resend-email" class="btn btn-gold btn-sm" onclick="ReservationsModule.sendFolioEmailCurrent()" title="Enviar copia legal oficial por correo al huésped">
+          <button id="btn-folio-send-email" class="btn btn-gold btn-sm" onclick="ReservationsModule.sendFolioEmailCurrent()" title="Enviar copia legal oficial por correo al huésped vía Brevo">
             <i class="fas fa-paper-plane"></i> Enviar Comprobante Digital
           </button>
           <button class="btn btn-primary btn-sm" onclick="closeModal('modal-folio')">Cerrar</button>
@@ -1029,7 +1029,7 @@
   </div>
 
   <!-- Modal de Motivo para Reenvío de Folio / Cuenta Actualizada -->
-  <div id="modal-resend-reason" class="modal-backdrop">
+  <div id="modal-reenvio-motivo" class="modal-backdrop">
     <div class="modal-box" style="max-width: 520px; padding: 24px; border-radius: var(--radius-xl);">
       <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -1041,7 +1041,7 @@
             <p style="margin: 0; font-size: 11px; color: var(--text-muted);">Auditoría y control de despacho de recepción & caja</p>
           </div>
         </div>
-        <button class="modal-close" onclick="closeModal('modal-resend-reason')">&times;</button>
+        <button class="modal-close" onclick="closeModal('modal-reenvio-motivo')">&times;</button>
       </div>
 
       <div class="modal-body" style="padding: 0;">
@@ -1058,39 +1058,39 @@
             Motivos Frecuentes (Haga clic para autocompletar):
           </label>
           <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setResendReason('Registro de nuevo abono o seña recibida en folio')">
+            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setReenvioMotivo('Registro de nuevo abono o seña recibida en folio')">
               + Abono / Seña
             </button>
-            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setResendReason('Consumo adicional de Frigobar o Room Service')">
+            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setReenvioMotivo('Consumo adicional de Frigobar o Room Service')">
               + Consumo Frigobar
             </button>
-            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setResendReason('Modificación o extensión de fechas de estadía')">
+            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setReenvioMotivo('Modificación o extensión de fechas de estadía')">
               + Extensión Fechas
             </button>
-            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setResendReason('Actualización de datos legales para Facturación SET')">
+            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setReenvioMotivo('Actualización de datos legales para Facturación SET')">
               + Facturación SET
             </button>
-            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setResendReason('Solicitud expresa de actualización por parte del huésped')">
+            <button type="button" style="background: #F1F5F9; border: 1px solid #CBD5E1; color: var(--primary-navy); padding: 5px 9px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 500;" onclick="ReservationsModule.setReenvioMotivo('Solicitud expresa de actualización por parte del huésped')">
               + Solicitud Huésped
             </button>
           </div>
         </div>
 
         <div class="form-group" style="margin-bottom: 16px;">
-          <label for="resend-reason-text" style="font-size: 12px; font-weight: 600; color: var(--primary-navy); margin-bottom: 6px; display: block;">
+          <label for="reenvio-motivo-texto" style="font-size: 12px; font-weight: 600; color: var(--primary-navy); margin-bottom: 6px; display: block;">
             Motivo del Reenvío *
           </label>
-          <textarea id="resend-reason-text" class="form-control" rows="3" placeholder="Describa el motivo con total libertad (ej. Se acreditó pago parcial de 72.000 Gs. o se añadieron consumos)..." style="font-size: 12.5px;" required></textarea>
+          <textarea id="reenvio-motivo-texto" class="form-control" rows="3" placeholder="Describa el motivo con total libertad (ej. Se acreditó pago parcial de 72.000 Gs. o se añadieron consumos)..." style="font-size: 12.5px;" required></textarea>
         </div>
 
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; font-size: 11.5px; color: var(--text-muted);">
-          <i class="fas fa-info-circle" style="color: var(--primary-blue);"></i> Este motivo quedará registrado en el historial de auditoría del folio y se incluirá en el correo del cliente.
+          <i class="fas fa-info-circle" style="color: var(--primary-blue);"></i> Este motivo quedará registrado en el historial de auditoría del folio y se incluirá en el correo del cliente vía Brevo.
         </div>
       </div>
 
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding-top: 16px; margin-top: 16px; border-top: 1px solid #E2E8F0;">
-        <button type="button" class="btn btn-outline" onclick="closeModal('modal-resend-reason')">Cancelar</button>
-        <button type="button" id="btn-confirm-resend" class="btn btn-primary" onclick="ReservationsModule.confirmResendFolioEmail()">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-reenvio-motivo')">Cancelar</button>
+        <button type="button" id="btn-confirm-reenvio" class="btn btn-primary" onclick="ReservationsModule.confirmReenvioFolioEmail()">
           <i class="fas fa-paper-plane"></i> Confirmar y Reenviar Comprobante
         </button>
       </div>

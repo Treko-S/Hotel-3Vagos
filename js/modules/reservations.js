@@ -190,7 +190,7 @@ const ReservationsModule = {
                 <i class="fas fa-file-invoice-dollar"></i>
               </button>
 
-              <button class="btn btn-sm btn-outline" style="color: #4F46E5; border-color: #C7D2FE;" onclick="ReservationsModule.quickSendEmail('${b.id}')" title="Enviar Comprobante por Correo (Resend)">
+              <button class="btn btn-sm btn-outline" style="color: #4F46E5; border-color: #C7D2FE;" onclick="ReservationsModule.quickSendEmail('${b.id}')" title="Enviar Comprobante por Correo (Brevo)">
                 <i class="fas fa-paper-plane"></i>
               </button>
             </div>
@@ -627,11 +627,11 @@ const ReservationsModule = {
     const currentKey = localStorage.getItem('BREVO_API_KEY') || window.BREVO_API_KEY || '';
     const currentEmail = localStorage.getItem('BREVO_SENDER_EMAIL') || window.BREVO_SENDER_EMAIL || 'rc652107@gmail.com';
     const key = prompt('Ingrese su Brevo API Key (obtenida en Brevo -> SMTP & API -> API Keys, comienza con xkeysib-...):', currentKey);
-    if (key !== null) {
+    if (key !== null && key.trim()) {
       localStorage.setItem('BREVO_API_KEY', key.trim());
       window.BREVO_API_KEY = key.trim();
       const email = prompt('Ingrese el correo remitente verificado en Brevo (su cuenta):', currentEmail);
-      if (email !== null) {
+      if (email !== null && email.trim()) {
         localStorage.setItem('BREVO_SENDER_EMAIL', email.trim());
         window.BREVO_SENDER_EMAIL = email.trim();
       }
@@ -642,8 +642,8 @@ const ReservationsModule = {
     }
   },
 
-  setResendReason(text) {
-    const input = document.getElementById('resend-reason-text');
+  setReenvioMotivo(text) {
+    const input = document.getElementById('reenvio-motivo-texto');
     if (input) {
       input.value = text;
       input.focus();
@@ -933,17 +933,17 @@ const ReservationsModule = {
 
     document.getElementById('folio-modal-content').innerHTML = content;
 
-    // Actualizar botón de envío de correo en el modal
-    const btnResend = document.getElementById('btn-folio-resend-email');
-    if (btnResend) {
+    // Configurar estado del botón de envío de comprobante en folio
+    const btnSend = document.getElementById('btn-folio-send-email');
+    if (btnSend) {
       if (history.sentCount === 0) {
-        btnResend.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Comprobante (Resend)';
-        btnResend.className = 'btn btn-gold btn-sm';
-        btnResend.title = 'Enviar comprobante por primera vez al correo del huésped';
+        btnSend.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar Comprobante Digital (Brevo)';
+        btnSend.className = 'btn btn-gold btn-sm';
+        btnSend.title = 'Enviar comprobante oficial por primera vez al correo del huésped vía Brevo';
       } else {
-        btnResend.innerHTML = `<i class="fas fa-history"></i> Reenviar Cuenta Actualizada (${history.sentCount})`;
-        btnResend.className = 'btn btn-primary btn-sm';
-        btnResend.title = 'Reenviar comprobante actualizado (solicitará motivo por normativa)';
+        btnSend.innerHTML = `<i class="fas fa-history"></i> Reenviar Cuenta Actualizada (${history.sentCount})`;
+        btnSend.className = 'btn btn-primary btn-sm';
+        btnSend.title = 'Reenviar comprobante actualizado vía Brevo (solicitará motivo de auditoría)';
       }
     }
 
@@ -951,7 +951,7 @@ const ReservationsModule = {
   },
 
   /**
-   * Envía el comprobante digital legal mediante la API de Resend
+   * Envía el comprobante digital legal mediante la API oficial de Brevo
    * Si ya fue enviado previamente, solicita obligatoriamente el motivo de reenvío
    */
   async sendFolioEmailCurrent() {
@@ -965,21 +965,21 @@ const ReservationsModule = {
 
     if (history.sentCount === 0) {
       // Primer envío: se remite directamente
-      await this.dispatchResendEmail(booking, null);
+      await this.dispatchBrevoEmail(booking, null);
     } else {
       // Siguientes envíos: solicitar motivo obligatorio
-      const reasonInput = document.getElementById('resend-reason-text');
+      const reasonInput = document.getElementById('reenvio-motivo-texto');
       if (reasonInput) reasonInput.value = '';
-      openModal('modal-resend-reason');
+      openModal('modal-reenvio-motivo');
     }
   },
 
   /**
    * Confirma y ejecuta el reenvío tras ingresar el motivo
    */
-  async confirmResendFolioEmail() {
+  async confirmReenvioFolioEmail() {
     if (!this.currentActiveFolioBooking) return;
-    const reasonInput = document.getElementById('resend-reason-text');
+    const reasonInput = document.getElementById('reenvio-motivo-texto');
     const reason = reasonInput ? reasonInput.value.trim() : '';
 
     if (!reason || reason.length < 4) {
@@ -988,8 +988,8 @@ const ReservationsModule = {
       return;
     }
 
-    closeModal('modal-resend-reason');
-    await this.dispatchResendEmail(this.currentActiveFolioBooking, reason);
+    closeModal('modal-reenvio-motivo');
+    await this.dispatchBrevoEmail(this.currentActiveFolioBooking, reason);
   },
 
   async quickSendEmail(bookingId) {
@@ -1000,15 +1000,15 @@ const ReservationsModule = {
     const history = this.getFolioEmailHistory(booking.codigo_reserva);
 
     if (history.sentCount === 0) {
-      await this.dispatchResendEmail(booking, null);
+      await this.dispatchBrevoEmail(booking, null);
     } else {
-      const reasonInput = document.getElementById('resend-reason-text');
+      const reasonInput = document.getElementById('reenvio-motivo-texto');
       if (reasonInput) reasonInput.value = '';
-      openModal('modal-resend-reason');
+      openModal('modal-reenvio-motivo');
     }
   },
 
-  async dispatchResendEmail(booking, reason = null) {
+  async dispatchBrevoEmail(booking, reason = null) {
     const user = booking.users || {};
     const hab = booking.habitaciones || {};
     const tipo = hab.tipos_habitacion || {};
@@ -1028,8 +1028,8 @@ const ReservationsModule = {
     const currentDispatchNum = (history.sentCount || 0) + 1;
 
     showToast(reason 
-      ? `Reenviando cuenta actualizada #${currentDispatchNum} a ${clientEmail}...` 
-      : `Enviando comprobante oficial a ${clientEmail} vía Resend...`, 'info');
+      ? `Reenviando cuenta actualizada #${currentDispatchNum} a ${clientEmail} vía Brevo...` 
+      : `Enviando comprobante oficial a ${clientEmail} vía Brevo...`, 'info');
 
     const emailHtml = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
@@ -1039,28 +1039,25 @@ const ReservationsModule = {
         </div>
 
         <div style="padding: 24px;">
-          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
-            <p style="margin: 0; font-size: 11px; color: #64748B;">RUC: <strong>80092341-2</strong> | Timbrado SET: <strong>16789423</strong> (Vig. 31/12/2026)</p>
-            <p style="margin: 3px 0 0; font-size: 13px; font-weight: 700; color: #0F172A;">COMPROBANTE OFICIAL DE RESERVA & FOLIO DE CUENTA</p>
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+            <div style="font-size: 11px; color: #64748B;">RUC: <strong>80092341-2</strong> | Timbrado SET: <strong>16789423</strong> (Válido hasta 31/12/2026)</div>
+            <div style="font-size: 14px; font-weight: 700; color: #0F172A; margin-top: 4px;">
+              ${reason ? `COMPROBANTE ACTUALIZADO (VERSIÓN #${currentDispatchNum})` : 'COMPROBANTE OFICIAL DE RESERVA & FOLIO'}
+            </div>
           </div>
 
           ${reason ? `
-            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-left: 5px solid #2563EB; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
-              <div style="font-size: 11px; font-weight: 700; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px;">
-                ACTUALIZACIÓN OFICIAL DE CUENTA (Reenvío N° ${currentDispatchNum})
-              </div>
-              <div style="font-size: 13px; color: #1E3A8A; font-weight: 600; margin-top: 4px; line-height: 1.4;">
-                <strong>Motivo de la actualización:</strong> ${sanitizeInput(reason)}
-              </div>
-              <div style="font-size: 11px; color: #64748B; margin-top: 4px;">
-                Despacho de Recepción & Caja Central
-              </div>
+            <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
+              <strong style="font-size: 12px; color: #1E40AF; display: block; margin-bottom: 2px;">
+                <i class="fas fa-info-circle"></i> Motivo de la actualización:
+              </strong>
+              <span style="font-size: 12.5px; color: #1E3A8A;">${sanitizeInput(reason)}</span>
             </div>
           ` : ''}
 
           <p style="font-size: 14px; color: #334155; margin-bottom: 16px;">
             Estimado/a <strong>${clientName}</strong>,<br>
-            Adjuntamos los detalles oficiales de su estadía en nuestro hotel:
+            Adjuntamos el desglose oficial de tu folio y cuenta de hospedaje en Hotel 3 Vagos:
           </p>
 
           <table style="width: 100%; font-size: 13px; border-collapse: collapse; margin-bottom: 20px;">
@@ -1073,29 +1070,21 @@ const ReservationsModule = {
               <td style="padding: 8px 0; text-align: right; font-weight: 600;">Hab. ${hab.numero || 'N/A'} (${tipo.nombre || 'Estándar'})</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B;">Check-in:</td>
-              <td style="padding: 8px 0; text-align: right;">${formatDate(booking.check_in_previsto)} (Desde las 14:00)</td>
+              <td style="padding: 8px 0; color: #64748B;">Estadía:</td>
+              <td style="padding: 8px 0; text-align: right;">${formatDate(booking.check_in_previsto)} al ${formatDate(booking.check_out_previsto)}</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B;">Check-out:</td>
-              <td style="padding: 8px 0; text-align: right;">${formatDate(booking.check_out_previsto)} (Hasta las 11:00)</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B;">Monto Alojamiento:</td>
-              <td style="padding: 8px 0; text-align: right; font-weight: 600;">${formatGs(montoTotal)}</td>
+              <td style="padding: 8px 0; color: #64748B;">Monto Estadía:</td>
+              <td style="padding: 8px 0; text-align: right; font-weight: 700;">${formatGs(montoTotal)}</td>
             </tr>
             ${totalConsumos > 0 ? `
-              <tr style="border-bottom: 1px solid #E2E8F0; background: #FFFBEB;">
-                <td style="padding: 8px 6px; color: #B45309; font-weight: 600;">Consumos Extras (Frigobar / Servicios):</td>
-                <td style="padding: 8px 6px; text-align: right; font-weight: 700; color: #B45309;">+${formatGs(totalConsumos)}</td>
+              <tr style="border-bottom: 1px solid #E2E8F0;">
+                <td style="padding: 8px 0; color: #64748B;">Consumos Extras / Minibar:</td>
+                <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #D97706;">+${formatGs(totalConsumos)}</td>
               </tr>
             ` : ''}
-            <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B; font-weight: 700;">Total Facturable:</td>
-              <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #0F172A;">${formatGs(granTotal)}</td>
-            </tr>
             <tr style="border-bottom: 1px solid #E2E8F0; background: #F0FDF4;">
-              <td style="padding: 8px 6px; color: #166534; font-weight: 600;">Seña / Pago Registrado:</td>
+              <td style="padding: 8px 6px; color: #166534; font-weight: 600;">Total Abonado / Seña:</td>
               <td style="padding: 8px 6px; text-align: right; font-weight: 700; color: #15803D;">-${formatGs(anticipo)}</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0;">
@@ -1104,134 +1093,72 @@ const ReservationsModule = {
             </tr>
           </table>
 
-          <div style="background: #F8FAFC; border-radius: 8px; padding: 12px; font-size: 11.5px; color: #64748B; margin-bottom: 20px;">
-            <strong>Desglose Impositivo SET Paraguay:</strong> Gravadas 10%: ${formatGs(Math.round(granTotal / 1.10))} | IVA 10%: ${formatGs(iva10)} | Exentas: 0 Gs.
-          </div>
-
-          <div style="text-align: center; color: #94A3B8; font-size: 12px; line-height: 1.5;">
-            <p>¡Esperamos recibirte muy pronto en Hotel 3 Vagos!</p>
-            <p style="font-size: 11px;">Por dudas o asistencia 24/7, contáctanos por WhatsApp o en recepción.</p>
-          </div>
-        </div>
-      </div>
-    `;
-
     try {
       const subjectTitle = reason 
         ? `[Cuenta Actualizada #${currentDispatchNum}] Folio & Reserva ${booking.codigo_reserva} | Hotel 3 Vagos` 
         : `Comprobante de Reserva & Folio - ${booking.codigo_reserva} | Hotel 3 Vagos`;
 
-      // 1. INTENTAR PRIMERO CON BREVO (Si está configurado, envía a cualquier email sin restricciones)
-      const brevoApiKey = window.BREVO_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_API_KEY') : null);
+      // Clave oficial de Brevo API
+      let brevoApiKey = window.BREVO_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_API_KEY') : null);
+      if (!brevoApiKey) {
+        brevoApiKey = prompt('Por favor ingrese su Brevo API Key para remitir el comprobante (xkeysib-...):');
+        if (brevoApiKey && brevoApiKey.trim()) {
+          brevoApiKey = brevoApiKey.trim();
+          localStorage.setItem('BREVO_API_KEY', brevoApiKey);
+          window.BREVO_API_KEY = brevoApiKey;
+        } else {
+          showToast('Envío cancelado: Se requiere la API Key de Brevo', 'warning');
+          return;
+        }
+      }
       const brevoSenderEmail = window.BREVO_SENDER_EMAIL || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_SENDER_EMAIL') : null) || 'rc652107@gmail.com';
       const brevoSenderName = 'Hotel 3 Vagos';
 
-      if (brevoApiKey && brevoApiKey.trim().length > 10) {
-        try {
-          console.log('Despachando correo transaccional vía Brevo API a:', clientEmail);
-          const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
-            method: 'POST',
-            headers: {
-              'api-key': brevoApiKey.trim(),
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              sender: { name: brevoSenderName, email: brevoSenderEmail.trim() },
-              to: [{ email: clientEmail, name: clientName }],
-              subject: subjectTitle,
-              htmlContent: emailHtml
-            })
-          });
-
-          if (brevoRes.ok) {
-            const brevoData = await brevoRes.json();
-            console.log('Brevo API response exitosa:', brevoData);
-
-            this.saveFolioEmailDispatch(booking.codigo_reserva, {
-              timestamp: new Date().toISOString(),
-              recipient: clientEmail,
-              reason: reason,
-              sender: (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name : 'Recepción & Caja',
-              provider: 'Brevo'
-            });
-            this.viewFolioDetail(booking.id);
-            showToast(`¡Comprobante ${reason ? 'actualizado' : ''} entregado a ${clientEmail} vía Brevo API!`, 'success');
-            return;
-          } else {
-            const brevoErr = await brevoRes.json();
-            console.warn('Brevo devolvió error, probando fallback a Resend:', brevoErr);
-          }
-        } catch (bErr) {
-          console.warn('Error al contactar Brevo API, continuando con fallback Resend:', bErr);
-        }
-      }
-
-      // 2. FALLBACK A RESEND API
-      const resendApiKey = window.RESEND_API_KEY || atob('cmVfVHNKdjlTelJfNnJnVkZZNmZRQmJ6UFRtUlN4aG1iMmRp');
-
-      const res = await fetch('https://api.resend.com/emails', {
+      console.log('Despachando correo transaccional vía Brevo API a:', clientEmail);
+      const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${resendApiKey}`,
-          'Content-Type': 'application/json'
+          'api-key': brevoApiKey.trim(),
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
-          from: 'Hotel 3 Vagos <onboarding@resend.dev>',
-          to: [clientEmail],
+          sender: { name: brevoSenderName, email: brevoSenderEmail.trim() },
+          to: [{ email: clientEmail, name: clientName }],
           subject: subjectTitle,
-          html: emailHtml
+          htmlContent: emailHtml
         })
       });
 
-      const resData = await res.json();
-      if (!res.ok) {
-        // En caso de que la clave de prueba de Resend exija la cuenta verificada:
-        if (resData.message && resData.message.includes('mckakucorpii@gmail.com')) {
-          console.log('Enviando a email verificado de la cuenta de prueba Resend...');
-          const fallbackRes = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${resendApiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              from: 'Hotel 3 Vagos <onboarding@resend.dev>',
-              to: ['mckakucorpii@gmail.com'],
-              subject: `[Para: ${clientEmail}] ${subjectTitle}`,
-              html: emailHtml
-            })
-          });
-          if (fallbackRes.ok) {
-            this.saveFolioEmailDispatch(booking.codigo_reserva, {
-              timestamp: new Date().toISOString(),
-              recipient: clientEmail,
-              reason: reason,
-              sender: (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name : 'Recepción & Caja',
-              provider: 'Resend (Sandbox)'
-            });
-            this.viewFolioDetail(booking.id);
-            showToast(`¡Comprobante ${reason ? 'actualizado' : ''} enviado por Resend! (Recibido en cuenta verificada mckakucorpii@gmail.com)`, 'success');
-            return;
-          }
-        }
-        throw new Error(resData.message || 'Error en Resend');
+      const brevoData = await brevoRes.json();
+
+      if (brevoRes.ok) {
+        console.log('Brevo API response exitosa:', brevoData);
+
+        this.saveFolioEmailDispatch(booking.codigo_reserva, {
+          timestamp: new Date().toISOString(),
+          recipient: clientEmail,
+          reason: reason,
+          sender: (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name : 'Recepción & Caja',
+          provider: 'Brevo'
+        });
+        this.viewFolioDetail(booking.id);
+        showToast(`¡Comprobante ${reason ? 'actualizado' : ''} entregado a ${clientEmail} vía Brevo API!`, 'success');
+        return;
       }
 
-      // Guardar auditoría del envío
-      this.saveFolioEmailDispatch(booking.codigo_reserva, {
-        timestamp: new Date().toISOString(),
-        recipient: clientEmail,
-        reason: reason,
-        sender: (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name : 'Recepción & Caja',
-        provider: 'Resend'
-      });
-      this.viewFolioDetail(booking.id);
-      showToast(`¡Comprobante ${reason ? 'actualizado' : ''} enviado exitosamente a ${clientEmail} vía Resend!`, 'success');
+      // Si Brevo requiere autorizar la IP de origen
+      if (brevoData && brevoData.message && brevoData.message.includes('authorised_ips')) {
+        showToast('Brevo requiere autorizar la IP del emisor en app.brevo.com/security/authorised_ips', 'warning');
+        console.warn('Brevo IP Auth necesaria:', brevoData.message);
+        return;
+      }
+
+      throw new Error(brevoData.message || `Error ${brevoRes.status} en Brevo API`);
 
     } catch (e) {
-      console.error('Error al enviar correo:', e);
-      showToast('Error al enviar correo: ' + e.message, 'warning');
+      console.error('Error al enviar correo por Brevo:', e);
+      showToast('Error al enviar por Brevo: ' + e.message, 'warning');
     }
   },
 
