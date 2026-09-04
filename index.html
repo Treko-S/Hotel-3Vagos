@@ -236,19 +236,71 @@
            VIEW 2: RECEPCIÓN & RESERVAS
            ===================================================== -->
       <section id="view-reservations" class="view-section">
+        <!-- KPI Front Desk & Recepción UTCD -->
+        <div class="kpi-grid" style="margin-bottom: 24px;">
+          <div class="kpi-card blue">
+            <div class="kpi-data">
+              <span>Check-in Previstos Hoy</span>
+              <h3 id="frontdesk-kpi-checkin-today">0</h3>
+              <small style="color: var(--info);"><i class="fas fa-sign-in-alt"></i> Llegadas programadas</small>
+            </div>
+            <div class="kpi-icon blue">
+              <i class="fas fa-calendar-check"></i>
+            </div>
+          </div>
+
+          <div class="kpi-card purple">
+            <div class="kpi-data">
+              <span>Huéspedes en Estadía</span>
+              <h3 id="frontdesk-kpi-in-house">0</h3>
+              <small style="color: var(--purple);"><i class="fas fa-bed"></i> Habitaciones ocupadas</small>
+            </div>
+            <div class="kpi-icon purple">
+              <i class="fas fa-user-check"></i>
+            </div>
+          </div>
+
+          <div class="kpi-card green">
+            <div class="kpi-data">
+              <span>Señas & Abonos Recaudados</span>
+              <h3 id="frontdesk-kpi-total-pagos">0 Gs.</h3>
+              <small style="color: var(--success);"><i class="fas fa-shield-alt"></i> Reservas garantizadas</small>
+            </div>
+            <div class="kpi-icon green">
+              <i class="fas fa-hand-holding-usd"></i>
+            </div>
+          </div>
+
+          <div class="kpi-card gold">
+            <div class="kpi-data">
+              <span>Saldos Pendientes de Cobro</span>
+              <h3 id="frontdesk-kpi-total-saldo">0 Gs.</h3>
+              <small style="color: #b45309;"><i class="fas fa-file-invoice-dollar"></i> A liquidar en check-out</small>
+            </div>
+            <div class="kpi-icon gold">
+              <i class="fas fa-coins"></i>
+            </div>
+          </div>
+        </div>
+
         <div class="card-panel">
           <div class="panel-header">
-            <h3 class="panel-title">Gestión de Reservas & Front Desk</h3>
+            <div>
+              <h3 class="panel-title" style="margin-bottom: 4px;">Gestión de Reservas & Front Desk</h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Recepción, control de anticipos legales SET y liquidación de folios</p>
+            </div>
             <div class="panel-tools">
               <div class="search-box">
                 <i class="fas fa-search"></i>
-                <input type="text" id="search-reservations" placeholder="Buscar por código o habitación...">
+                <input type="text" id="search-reservations" placeholder="Buscar por código, huésped o habitación...">
               </div>
               <select id="filter-res-status" class="form-control" style="width: auto; padding: 7px 12px;">
                 <option value="ALL">Todos los Estados</option>
                 <option value="CONFIRMADA">Confirmadas</option>
+                <option value="GARANTIZADA">Garantizadas (con Seña/Pago)</option>
                 <option value="CHECK-IN">En Estadía (Check-in)</option>
                 <option value="FINALIZADA">Finalizadas</option>
+                <option value="CANCELADA">Canceladas</option>
               </select>
               <button class="btn btn-primary" onclick="ReservationsModule.openNewReservationModal()">
                 <i class="fas fa-calendar-plus"></i> Nueva Reserva
@@ -263,8 +315,10 @@
                   <th>Código / Canal</th>
                   <th>Habitación & Tipo</th>
                   <th>Estadía (In / Out)</th>
-                  <th>Huéspedes</th>
-                  <th>Monto Total / Saldo</th>
+                  <th>Huésped Titular</th>
+                  <th>Monto Total</th>
+                  <th>Seña / Anticipo</th>
+                  <th>Saldo Pendiente</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -937,18 +991,34 @@
     </div>
   </div>
 
-  <!-- Modal Folio Detalle -->
+  <!-- Modal Folio Detalle & Facturación Legal SET -->
   <div id="modal-folio" class="modal-backdrop">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 720px; max-height: 90vh; overflow-y: auto; border-radius: var(--radius-xl);">
       <div class="modal-header">
-        <h3><i class="fas fa-file-invoice-dollar" style="color: var(--primary-navy);"></i> Detalle de Cuenta / Folio</h3>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(18, 59, 99, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary-navy);">
+            <i class="fas fa-file-invoice-dollar" style="font-size: 18px;"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 17px; color: var(--primary-navy);">Folio de Cuenta & Comprobante Legal SET</h3>
+            <p style="margin: 0; font-size: 11px; color: var(--text-muted);">Auditoría de cargos, señas registradas y liquidación impositiva</p>
+          </div>
+        </div>
         <button class="modal-close" onclick="closeModal('modal-folio')">&times;</button>
       </div>
-      <div class="modal-body" id="folio-modal-content">
+      <div class="modal-body" id="folio-modal-content" style="padding: 18px 24px;">
         <!-- Dinámico -->
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary" onclick="closeModal('modal-folio')">Cerrar</button>
+      <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; border-top: 1px solid var(--border-color); background: #f8fafc;">
+        <button class="btn btn-outline btn-sm" onclick="window.print()" title="Imprimir Comprobante">
+          <i class="fas fa-print"></i> Imprimir
+        </button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-folio-resend-email" class="btn btn-gold btn-sm" onclick="ReservationsModule.sendFolioEmailCurrent()" title="Enviar copia legal por correo vía Resend">
+            <i class="fas fa-paper-plane"></i> Enviar Comprobante (Resend)
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="closeModal('modal-folio')">Cerrar</button>
+        </div>
       </div>
     </div>
   </div>

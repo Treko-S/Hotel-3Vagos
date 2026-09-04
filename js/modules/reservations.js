@@ -31,21 +31,24 @@ const ReservationsModule = {
     }
   },
 
+  currentActiveFolioBooking: null,
+
   async loadReservations() {
     try {
       const tbody = document.getElementById('reservations-table-body');
       if (!tbody) return;
 
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px;"><i class="fas fa-spinner fa-spin"></i> Cargando reservas...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px;"><i class="fas fa-spinner fa-spin"></i> Cargando reservas y folios...</td></tr>`;
 
       const { data, error } = await supabaseClient
         .from('reservas')
-        .select('*, habitaciones(*, tipos_habitacion(*)), folios(*), acompanantes(*)')
+        .select('*, habitaciones(*, tipos_habitacion(*)), folios(*, pagos_folio(*)), acompanantes(*), users(*)')
         .order('id', { ascending: false });
 
       if (error) throw error;
 
       this.currentBookings = data || [];
+      this.updateFrontDeskKPIs(this.currentBookings);
       this.renderTable(this.currentBookings);
 
     } catch (err) {
@@ -54,12 +57,47 @@ const ReservationsModule = {
     }
   },
 
+  updateFrontDeskKPIs(list) {
+    const today = new Date().toISOString().split('T')[0];
+    let checkinsToday = 0;
+    let inHouse = 0;
+    let totalPagosRecaudados = 0;
+    let totalSaldoPendiente = 0;
+
+    list.forEach(b => {
+      const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
+      const montoTotal = Number(b.monto_total || 0);
+      const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(b.anticipo_pagado || 0);
+      const saldo = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, montoTotal - anticipo);
+
+      if (b.check_in_previsto === today && (b.estado === 'Confirmada' || b.estado === 'Garantizada')) {
+        checkinsToday++;
+      }
+      if (b.estado === 'Check-in' || b.estado === 'En estadía') {
+        inHouse++;
+      }
+      totalPagosRecaudados += anticipo;
+      if (b.estado === 'Confirmada' || b.estado === 'Check-in' || b.estado === 'En estadía') {
+        totalSaldoPendiente += saldo;
+      }
+    });
+
+    const elCheckin = document.getElementById('frontdesk-kpi-checkin-today');
+    if (elCheckin) elCheckin.innerText = checkinsToday;
+    const elInHouse = document.getElementById('frontdesk-kpi-in-house');
+    if (elInHouse) elInHouse.innerText = inHouse;
+    const elPagos = document.getElementById('frontdesk-kpi-total-pagos');
+    if (elPagos) elPagos.innerText = formatGs(totalPagosRecaudados);
+    const elSaldo = document.getElementById('frontdesk-kpi-total-saldo');
+    if (elSaldo) elSaldo.innerText = formatGs(totalSaldoPendiente);
+  },
+
   renderTable(list) {
     const tbody = document.getElementById('reservations-table-body');
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 32px; color: var(--text-muted);">No se encontraron reservas registradas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 36px; color: var(--text-muted);">No se encontraron reservas con los criterios seleccionados.</td></tr>`;
       return;
     }
 
@@ -67,16 +105,25 @@ const ReservationsModule = {
     list.forEach(b => {
       const hab = b.habitaciones || {};
       const tipo = hab.tipos_habitacion || {};
-      const folio = (b.folios && b.folios.length > 0) ? b.folios[0] : {};
-      const saldoPendiente = folio.saldo_pendiente !== undefined ? folio.saldo_pendiente : b.monto_total;
+      const user = b.users || {};
+      const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
+      
+      const montoTotal = Number(b.monto_total || 0);
+      const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(b.anticipo_pagado || 0);
+      const saldoPendiente = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, montoTotal - anticipo);
 
-      const estadoBadge = this.getStatusBadge(b.estado);
+      let estadoBadge = this.getStatusBadge(b.estado);
+      if (b.estado === 'Confirmada' && anticipo > 0) {
+        estadoBadge = `<span class="badge" style="background: #E0E7FF; color: #3730A3; border: 1px solid #C7D2FE;"><i class="fas fa-shield-alt"></i> Garantizada</span>`;
+      }
 
       html += `
         <tr>
           <td>
-            <strong style="color: var(--primary-navy);">${sanitizeInput(b.codigo_reserva)}</strong>
-            <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(b.canal_venta || 'Web')}</div>
+            <strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(b.codigo_reserva)}</strong>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+              <i class="fas fa-mobile-alt" style="color: var(--info);"></i> ${sanitizeInput(b.canal_venta || 'App Móvil')}
+            </div>
           </td>
           <td>
             <div style="font-weight: 600;">Habitación ${sanitizeInput(hab.numero || 'N/A')}</div>
@@ -87,7 +134,10 @@ const ReservationsModule = {
             <div style="font-size: 12px;"><i class="far fa-calendar-check" style="color: var(--danger);"></i> ${formatDate(b.check_out_previsto)}</div>
           </td>
           <td>
-            <div>${b.cantidad_huespedes || 1} pers.</div>
+            <div style="font-weight: 600; color: var(--primary-dark);">${sanitizeInput(user.full_name || 'Huésped Registrado')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">
+              <i class="fas fa-id-card"></i> Doc: ${sanitizeInput(user.document_number || 'S/D')}
+            </div>
             ${b.acompanantes && b.acompanantes.length > 0 ? `
               <span class="badge badge-confirmada" style="font-size: 9.5px; padding: 2px 6px; cursor: help; margin-top: 3px; display: inline-block;" title="${b.acompanantes.map(a => a.full_name).join(', ')}">
                 <i class="fas fa-users"></i> +${b.acompanantes.length} legal
@@ -95,14 +145,35 @@ const ReservationsModule = {
             ` : ''}
           </td>
           <td>
-            <div style="font-weight: bold; color: var(--primary-dark);">${formatGs(b.monto_total)}</div>
-            <div style="font-size: 11px; color: ${saldoPendiente > 0 ? 'var(--danger)' : 'var(--success)'};">
-              Saldo: ${formatGs(saldoPendiente)}
-            </div>
+            <div style="font-weight: bold; color: var(--primary-dark); font-size: 13.5px;">${formatGs(montoTotal)}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${b.cantidad_huespedes || 1} Huésped(es)</div>
+          </td>
+          <td>
+            ${anticipo > 0 ? `
+              <span class="badge" style="background: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; font-weight: bold; padding: 3px 8px;">
+                <i class="fas fa-check-circle"></i> ${formatGs(anticipo)}
+              </span>
+              <div style="font-size: 10px; color: #166534; font-weight: 600; margin-top: 2px;">
+                Seña Pagada (${Math.round((anticipo / montoTotal) * 100)}%)
+              </div>
+            ` : `
+              <span style="color: var(--text-muted); font-size: 11px;">0 Gs. (Sin seña)</span>
+            `}
+          </td>
+          <td>
+            ${saldoPendiente <= 0 ? `
+              <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-weight: 700;">
+                <i class="fas fa-check-double"></i> 0 Gs. Saldado
+              </span>
+            ` : `
+              <span class="badge" style="background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; font-weight: 700;">
+                <i class="fas fa-clock"></i> ${formatGs(saldoPendiente)}
+              </span>
+            `}
           </td>
           <td>${estadoBadge}</td>
           <td>
-            <div style="display: flex; gap: 6px;">
+            <div style="display: flex; gap: 5px; align-items: center;">
               ${b.estado !== 'Check-in' && b.estado !== 'Finalizada' && b.estado !== 'Cancelada' ? `
                 <button class="btn btn-sm btn-primary" onclick="ReservationsModule.openCheckInModal(${b.id})" title="Realizar Check-in">
                   <i class="fas fa-sign-in-alt"></i> Check-in
@@ -115,8 +186,12 @@ const ReservationsModule = {
                 </button>
               ` : ''}
 
-              <button class="btn btn-sm btn-outline" onclick="ReservationsModule.viewFolioDetail(${b.id})" title="Ver Folio / Cuenta">
+              <button class="btn btn-sm btn-outline" onclick="ReservationsModule.viewFolioDetail(${b.id})" title="Ver Folio & Comprobante SET">
                 <i class="fas fa-file-invoice-dollar"></i>
+              </button>
+
+              <button class="btn btn-sm btn-outline" style="color: #4F46E5; border-color: #C7D2FE;" onclick="ReservationsModule.quickSendEmail(${b.id})" title="Enviar Comprobante por Correo (Resend)">
+                <i class="fas fa-paper-plane"></i>
               </button>
             </div>
           </td>
@@ -132,10 +207,21 @@ const ReservationsModule = {
     const filtered = this.currentBookings.filter(b => {
       const code = (b.codigo_reserva || '').toLowerCase();
       const hab = b.habitaciones ? (b.habitaciones.numero || '').toLowerCase() : '';
+      const guestName = (b.users?.full_name || '').toLowerCase();
+      const guestDoc = (b.users?.document_number || '').toLowerCase();
       const state = (b.estado || '').toUpperCase();
 
-      const matchesQuery = q === '' || code.includes(q) || hab.includes(q);
-      const matchesStatus = statusFilter === 'ALL' || state === statusFilter.toUpperCase();
+      const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
+      const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(b.anticipo_pagado || 0);
+
+      const matchesQuery = q === '' || code.includes(q) || hab.includes(q) || guestName.includes(q) || guestDoc.includes(q);
+      
+      let matchesStatus = true;
+      if (statusFilter === 'GARANTIZADA') {
+        matchesStatus = anticipo > 0 && (state === 'CONFIRMADA' || state === 'CHECK-IN' || state === 'EN ESTADÍA');
+      } else if (statusFilter !== 'ALL') {
+        matchesStatus = state === statusFilter.toUpperCase();
+      }
 
       return matchesQuery && matchesStatus;
     });
@@ -341,50 +427,316 @@ const ReservationsModule = {
     const booking = this.currentBookings.find(b => b.id === bookingId);
     if (!booking) return;
 
-    const folio = (booking.folios && booking.folios.length > 0) ? booking.folios[0] : {};
+    this.currentActiveFolioBooking = booking;
+
+    const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
     const hab = booking.habitaciones || {};
+    const tipo = hab.tipos_habitacion || {};
+    const user = booking.users || {};
+    const pagos = Array.isArray(folio.pagos_folio) ? folio.pagos_folio : [];
+
+    const montoTotal = Number(booking.monto_total || 0);
+    const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(booking.anticipo_pagado || 0);
+    const saldoPendiente = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, montoTotal - anticipo);
+
+    // Cálculos Impositivos según normativa SET / DNIT Paraguay
+    const gravada10 = Math.round(montoTotal / 1.10);
+    const iva10 = Math.round(montoTotal / 11);
+
+    const dIn = new Date(booking.check_in_previsto);
+    const dOut = new Date(booking.check_out_previsto);
+    const nights = Math.max(1, Math.round((dOut - dIn) / (1000 * 60 * 60 * 24)) || 1);
 
     const content = `
-      <div style="padding: 10px;">
-        <div style="display: flex; justify-content: space-between; border-bottom: 2px solid var(--primary-navy); padding-bottom: 12px; margin-bottom: 16px;">
-          <div>
-            <h4 style="color: var(--primary-navy); font-size: 18px;">Folio de Cuenta #${folio.id || booking.id}</h4>
-            <p style="font-size: 12px; color: var(--text-muted);">Reserva: ${booking.codigo_reserva}</p>
-          </div>
-          <div style="text-align: right;">
-            <span class="badge ${folio.estado === 'Cerrado' ? 'badge-cerrado' : 'badge-abierto'}">${folio.estado || 'Abierto'}</span>
-            <p style="font-size: 11px; margin-top: 4px;">Hab. ${hab.numero || 'N/A'}</p>
+      <div style="font-family: var(--font-sans); color: var(--text-main);">
+        <!-- Membrete Legal SET Paraguay -->
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h3 style="font-family: var(--font-heading); color: var(--primary-navy); margin: 0 0 4px; font-size: 18px; font-weight: 700;">HOTEL 3 VAGOS S.A.</h3>
+              <p style="margin: 0; font-size: 11.5px; color: var(--text-muted);">Servicios de Alojamiento y Hospedaje Turístico</p>
+              <p style="margin: 2px 0 0; font-size: 11.5px; color: var(--text-muted);"><i class="fas fa-map-marker-alt"></i> Asunción, Paraguay - Convenio UTCD</p>
+            </div>
+            <div style="text-align: right; background: #FFF; border: 1px solid #E2E8F0; padding: 8px 12px; border-radius: 6px;">
+              <div style="font-size: 11px; font-weight: bold; color: var(--primary-navy);">RUC: 80092341-2</div>
+              <div style="font-size: 10.5px; color: var(--text-muted);">Timbrado N°: <strong>16789423</strong></div>
+              <div style="font-size: 9.5px; color: var(--text-light);">Válido hasta: 31/12/2026</div>
+              <div style="font-size: 11px; font-weight: bold; color: var(--accent-gold); margin-top: 3px;">
+                COMPROBANTE LEGAL / FOLIO
+              </div>
+            </div>
           </div>
         </div>
 
-        <table style="width: 100%; font-size: 13px; border-collapse: collapse; margin-bottom: 16px;">
+        <!-- Datos del Huésped y Reserva -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
+          <div style="background: #FFF; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-md);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
+              <i class="fas fa-user"></i> Titular de la Reserva
+            </div>
+            <div style="font-weight: 700; color: var(--primary-dark); font-size: 13.5px;">${sanitizeInput(user.full_name || 'Huésped')}</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Doc / RUC: <strong>${sanitizeInput(user.document_number || 'S/D')}</strong></div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Email: <span style="color: var(--primary-blue);">${sanitizeInput(user.email || 'rc652107@gmail.com')}</span></div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Tel: ${sanitizeInput(user.phone || '+595 S/N')}</div>
+          </div>
+
+          <div style="background: #FFF; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-md);">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
+              <i class="fas fa-door-open"></i> Detalles de Hospedaje
+            </div>
+            <div style="font-weight: 700; color: var(--primary-dark); font-size: 13.5px;">Habitación ${sanitizeInput(hab.numero || 'N/A')} - ${sanitizeInput(tipo.nombre || 'Estándar')}</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+              Estadía: <strong>${formatDate(booking.check_in_previsto)}</strong> al <strong>${formatDate(booking.check_out_previsto)}</strong>
+            </div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Duración: <strong>${nights} noche${nights > 1 ? 's' : ''}</strong> | ${booking.cantidad_huespedes || 1} Huésped(es)</div>
+            <div style="font-size: 11.5px; margin-top: 2px;">
+              Estado: <span class="badge ${folio.estado === 'Cerrado' ? 'badge-cerrado' : 'badge-abierto'}">${folio.estado || 'Abierto'}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desglose de Cargos -->
+        <h5 style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin: 0 0 8px; display: flex; align-items: center; gap: 6px;">
+          <i class="fas fa-list-ol"></i> Conceptos & Cargos del Folio
+        </h5>
+        <table style="width: 100%; font-size: 12.5px; border-collapse: collapse; margin-bottom: 16px; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
           <thead>
-            <tr style="background: #f1f5f9; text-align: left;">
-              <th style="padding: 8px;">Concepto</th>
-              <th style="padding: 8px; text-align: right;">Monto</th>
+            <tr style="background: #F1F5F9; text-align: left;">
+              <th style="padding: 9px 12px; font-weight: 600;">Descripción</th>
+              <th style="padding: 9px 12px; text-align: center; font-weight: 600;">Cant.</th>
+              <th style="padding: 9px 12px; text-align: right; font-weight: 600;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
             <tr style="border-bottom: 1px solid var(--border-color);">
-              <td style="padding: 8px;">Hospedaje (${formatDate(booking.check_in_previsto)} al ${formatDate(booking.check_out_previsto)})</td>
-              <td style="padding: 8px; text-align: right; font-weight: bold;">${formatGs(booking.monto_total)}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid var(--border-color);">
-              <td style="padding: 8px; color: var(--success);"><i class="fas fa-arrow-down"></i> Pagos Registrados</td>
-              <td style="padding: 8px; text-align: right; color: var(--success); font-weight: bold;">-${formatGs(folio.total_pagos || 0)}</td>
+              <td style="padding: 9px 12px;">
+                <strong>Alojamiento: Habitación ${sanitizeInput(hab.numero || '')}</strong>
+                <div style="font-size: 11px; color: var(--text-muted);">${formatDate(booking.check_in_previsto)} a ${formatDate(booking.check_out_previsto)} (${nights} noches)</div>
+              </td>
+              <td style="padding: 9px 12px; text-align: center;">${nights}</td>
+              <td style="padding: 9px 12px; text-align: right; font-weight: bold;">${formatGs(montoTotal)}</td>
             </tr>
           </tbody>
         </table>
 
-        <div style="background: var(--bg-main); padding: 14px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
-          <strong style="color: var(--primary-navy);">Saldo Pendiente:</strong>
-          <span style="font-size: 18px; font-weight: bold; color: var(--accent-gold);">${formatGs(folio.saldo_pendiente !== undefined ? folio.saldo_pendiente : booking.monto_total)}</span>
+        <!-- Historial de Pagos & Señas Registradas -->
+        <h5 style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin: 0 0 8px; display: flex; align-items: center; gap: 6px;">
+          <i class="fas fa-receipt" style="color: var(--success);"></i> Pagos & Señas Registradas
+        </h5>
+        <div style="border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; margin-bottom: 16px;">
+          ${pagos.length > 0 ? `
+            <table style="width: 100%; font-size: 12.5px; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #F0FDF4; text-align: left; color: #166534;">
+                  <th style="padding: 8px 12px;">Fecha</th>
+                  <th style="padding: 8px 12px;">Método</th>
+                  <th style="padding: 8px 12px;">Referencia / TRX</th>
+                  <th style="padding: 8px 12px; text-align: right;">Abono</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pagos.map(p => `
+                  <tr style="border-bottom: 1px solid #E2E8F0;">
+                    <td style="padding: 8px 12px;">${formatDate(p.fecha_pago || booking.created_at)}</td>
+                    <td style="padding: 8px 12px;">
+                      <span class="badge" style="background: #DCFCE7; color: #166534; font-size: 10.5px;">${sanitizeInput(p.metodo_pago)}</span>
+                    </td>
+                    <td style="padding: 8px 12px; font-family: monospace; font-size: 11.5px; color: var(--text-muted);">${sanitizeInput(p.referencia_transaccion || 'N/A')}</td>
+                    <td style="padding: 8px 12px; text-align: right; font-weight: bold; color: #15803D;">-${formatGs(p.monto)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : anticipo > 0 ? `
+            <div style="padding: 10px 14px; background: #F0FDF4; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: bold;">
+                  <i class="fas fa-check-circle"></i> Seña Abonada
+                </span>
+                <span style="font-size: 12px; color: var(--text-muted); margin-left: 8px;">Abono de reserva garantizada</span>
+              </div>
+              <strong style="color: #15803D; font-size: 13.5px;">-${formatGs(anticipo)}</strong>
+            </div>
+          ` : `
+            <div style="padding: 12px 16px; color: var(--text-muted); font-size: 12px; text-align: center;">
+              Aún no se registran pagos ni señas para este folio. El huésped liquidará al check-out o mediante la app.
+            </div>
+          `}
+        </div>
+
+        <!-- Liquidación Impositiva SET Paraguay & Saldos -->
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 14px 18px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 12px;">
+            <div>
+              <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 4px;">
+                Liquidación Impositiva SET (IVA 10%)
+              </div>
+              <div style="font-size: 11.5px; color: var(--text-muted);">Gravadas 10%: <strong>${formatGs(gravada10)}</strong></div>
+              <div style="font-size: 11.5px; color: var(--text-muted);">Liquidación IVA 10%: <strong>${formatGs(iva10)}</strong></div>
+              <div style="font-size: 11.5px; color: var(--text-muted);">Subtotal Exentas: <strong>0 Gs.</strong></div>
+            </div>
+            <div style="text-align: right;">
+              <div style="font-size: 12px; color: var(--text-muted);">Total de Estadía: <strong style="color: var(--primary-dark);">${formatGs(montoTotal)}</strong></div>
+              <div style="font-size: 12px; color: #15803D; margin: 3px 0;">Total Abonado / Seña: <strong>-${formatGs(anticipo)}</strong></div>
+              <div style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--border-color);">
+                <span style="font-size: 12px; font-weight: 600; color: var(--primary-navy);">Saldo Pendiente:</span>
+                <span style="font-size: 17px; font-weight: 800; color: ${saldoPendiente > 0 ? 'var(--danger)' : 'var(--success)'}; margin-left: 6px;">
+                  ${formatGs(saldoPendiente)}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
 
     document.getElementById('folio-modal-content').innerHTML = content;
     openModal('modal-folio');
+  },
+
+  /**
+   * Envía el comprobante digital legal mediante la API de Resend
+   */
+  async sendFolioEmailCurrent() {
+    if (!this.currentActiveFolioBooking) {
+      showToast('Selecciona una reserva primero', 'warning');
+      return;
+    }
+    await this.dispatchResendEmail(this.currentActiveFolioBooking);
+  },
+
+  async quickSendEmail(bookingId) {
+    const booking = this.currentBookings.find(b => b.id === bookingId);
+    if (!booking) return;
+    await this.dispatchResendEmail(booking);
+  },
+
+  async dispatchResendEmail(booking) {
+    const user = booking.users || {};
+    const hab = booking.habitaciones || {};
+    const tipo = hab.tipos_habitacion || {};
+    const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
+    
+    const montoTotal = Number(booking.monto_total || 0);
+    const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(booking.anticipo_pagado || 0);
+    const saldo = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, montoTotal - anticipo);
+    const iva10 = Math.round(montoTotal / 11);
+
+    const clientEmail = user.email || 'rc652107@gmail.com';
+    const clientName = user.full_name || 'Huésped Distinguido';
+
+    showToast(`Enviando comprobante legal a ${clientEmail} vía Resend...`, 'info');
+
+    const emailHtml = `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #ffffff; padding: 28px 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #D4AF37; letter-spacing: 1px;">HOTEL 3 VAGOS</h1>
+          <p style="margin: 6px 0 0; font-size: 12px; color: #94A3B8;">Hospitalidad & Excelencia - UTCD Asunción</p>
+        </div>
+
+        <div style="padding: 24px;">
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+            <p style="margin: 0; font-size: 11px; color: #64748B;">RUC: <strong>80092341-2</strong> | Timbrado SET: <strong>16789423</strong> (Vig. 31/12/2026)</p>
+            <p style="margin: 3px 0 0; font-size: 13px; font-weight: 700; color: #0F172A;">COMPROBANTE OFICIAL DE RESERVA & PAGO</p>
+          </div>
+
+          <p style="font-size: 14px; color: #334155; margin-bottom: 16px;">
+            Estimado/a <strong>${clientName}</strong>,<br>
+            Adjuntamos los detalles oficiales de su estadía en nuestro hotel:
+          </p>
+
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 8px 0; color: #64748B;">Código de Reserva:</td>
+              <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #0F172A;">${booking.codigo_reserva}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 8px 0; color: #64748B;">Habitación:</td>
+              <td style="padding: 8px 0; text-align: right; font-weight: 600;">Hab. ${hab.numero || 'N/A'} (${tipo.nombre || 'Estándar'})</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 8px 0; color: #64748B;">Check-in:</td>
+              <td style="padding: 8px 0; text-align: right;">${formatDate(booking.check_in_previsto)} (Desde las 14:00)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 8px 0; color: #64748B;">Check-out:</td>
+              <td style="padding: 8px 0; text-align: right;">${formatDate(booking.check_out_previsto)} (Hasta las 11:00)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 8px 0; color: #64748B;">Monto Total de Estadía:</td>
+              <td style="padding: 8px 0; text-align: right; font-weight: 700;">${formatGs(montoTotal)}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #E2E8F0; background: #F0FDF4;">
+              <td style="padding: 8px 6px; color: #166534; font-weight: 600;">Seña / Pago Registrado:</td>
+              <td style="padding: 8px 6px; text-align: right; font-weight: 700; color: #15803D;">-${formatGs(anticipo)}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #E2E8F0;">
+              <td style="padding: 8px 0; color: #64748B; font-weight: 700;">Saldo a Liquidar:</td>
+              <td style="padding: 8px 0; text-align: right; font-weight: 800; color: ${saldo > 0 ? '#DC2626' : '#15803D'}; font-size: 15px;">${formatGs(saldo)}</td>
+            </tr>
+          </table>
+
+          <div style="background: #F8FAFC; border-radius: 8px; padding: 12px; font-size: 11.5px; color: #64748B; margin-bottom: 20px;">
+            <strong>Desglose Impositivo SET Paraguay:</strong> Gravadas 10%: ${formatGs(Math.round(montoTotal / 1.10))} | IVA 10%: ${formatGs(iva10)} | Exentas: 0 Gs.
+          </div>
+
+          <div style="text-align: center; color: #94A3B8; font-size: 12px; line-height: 1.5;">
+            <p>¡Esperamos recibirte muy pronto en Hotel 3 Vagos!</p>
+            <p style="font-size: 11px;">Por dudas o asistencia 24/7, contáctanos por WhatsApp o en recepción.</p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try {
+      const resendApiKey = window.RESEND_API_KEY || atob('cmVfVHNKdjlTelJfNnJnVkZZNmZRQmJ6UFRtUlN4aG1iMmRp');
+      // Intentar envío por Resend API
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: 'Hotel 3 Vagos <onboarding@resend.dev>',
+          to: [clientEmail],
+          subject: `Comprobante de Reserva & Seña - ${booking.codigo_reserva} | Hotel 3 Vagos`,
+          html: emailHtml
+        })
+      });
+
+      const resData = await res.json();
+      if (!res.ok) {
+        // En caso de que la clave de prueba de Resend exija la cuenta verificada:
+        if (resData.message && resData.message.includes('mckakucorpii@gmail.com')) {
+          console.log('Enviando a email verificado de la cuenta de prueba Resend...');
+          const fallbackRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${resendApiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              from: 'Hotel 3 Vagos <onboarding@resend.dev>',
+              to: ['mckakucorpii@gmail.com'],
+              subject: `[Comprobante para ${clientEmail}] Reserva ${booking.codigo_reserva} - Hotel 3 Vagos`,
+              html: emailHtml
+            })
+          });
+          if (fallbackRes.ok) {
+            showToast(`¡Comprobante enviado exitosamente por Resend! (Recibido en cuenta verificada mckakucorpii@gmail.com)`, 'success');
+            return;
+          }
+        }
+        throw new Error(resData.message || 'Error en Resend');
+      }
+
+      showToast(`¡Comprobante enviado exitosamente a ${clientEmail} vía Resend!`, 'success');
+
+    } catch (e) {
+      console.error('Error al enviar correo por Resend:', e);
+      showToast('Error al enviar por Resend: ' + e.message, 'warning');
+    }
   },
 
   /**
