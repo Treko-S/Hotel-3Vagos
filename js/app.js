@@ -225,7 +225,36 @@ function initRealtimeSubscriptions() {
       .channel('public:reservas')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' }, () => {
         if (AppState.currentRole !== 'guest') {
-          if (typeof DashboardModule !== 'undefined') DashboardModule.loadKPIs();
+          if (typeof DashboardModule !== 'undefined') {
+            DashboardModule.loadKPIs();
+            DashboardModule.loadRecentActivity();
+          }
+          if (typeof ReservationsModule !== 'undefined') ReservationsModule.loadReservations();
+        }
+      })
+      .subscribe();
+
+    supabaseClient
+      .channel('public:folios')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'folios' }, () => {
+        if (AppState.currentRole !== 'guest') {
+          if (typeof DashboardModule !== 'undefined') {
+            DashboardModule.loadKPIs();
+            DashboardModule.loadRecentActivity();
+          }
+          if (typeof ReservationsModule !== 'undefined') ReservationsModule.loadReservations();
+        }
+      })
+      .subscribe();
+
+    supabaseClient
+      .channel('public:pagos_folio')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pagos_folio' }, () => {
+        if (AppState.currentRole !== 'guest') {
+          if (typeof DashboardModule !== 'undefined') {
+            DashboardModule.loadKPIs();
+            DashboardModule.loadRecentActivity();
+          }
           if (typeof ReservationsModule !== 'undefined') ReservationsModule.loadReservations();
         }
       })

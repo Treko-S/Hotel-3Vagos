@@ -332,7 +332,7 @@ const ReservationsModule = {
     const booking = this.currentBookings.find(b => b.id === bookingId);
     if (!booking) return;
 
-    const folio = (booking.folios && booking.folios.length > 0) ? booking.folios[0] : {};
+    const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
     const saldo = folio.saldo_pendiente !== undefined ? folio.saldo_pendiente : booking.monto_total;
 
     document.getElementById('checkout-booking-id').value = booking.id;
