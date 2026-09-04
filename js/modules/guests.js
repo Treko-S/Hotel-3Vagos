@@ -78,6 +78,9 @@ const GuestsModule = {
             <button class="btn btn-sm btn-outline" onclick="showToast('Historial cargado para ${sanitizeInput(g.full_name)}', 'info')">
               <i class="fas fa-history"></i> Historial
             </button>
+            <button class="btn btn-sm btn-outline" style="color: #0284C7; border-color: #BAE6FD;" onclick="GuestsModule.syncGuestToBrevo('${g.id}')" title="Registrar / Sincronizar Huésped en Brevo CRM">
+              <i class="fas fa-address-book"></i> Brevo
+            </button>
           </td>
         </tr>
       `;
@@ -95,5 +98,94 @@ const GuestsModule = {
       return query === '' || name.includes(query) || doc.includes(query) || email.includes(query);
     });
     this.renderTable(filtered);
+  },
+
+  async syncGuestToBrevo(guestId) {
+    const guest = this.guests.find(g => g.id === guestId);
+    if (!guest || !guest.email) {
+      showToast('El huésped no posee correo electrónico registrado', 'warning');
+      return;
+    }
+
+    let brevoApiKey = window.BREVO_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_API_KEY') : null);
+    if (!brevoApiKey) {
+      brevoApiKey = prompt('Ingrese su Brevo API Key (xkeysib-...):');
+      if (brevoApiKey && brevoApiKey.trim()) {
+        localStorage.setItem('BREVO_API_KEY', brevoApiKey.trim());
+        window.BREVO_API_KEY = brevoApiKey.trim();
+      } else {
+        return;
+      }
+    }
+
+    try {
+      showToast(`Sincronizando ${guest.email} en contactos de Brevo...`, 'info');
+      const res = await fetch('https://api.brevo.com/v3/contacts', {
+        method: 'POST',
+        headers: {
+          'api-key': brevoApiKey.trim(),
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          email: guest.email,
+          attributes: {
+            FIRSTNAME: guest.full_name || 'Huésped',
+            SMS: guest.phone || ''
+          },
+          updateEnabled: true
+        })
+      });
+
+      if (res.ok || res.status === 204 || res.status === 201) {
+        showToast(`✓ Contacto ${guest.email} registrado con éxito en Brevo`, 'success');
+      } else {
+        const err = await res.json();
+        showToast('Brevo: ' + (err.message || 'Error al sincronizar'), 'warning');
+      }
+    } catch (e) {
+      showToast('Error al conectar con Brevo: ' + e.message, 'warning');
+    }
+  },
+
+  async syncAllGuestsToBrevo() {
+    if (!this.guests || this.guests.length === 0) {
+      showToast('No hay huéspedes cargados', 'info');
+      return;
+    }
+
+    let brevoApiKey = window.BREVO_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_API_KEY') : null);
+    if (!brevoApiKey) {
+      brevoApiKey = prompt('Ingrese su Brevo API Key (xkeysib-...):');
+      if (brevoApiKey && brevoApiKey.trim()) {
+        localStorage.setItem('BREVO_API_KEY', brevoApiKey.trim());
+        window.BREVO_API_KEY = brevoApiKey.trim();
+      } else {
+        return;
+      }
+    }
+
+    showToast(`Sincronizando ${this.guests.length} huéspedes con Brevo...`, 'info');
+    let count = 0;
+    for (const g of this.guests) {
+      if (!g.email) continue;
+      try {
+        await fetch('https://api.brevo.com/v3/contacts', {
+          method: 'POST',
+          headers: {
+            'api-key': brevoApiKey.trim(),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            email: g.email,
+            attributes: { FIRSTNAME: g.full_name || 'Huésped', SMS: g.phone || '' },
+            updateEnabled: true
+          })
+        });
+        count++;
+      } catch (e) {}
+    }
+    showToast(`✓ ¡${count} huéspedes sincronizados en Brevo!`, 'success');
   }
 };

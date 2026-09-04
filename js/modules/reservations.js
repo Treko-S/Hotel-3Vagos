@@ -1114,6 +1114,23 @@ const ReservationsModule = {
       const brevoSenderEmail = window.BREVO_SENDER_EMAIL || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_SENDER_EMAIL') : null) || 'rc652107@gmail.com';
       const brevoSenderName = 'Hotel 3 Vagos';
 
+      // 1. Sincronizar automáticamente el contacto en la libreta de Brevo
+      try {
+        fetch('https://api.brevo.com/v3/contacts', {
+          method: 'POST',
+          headers: {
+            'api-key': brevoApiKey.trim(),
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            email: clientEmail,
+            attributes: { FIRSTNAME: clientName },
+            updateEnabled: true
+          })
+        }).catch(err => console.warn('Brevo contact auto-sync:', err));
+      } catch (e) {}
+
       console.log('Despachando correo transaccional vía Brevo API a:', clientEmail);
       const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
@@ -1368,8 +1385,29 @@ const ReservationsModule = {
           total_pagos: 0,
           estado: 'Abierto'
         });
-      } catch (e) {
         console.warn('Folio auto-create warning:', e);
+      }
+      // Registrar / sincronizar automáticamente el contacto en Brevo
+      if (guestEmail) {
+        const brevoApiKey = window.BREVO_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_API_KEY') : null);
+        if (brevoApiKey) {
+          fetch('https://api.brevo.com/v3/contacts', {
+            method: 'POST',
+            headers: {
+              'api-key': brevoApiKey.trim(),
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              email: guestEmail,
+              attributes: {
+                FIRSTNAME: guestName,
+                SMS: guestPhone
+              },
+              updateEnabled: true
+            })
+          }).catch(e => console.warn('Brevo contact sync on booking create:', e));
+        }
       }
 
       closeModal('modal-new-reservation');
