@@ -9,6 +9,7 @@ const RoomsModule = {
   roomTypes: [],
   currentEditingRoomId: null,
   currentGalleryImages: [],
+  STORAGE_BUCKET: 'hotel-rooms',
 
   // Presets de imágenes de hotelería prémium listas para usar
   PRESET_IMAGES: [
@@ -24,6 +25,7 @@ const RoomsModule = {
     await this.loadRoomTypes();
     await this.loadRooms();
     this.setupEventListeners();
+    this.ensureStorageBucket();
   },
 
   setupEventListeners() {
@@ -297,9 +299,7 @@ const RoomsModule = {
    */
   openNewRoomModal() {
     this.currentEditingRoomId = null;
-    this.currentGalleryImages = [
-      'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800'
-    ];
+    this.currentGalleryImages = [];
 
     document.getElementById('edit-room-modal-title').innerText = 'Nueva Habitación';
     document.getElementById('edit-room-id').value = '';
@@ -335,8 +335,10 @@ const RoomsModule = {
     // Cargar galería existente
     if (Array.isArray(carac.imagenes) && carac.imagenes.length > 0) {
       this.currentGalleryImages = [...carac.imagenes];
+    } else if (r.tipos_habitacion?.imagen_cover) {
+      this.currentGalleryImages = [r.tipos_habitacion.imagen_cover];
     } else {
-      this.currentGalleryImages = ['https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800'];
+      this.currentGalleryImages = [];
     }
 
     document.getElementById('edit-room-modal-title').innerText = `Editar Habitación ${r.numero}`;
@@ -380,33 +382,253 @@ const RoomsModule = {
     openModal('modal-room-editor');
   },
 
+  /**
+   * Asegura que el Bucket de Supabase Storage para fotos exista y sea público
+   */
+  async ensureStorageBucket() {
+    try {
+      const { data: buckets, error } = await supabaseClient.storage.listBuckets();
+      if (!error && Array.isArray(buckets)) {
+        const found = buckets.some(b => b.name === this.STORAGE_BUCKET);
+        if (!found) {
+          await supabaseClient.storage.createBucket(this.STORAGE_BUCKET, {
+            public: true,
+            fileSizeLimit: 10485760 // 10MB
+          });
+          console.log(`Bucket '${this.STORAGE_BUCKET}' creado con éxito en Supabase.`);
+        }
+      }
+    } catch (e) {
+      console.warn('Verificación o inicialización de Supabase Storage:', e);
+    }
+  },
+
+  /**
+   * Manejadores de Drag & Drop para subir fotos
+   */
+  onDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = document.getElementById('room-dropzone');
+    if (el) el.classList.add('drag-over');
+  },
+
+  onDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = document.getElementById('room-dropzone');
+    if (el) el.classList.remove('drag-over');
+  },
+
+  onDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = document.getElementById('room-dropzone');
+    if (el) el.classList.remove('drag-over');
+    const files = e.dataTransfer ? e.dataTransfer.files : null;
+    if (files && files.length > 0) {
+      this.processAndUploadFiles(files);
+    }
+  },
+
+  handleLocalFileInput(e) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      this.processAndUploadFiles(files);
+    }
+    e.target.value = ''; // Permite volver a seleccionar el mismo archivo si se desea
+  },
+
+  /**
+   * Procesa y sube una o más imágenes a Supabase Storage
+   */
+  async processAndUploadFiles(filesList) {
+    const validImages = Array.from(filesList).filter(f => f.type.startsWith('image/'));
+    if (validImages.length === 0) {
+      showToast('Por favor selecciona archivos de imagen válidos (JPG, PNG, WEBP)', 'warning');
+      return;
+    }
+
+    const progressContainer = document.getElementById('room-upload-progress');
+    const progressBar = document.getElementById('room-upload-progress-bar');
+    const statusText = document.getElementById('room-upload-status-text');
+    const statusCount = document.getElementById('room-upload-status-count');
+
+    if (progressContainer) progressContainer.style.display = 'block';
+
+    let uploadedCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < validImages.length; i++) {
+      const file = validImages[i];
+      const currentNum = i + 1;
+      const pct = Math.round(((currentNum - 1) / validImages.length) * 100);
+
+      if (statusText) statusText.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Subiendo imagen ${currentNum} de ${validImages.length} (${file.name})...`;
+      if (statusCount) statusCount.innerText = `${pct}%`;
+      if (progressBar) progressBar.style.width = `${pct}%`;
+
+      // Límite de tamaño sugerido (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        showToast(`"${file.name}" supera el tamaño máximo de 10MB`, 'warning');
+        failedCount++;
+        continue;
+      }
+
+      try {
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const safeExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext) ? ext : 'jpg';
+        const uniqueId = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        const filePath = `room_${uniqueId}.${safeExt}`;
+
+        // Subir archivo al bucket de Supabase
+        const { data: uploadData, error: uploadErr } = await supabaseClient.storage
+          .from(this.STORAGE_BUCKET)
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type || `image/${safeExt}`
+          });
+
+        if (uploadErr) {
+          // Si el bucket no existía, intentar crearlo sobre la marcha
+          if (uploadErr.message?.includes('not found') || uploadErr.statusCode == 404 || uploadErr.error === 'Bucket not found') {
+            await supabaseClient.storage.createBucket(this.STORAGE_BUCKET, { public: true });
+            const retry = await supabaseClient.storage.from(this.STORAGE_BUCKET).upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: file.type || `image/${safeExt}`
+            });
+            if (retry.error) throw retry.error;
+          } else {
+            throw uploadErr;
+          }
+        }
+
+        // Obtener la URL pública permanente
+        const { data: publicData } = supabaseClient.storage
+          .from(this.STORAGE_BUCKET)
+          .getPublicUrl(filePath);
+
+        if (publicData?.publicUrl) {
+          this.currentGalleryImages.push(publicData.publicUrl);
+          uploadedCount++;
+          this.renderGalleryEditor();
+        }
+      } catch (err) {
+        console.error(`Error al subir imagen ${file.name}:`, err);
+        showToast(`Error al subir ${file.name}: ${err.message || 'Fallo de red'}`, 'error');
+        failedCount++;
+      }
+    }
+
+    if (progressBar) progressBar.style.width = '100%';
+    if (statusCount) statusCount.innerText = '100%';
+    if (statusText) statusText.innerHTML = `<i class="fas fa-check-circle" style="color: var(--success);"></i> Carga completada (${uploadedCount} subidas)`;
+
+    setTimeout(() => {
+      if (progressContainer) progressContainer.style.display = 'none';
+      if (progressBar) progressBar.style.width = '0%';
+    }, 2000);
+
+    if (uploadedCount > 0) {
+      showToast(`¡${uploadedCount} foto(s) subida(s) con éxito a Supabase!`, 'success');
+    }
+  },
+
+  /**
+   * Permite establecer cualquier foto como Portada (la mueve a la posición 0)
+   */
+  setAsCover(index) {
+    if (index > 0 && index < this.currentGalleryImages.length) {
+      const [item] = this.currentGalleryImages.splice(index, 1);
+      this.currentGalleryImages.unshift(item);
+      this.renderGalleryEditor();
+      showToast('Foto asignada como portada de la habitación ⭐', 'info');
+    }
+  },
+
   renderPresetButtons() {
     const container = document.getElementById('room-presets-container');
     if (!container) return;
 
     container.innerHTML = this.PRESET_IMAGES.map(p => `
-      <button type="button" class="btn btn-sm btn-outline" style="font-size: 11px; padding: 4px 8px;" onclick="RoomsModule.addPresetPhoto('${p.url}')">
+      <button type="button" class="btn btn-sm btn-outline" style="font-size: 11px; padding: 3px 8px;" onclick="RoomsModule.addPresetPhoto('${p.url}')">
         <i class="fas fa-plus-circle"></i> ${p.label}
       </button>
     `).join('');
   },
 
+  /**
+   * Eliminar todas las imágenes de la galería
+   */
+  removeAllGalleryImages() {
+    if (!this.currentGalleryImages || this.currentGalleryImages.length === 0) return;
+    const count = this.currentGalleryImages.length;
+    if (confirm(`¿Deseas eliminar todas las fotos (${count}) de la galería?\n\nNota: La habitación requerirá al menos una imagen obligatoria antes de poder guardarse.`)) {
+      this.currentGalleryImages = [];
+      this.renderGalleryEditor();
+      showToast('Se eliminaron todas las fotos. Recuerda agregar al menos una imagen antes de guardar.', 'warning');
+    }
+  },
+
   renderGalleryEditor() {
     const container = document.getElementById('room-gallery-container');
+    const badgeCount = document.getElementById('room-photo-count-badge');
+    const clearAllBtn = document.getElementById('btn-clear-all-photos');
+    
+    if (badgeCount) {
+      const count = this.currentGalleryImages.length;
+      badgeCount.innerText = `${count} ${count === 1 ? 'foto' : 'fotos'}`;
+    }
+
+    if (clearAllBtn) {
+      clearAllBtn.style.display = this.currentGalleryImages.length > 0 ? 'inline-flex' : 'none';
+    }
+
     if (!container) return;
 
     if (this.currentGalleryImages.length === 0) {
-      container.innerHTML = `<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-size: 12px; padding: 14px;">No hay imágenes cargadas. Ingrese una URL o seleccione un preset abajo.</p>`;
+      container.innerHTML = `
+        <div style="grid-column: 1/-1; text-align: center; background: #FFFBEB; border: 1.5px dashed #F59E0B; border-radius: 8px; padding: 20px 14px; color: #92400E;">
+          <i class="fas fa-exclamation-triangle" style="font-size: 26px; color: #D97706; margin-bottom: 8px; display: block;"></i>
+          <strong style="font-size: 13.5px; display: block; margin-bottom: 4px; color: #B45309;">
+            Galería vacía: Se requiere al menos 1 imagen obligatoria
+          </strong>
+          <p style="font-size: 12px; color: #78350F; margin: 0 0 12px 0; line-height: 1.4;">
+            Para evitar errores de visualización en el panel y en la app móvil, debes tener al menos una foto antes de guardar.
+          </p>
+          <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="document.getElementById('room-local-file-input').click()">
+              <i class="fas fa-folder-open"></i> Subir Foto Local
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="RoomsModule.addPresetPhoto(RoomsModule.PRESET_IMAGES[0].url)" style="background: #ffffff;">
+              <i class="fas fa-magic"></i> Cargar Foto Recomendada
+            </button>
+          </div>
+        </div>
+      `;
       return;
     }
 
     container.innerHTML = this.currentGalleryImages.map((url, idx) => `
-      <div style="position: relative; width: 100%; height: 90px; border-radius: 8px; overflow: hidden; border: 2px solid ${idx === 0 ? 'var(--primary-blue)' : '#E2E8F0'}; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <img src="${url}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=300'">
-        ${idx === 0 ? `<span style="position: absolute; top: 4px; left: 4px; background: var(--primary-blue); color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: bold;"><i class="fas fa-star"></i> Portada</span>` : ''}
-        <button type="button" onclick="RoomsModule.removeGalleryImage(${idx})" title="Eliminar Foto" style="position: absolute; top: 4px; right: 4px; background: #DC2626; color: #fff; border: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer;">
-          <i class="fas fa-times"></i>
-        </button>
+      <div class="room-gallery-card ${idx === 0 ? 'is-cover' : ''}">
+        <img src="${url}" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=300'" alt="Habitación">
+        ${idx === 0 ? `
+          <div class="card-badge-cover">
+            <i class="fas fa-star"></i> Portada
+          </div>
+        ` : ''}
+        <div class="card-actions">
+          ${idx !== 0 ? `
+            <button type="button" class="card-btn btn-cover" onclick="RoomsModule.setAsCover(${idx})" title="Hacer Portada Principal">
+              <i class="fas fa-star"></i>
+            </button>
+          ` : ''}
+          <button type="button" class="card-btn btn-delete" onclick="RoomsModule.removeGalleryImage(${idx})" title="Eliminar Foto de la Galería">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
       </div>
     `).join('');
   },
@@ -439,6 +661,11 @@ const RoomsModule = {
     if (index >= 0 && index < this.currentGalleryImages.length) {
       this.currentGalleryImages.splice(index, 1);
       this.renderGalleryEditor();
+      if (this.currentGalleryImages.length === 0) {
+        showToast('Has eliminado todas las fotos. Recuerda que es obligatorio tener al menos una imagen para guardar.', 'warning');
+      } else {
+        showToast('Foto eliminada de la galería', 'info');
+      }
     }
   },
 
@@ -458,6 +685,22 @@ const RoomsModule = {
 
       if (!numero) {
         showToast('Ingrese el número de la habitación', 'warning');
+        return;
+      }
+
+      // VALIDACIÓN ESTRICTA: La habitación debe tener obligatoriamente al menos 1 imagen
+      if (!this.currentGalleryImages || this.currentGalleryImages.length === 0) {
+        showToast('⚠️ Obligatorio: La habitación debe tener al menos una imagen para guardar y evitar errores.', 'warning');
+        const dropzone = document.getElementById('room-dropzone');
+        if (dropzone) {
+          dropzone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          dropzone.style.borderColor = '#EF4444';
+          dropzone.style.backgroundColor = '#FEF2F2';
+          setTimeout(() => {
+            dropzone.style.borderColor = '';
+            dropzone.style.backgroundColor = '';
+          }, 2500);
+        }
         return;
       }
 

@@ -1169,33 +1169,82 @@
             </label>
           </div>
 
-          <!-- Bloque 3: Gestor Multimedia & Galería de Fotos -->
-          <h4 style="font-size: 13.5px; font-weight: 600; color: var(--primary-navy); margin: 0 0 8px 0; border-top: 1px solid #E2E8F0; padding-top: 16px;">
-            <i class="fas fa-images" style="color: var(--accent-gold);"></i> Galería de Fotos de la Habitación
-          </h4>
-          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 12px 0;">
-            La primera foto se utilizará como imagen de portada en el panel y en la app móvil del huésped.
-          </p>
-
-          <!-- Input para agregar URL -->
-          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-            <input type="url" id="new-photo-url" class="form-control" placeholder="Pegue la URL directa de la imagen (https://...)" style="flex: 1;">
-            <button type="button" class="btn btn-outline" onclick="RoomsModule.addPhotoUrl()" style="white-space: nowrap;">
-              <i class="fas fa-plus"></i> Añadir Foto
-            </button>
-          </div>
-
-          <!-- Presets rápidos -->
-          <div style="margin-bottom: 12px;">
-            <span style="font-size: 11.5px; color: var(--text-muted); font-weight: 500; margin-right: 6px;">Presets Rápidos:</span>
-            <div id="room-presets-container" style="display: inline-flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-              <!-- Botones de presets -->
+          <!-- Bloque 3: Gestor Multimedia & Galería de Fotos con Supabase Storage -->
+          <div style="border-top: 1px solid #E2E8F0; padding-top: 16px; margin-top: 10px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <h4 style="font-size: 13.5px; font-weight: 600; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-images" style="color: var(--accent-gold);"></i> Galería de Fotos de la Habitación
+              </h4>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" id="btn-clear-all-photos" class="btn btn-sm" style="display: none; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; font-size: 11px; padding: 2px 8px; border-radius: 6px; cursor: pointer; align-items: center; gap: 4px;" onclick="RoomsModule.removeAllGalleryImages()">
+                  <i class="fas fa-trash-alt"></i> Eliminar todas
+                </button>
+                <span id="room-photo-count-badge" style="background: rgba(31, 95, 143, 0.1); color: var(--primary-blue); font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 600;">
+                  0 fotos
+                </span>
+              </div>
             </div>
-          </div>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px 0;">
+              La primera foto se utilizará como imagen de portada en el panel y en la app móvil. Puedes cambiar la portada con la estrella <i class="fas fa-star" style="color: var(--accent-gold);"></i>. <strong>(Mínimo 1 imagen obligatoria)</strong>
+            </p>
 
-          <!-- Grid de Fotos Cargadas -->
-          <div id="room-gallery-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 20px; min-height: 100px;">
-            <!-- Renderizado dinámico -->
+            <!-- Zona de Carga Local / Drag & Drop a Supabase Storage -->
+            <div id="room-dropzone" class="photo-dropzone" 
+                 onclick="document.getElementById('room-local-file-input').click()"
+                 ondragover="RoomsModule.onDragOver(event)"
+                 ondragleave="RoomsModule.onDragLeave(event)"
+                 ondrop="RoomsModule.onDrop(event)">
+              <input type="file" id="room-local-file-input" accept="image/jpeg,image/png,image/webp,image/jpg" multiple style="display: none;" onchange="RoomsModule.handleLocalFileInput(event)">
+              <div class="dropzone-icon">
+                <i class="fas fa-cloud-arrow-up"></i>
+              </div>
+              <div class="dropzone-text">
+                <strong>Haz clic o arrastra fotos aquí</strong> para subirlas al almacenamiento de Supabase
+                <span>Soporta JPG, PNG, WEBP • Puedes seleccionar varias imágenes juntas</span>
+              </div>
+              <button type="button" class="btn btn-sm btn-primary" style="pointer-events: none; white-space: nowrap;">
+                <i class="fas fa-folder-open"></i> Explorar
+              </button>
+            </div>
+
+            <!-- Barra de Progreso de Subida a Supabase -->
+            <div id="room-upload-progress" style="display: none; margin-bottom: 12px; background: rgba(31, 95, 143, 0.05); border: 1px solid rgba(31, 95, 143, 0.2); border-radius: var(--radius-sm); padding: 10px 14px;">
+              <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; margin-bottom: 6px;">
+                <span id="room-upload-status-text" style="font-weight: 600; color: var(--primary-blue);">
+                  <i class="fas fa-spinner fa-spin"></i> Subiendo imagen a Supabase Storage...
+                </span>
+                <span id="room-upload-status-count" style="color: var(--text-muted); font-size: 11px; font-weight: bold;">0%</span>
+              </div>
+              <div style="width: 100%; height: 6px; background: #E2E8F0; border-radius: 99px; overflow: hidden;">
+                <div id="room-upload-progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary-blue), var(--accent-gold)); transition: width 0.25s ease;"></div>
+              </div>
+            </div>
+
+            <!-- Grid de Fotos Cargadas -->
+            <div id="room-gallery-container" class="room-gallery-grid">
+              <!-- Renderizado dinámico -->
+            </div>
+
+            <!-- Opciones Secundarias (URL y Presets) -->
+            <details style="margin-bottom: 16px; background: #FAFAFA; border: 1px solid #E2E8F0; border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px;">
+              <summary style="cursor: pointer; font-weight: 600; color: var(--text-muted); outline: none; user-select: none;">
+                <i class="fas fa-link" style="color: var(--accent-gold); margin-right: 4px;"></i> Opciones alternativas (Pegar URL directa o Presets)
+              </summary>
+              <div style="padding-top: 10px;">
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                  <input type="url" id="new-photo-url" class="form-control" placeholder="Pegue la URL directa de la imagen (https://...)" style="flex: 1; font-size: 12px;">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="RoomsModule.addPhotoUrl()" style="white-space: nowrap;">
+                    <i class="fas fa-plus"></i> Añadir Foto
+                  </button>
+                </div>
+                <div>
+                  <span style="font-size: 11px; color: var(--text-muted); font-weight: 500; margin-right: 6px;">Presets Rápidos:</span>
+                  <div id="room-presets-container" style="display: inline-flex; flex-wrap: wrap; gap: 5px; margin-top: 4px;">
+                    <!-- Botones de presets -->
+                  </div>
+                </div>
+              </div>
+            </details>
           </div>
 
           <!-- Bloque 4: Observaciones -->
