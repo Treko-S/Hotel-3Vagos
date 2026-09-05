@@ -256,6 +256,7 @@ function initRealtimeSubscriptions() {
             DashboardModule.loadRecentActivity();
           }
           if (typeof ReservationsModule !== 'undefined') ReservationsModule.loadReservations();
+          if (typeof CashBillingModule !== 'undefined') CashBillingModule.loadPaymentsFlow();
         }
       })
       .subscribe();

@@ -156,6 +156,11 @@ const ReservationsModule = {
               <div style="font-size: 10px; color: #166534; font-weight: 600; margin-top: 2px;">
                 Seña Pagada (${Math.round((anticipo / montoTotal) * 100)}%)
               </div>
+              <div style="margin-top: 3px;">
+                <span class="badge" style="font-size: 9.5px; padding: 2px 6px; background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;">
+                  <i class="${this.getPaymentIcon(folio.pagos_folio, b.canal_venta)}"></i> ${sanitizeInput(this.getPaymentName(folio.pagos_folio, b.canal_venta))}
+                </span>
+              </div>
             ` : `
               <span style="color: var(--text-muted); font-size: 11px;">0 Gs. (Sin seña)</span>
             `}
@@ -236,6 +241,22 @@ const ReservationsModule = {
     if (est === 'finalizada') return `<span class="badge badge-disponible"><i class="fas fa-flag-checkered"></i> Finalizada</span>`;
     if (est === 'cancelada') return `<span class="badge badge-mantenimiento"><i class="fas fa-times-circle"></i> Cancelada</span>`;
     return `<span class="badge badge-abierto">${sanitizeInput(estado || 'Pendiente')}</span>`;
+  },
+
+  getPaymentName(pagosFolio, canalVenta) {
+    const pagos = Array.isArray(pagosFolio) ? pagosFolio : [];
+    if (pagos.length > 0 && pagos[pagos.length - 1].metodo_pago) {
+      return pagos[pagos.length - 1].metodo_pago;
+    }
+    return canalVenta === 'App Móvil' ? 'Tarjeta (App)' : 'Efectivo';
+  },
+
+  getPaymentIcon(pagosFolio, canalVenta) {
+    const name = this.getPaymentName(pagosFolio, canalVenta).toLowerCase();
+    if (name.includes('efectivo')) return 'fas fa-money-bill-wave';
+    if (name.includes('qr') || name.includes('billetera')) return 'fas fa-qrcode';
+    if (name.includes('transferencia') || name.includes('sipap')) return 'fas fa-university';
+    return 'fas fa-credit-card';
   },
 
   openCheckInModal(bookingId) {

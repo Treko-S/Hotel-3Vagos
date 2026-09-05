@@ -95,6 +95,26 @@ const DashboardModule = {
 
       const tasaOcupacion = totalRooms > 0 ? Math.round((ocupadas / totalRooms) * 100) : 0;
 
+      // Desglose de ingresos por método de pago
+      let totalEfectivoCobrado = 0;
+      let totalTarjetasCobrado = 0;
+      let totalDigitalCobrado = 0;
+
+      try {
+        const { data: pagosRows } = await supabaseClient.from('pagos_folio').select('monto, metodo_pago');
+        if (pagosRows && pagosRows.length > 0) {
+          pagosRows.forEach(p => {
+            const m = (p.metodo_pago || '').toLowerCase();
+            const val = Number(p.monto) || 0;
+            if (m.includes('efectivo')) totalEfectivoCobrado += val;
+            else if (m.includes('tarjeta') || m.includes('credito') || m.includes('debito')) totalTarjetasCobrado += val;
+            else totalDigitalCobrado += val;
+          });
+        }
+      } catch (pErr) {
+        console.warn('Detalle de cobros:', pErr);
+      }
+
       // ADR Real = Ingresos Cobrados Reales / Habitaciones Ocupadas (o 0 si no hay cobros)
       const adr = ocupadas > 0 ? Math.round(totalIngresosCobrados / ocupadas) : 0;
       // RevPAR Real = Ingresos Cobrados Reales / Total Habitaciones del hotel
@@ -112,7 +132,16 @@ const DashboardModule = {
       
       const subRevenue = document.getElementById('kpi-revenue-sub');
       if (subRevenue) {
-        subRevenue.innerHTML = `Cobrado Real • <span style="color: #b45309; font-weight: bold;">Pendiente: ${formatGs(totalCuentasPorCobrar)}</span>`;
+        subRevenue.innerHTML = `
+          <div style="font-size: 11px; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <span style="color: #1D4ED8;" title="Tarjetas App/POS"><i class="fas fa-credit-card"></i> Tarj: <strong>${formatGs(totalTarjetasCobrado)}</strong></span>
+            <span style="color: #166534;" title="Efectivo en Mostrador"><i class="fas fa-money-bill-wave"></i> Efec: <strong>${formatGs(totalEfectivoCobrado)}</strong></span>
+            <span style="color: #0D9488;" title="QR / Transferencia"><i class="fas fa-qrcode"></i> QR: <strong>${formatGs(totalDigitalCobrado)}</strong></span>
+          </div>
+          <div style="font-size: 11px; color: #b45309; font-weight: 600; margin-top: 3px;">
+            Pendiente: <strong>${formatGs(totalCuentasPorCobrar)}</strong>
+          </div>
+        `;
       }
 
       const kpiAdr = document.getElementById('kpi-adr');
@@ -175,10 +204,20 @@ const DashboardModule = {
         const pagado = Math.max(folioPagos, anticipo);
         const pendiente = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, total - pagado);
 
+        const pagosArr = Array.isArray(folio.pagos_folio) ? folio.pagos_folio : [];
+        const ultimoPago = pagosArr.length > 0 ? pagosArr[pagosArr.length - 1] : null;
+        const metodoNombre = ultimoPago?.metodo_pago || (b.canal_venta === 'App Móvil' ? 'Tarjeta (App Móvil)' : 'Efectivo');
+        const metodoLower = metodoNombre.toLowerCase();
+        const metodoIcon = metodoLower.includes('efectivo')
+          ? 'fas fa-money-bill-wave'
+          : (metodoLower.includes('qr') || metodoLower.includes('billetera')
+              ? 'fas fa-qrcode'
+              : (metodoLower.includes('transferencia') || metodoLower.includes('sipap') ? 'fas fa-university' : 'fas fa-credit-card'));
+
         const badgeCobro = pagado >= total
-          ? `<span style="font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #ECFDF5; color: #059669; font-weight: bold;"><i class="fas fa-check-circle"></i> Liquidado</span>`
+          ? `<span style="font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #ECFDF5; color: #059669; font-weight: bold;"><i class="fas fa-check-circle"></i> Liquidado • <i class="${metodoIcon}"></i> ${sanitizeInput(metodoNombre)}</span>`
           : (pagado > 0 
-              ? `<span style="font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #EFF6FF; color: #2563EB; font-weight: bold;"><i class="fas fa-coins"></i> Seña Cobrada (${formatGs(pagado)})</span>`
+              ? `<span style="font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #EFF6FF; color: #2563EB; font-weight: bold;"><i class="fas fa-coins"></i> Seña (${formatGs(pagado)}) • <i class="${metodoIcon}"></i> ${sanitizeInput(metodoNombre)}</span>`
               : `<span style="font-size: 10.5px; padding: 2px 8px; border-radius: 6px; background: #FFFBEB; color: #D97706; font-weight: bold;"><i class="fas fa-clock"></i> Pendiente cobro</span>`);
 
         const isGarantizada = pagado > 0 && (b.estado === 'Confirmada' || !b.estado);
