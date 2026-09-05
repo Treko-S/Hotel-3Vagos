@@ -635,6 +635,21 @@ body {
   overflow-y: auto;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
   animation: modalScale 0.25s ease-out;
+  scrollbar-width: none; /* Firefox: oculta la barra manteniendo el scroll activo */
+  -ms-overflow-style: none; /* IE y Edge clásico */
+}
+
+/* Ocultar barra en Chrome, Safari, Edge Chromium y Opera */
+.modal-box::-webkit-scrollbar,
+.modal-body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.modal-body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 @keyframes modalScale {

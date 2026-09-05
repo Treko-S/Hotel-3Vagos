@@ -454,7 +454,7 @@ const ReservationsModule = {
 
   configureBrevoKey() {
     const currentKey = localStorage.getItem('BREVO_API_KEY') || window.BREVO_API_KEY || '';
-    const currentEmail = localStorage.getItem('BREVO_SENDER_EMAIL') || window.BREVO_SENDER_EMAIL || 'rc652107@gmail.com';
+    const currentEmail = localStorage.getItem('BREVO_SENDER_EMAIL') || window.BREVO_SENDER_EMAIL || 'mckakucorpii@gmail.com';
     const key = prompt('Ingrese su Brevo API Key (obtenida en Brevo -> SMTP & API -> API Keys, comienza con xkeysib-...):', currentKey);
     if (key !== null && key.trim()) {
       localStorage.setItem('BREVO_API_KEY', key.trim());
@@ -940,10 +940,16 @@ const ReservationsModule = {
         : `Comprobante de Reserva & Folio - ${booking.codigo_reserva} | Hotel 3 Vagos`;
 
       let brevoApiKey = window.BREVO_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_API_KEY') : null);
-      if (!brevoApiKey) {
+      if (!brevoApiKey || brevoApiKey.length < 20) {
         brevoApiKey = ['xkey' + 'sib', '0ab84776e8caca991f563f79dad1f3d458367c85112e16134febd2602688f489', 'irk2Rxe2KLAAbElh'].join('-');
+        if (typeof localStorage !== 'undefined') localStorage.setItem('BREVO_API_KEY', brevoApiKey);
       }
-      const brevoSenderEmail = window.BREVO_SENDER_EMAIL || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_SENDER_EMAIL') : null) || 'rc652107@gmail.com';
+      const verifiedBrevoSender = 'mckakucorpii@gmail.com';
+      let brevoSenderEmail = window.BREVO_SENDER_EMAIL || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_SENDER_EMAIL') : null);
+      if (!brevoSenderEmail || brevoSenderEmail.includes('rc652107') || !brevoSenderEmail.includes('@')) {
+        brevoSenderEmail = verifiedBrevoSender;
+        if (typeof localStorage !== 'undefined') localStorage.setItem('BREVO_SENDER_EMAIL', verifiedBrevoSender);
+      }
       const brevoSenderName = 'Hotel 3 Vagos';
 
       // 1. Sincronizar automáticamente el contacto en la libreta de Brevo
