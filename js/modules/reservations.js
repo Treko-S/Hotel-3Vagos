@@ -988,6 +988,9 @@ const ReservationsModule = {
         } else {
           const errData = await brevoRes.json().catch(() => ({}));
           console.warn('Brevo direct fetch warning:', brevoRes.status, errData);
+          if (errData && (JSON.stringify(errData).includes('authorised_ips') || JSON.stringify(errData).includes('authorized_ip') || errData.code === 'unauthorized_ip')) {
+            showToast('Brevo tiene activado el Bloqueo de IPs. Desactívalo en app.brevo.com/security/authorised_ips para que funcione en cualquier PC.', 'warning');
+          }
         }
       } catch (fetchErr) {
         console.warn('Brevo direct fetch error (CORS o conexión local):', fetchErr);
@@ -1029,7 +1032,12 @@ const ReservationsModule = {
       });
 
       this.viewFolioDetail(booking.id);
-      showToast(`¡Comprobante ${reason ? 'actualizado' : ''} despachado a ${clientEmail} vía Brevo API!`, 'success');
+
+      if (sentOk) {
+        showToast(`¡Comprobante ${reason ? 'actualizado' : ''} despachado con éxito a ${clientEmail} vía Brevo!`, 'success');
+      } else {
+        showToast(`Comprobante registrado en auditoría. Para despacho por Brevo desde esta red, desactive el bloqueo de IP en su panel de Brevo.`, 'info');
+      }
 
     } catch (e) {
       console.error('Error al enviar correo por Brevo:', e);
