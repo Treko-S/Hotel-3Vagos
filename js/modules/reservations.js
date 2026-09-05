@@ -944,11 +944,11 @@ const ReservationsModule = {
         brevoApiKey = ['xkey' + 'sib', '0ab84776e8caca991f563f79dad1f3d458367c85112e16134febd2602688f489', 'irk2Rxe2KLAAbElh'].join('-');
         if (typeof localStorage !== 'undefined') localStorage.setItem('BREVO_API_KEY', brevoApiKey);
       }
-      const verifiedBrevoSender = 'mckakucorpii@gmail.com';
-      let brevoSenderEmail = window.BREVO_SENDER_EMAIL || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_SENDER_EMAIL') : null);
-      if (!brevoSenderEmail || brevoSenderEmail.includes('rc652107') || !brevoSenderEmail.includes('@')) {
-        brevoSenderEmail = verifiedBrevoSender;
-        if (typeof localStorage !== 'undefined') localStorage.setItem('BREVO_SENDER_EMAIL', verifiedBrevoSender);
+      
+      // Remitente verificado en Brevo (exclusivo para envíos SMTP autorizados)
+      const brevoSenderEmail = 'mckakucorpii@gmail.com';
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('BREVO_SENDER_EMAIL', brevoSenderEmail);
       }
       const brevoSenderName = 'Hotel 3 Vagos';
 
@@ -971,6 +971,7 @@ const ReservationsModule = {
 
       console.log('Despachando correo transaccional vía Brevo API a:', clientEmail);
       let sentOk = false;
+      let sentMessageId = '';
 
       // 2. Intentar despacho directo vía Brevo API
       try {
@@ -982,7 +983,7 @@ const ReservationsModule = {
             'Accept': 'application/json'
           },
           body: JSON.stringify({
-            sender: { name: brevoSenderName, email: brevoSenderEmail.trim() },
+            sender: { name: brevoSenderName, email: brevoSenderEmail },
             to: [{ email: clientEmail, name: clientName }],
             subject: subjectTitle,
             htmlContent: emailHtml
@@ -991,42 +992,20 @@ const ReservationsModule = {
 
         if (brevoRes.ok) {
           sentOk = true;
+          const okData = await brevoRes.json().catch(() => ({}));
+          sentMessageId = okData.messageId || '';
+          console.log('Brevo despacho exitoso! MessageId:', sentMessageId);
         } else {
           const errData = await brevoRes.json().catch(() => ({}));
           console.warn('Brevo direct fetch warning:', brevoRes.status, errData);
           if (errData && (JSON.stringify(errData).includes('authorised_ips') || JSON.stringify(errData).includes('authorized_ip') || errData.code === 'unauthorized_ip')) {
             showToast('Brevo tiene activado el Bloqueo de IPs. Desactívalo en app.brevo.com/security/authorised_ips para que funcione en cualquier PC.', 'warning');
+          } else {
+            showToast(`Error Brevo (${brevoRes.status}): ${errData.message || 'No autorizado'}`, 'danger');
           }
         }
       } catch (fetchErr) {
         console.warn('Brevo direct fetch error (CORS o conexión local):', fetchErr);
-      }
-
-      // 3. Respaldo mediante Supabase Edge Function si la llamada directa no respondió OK
-      if (!sentOk) {
-        try {
-          const { data: edgeData, error: edgeErr } = await supabaseClient.functions.invoke('send-hotel-email', {
-            body: {
-              to: clientEmail,
-              type: reason ? 'invoice' : 'new_booking',
-              bookingCode: booking.codigo_reserva,
-              guestName: clientName,
-              roomNumber: hab.numero || 'N/A',
-              roomType: tipo.nombre || 'Estándar',
-              checkIn: formatDate(booking.check_in_previsto),
-              checkOut: formatDate(booking.check_out_previsto),
-              totalAmount: granTotal,
-              paidAmount: anticipo,
-              remainingAmount: saldo
-            }
-          });
-          if (!edgeErr) {
-            sentOk = true;
-            console.log('Despachado con éxito vía Supabase Edge Function (send-hotel-email):', edgeData);
-          }
-        } catch (edgeExc) {
-          console.warn('Edge Function fallback error:', edgeExc);
-        }
       }
 
       this.saveFolioEmailDispatch(booking.codigo_reserva, {
@@ -1040,9 +1019,9 @@ const ReservationsModule = {
       this.viewFolioDetail(booking.id);
 
       if (sentOk) {
-        showToast(`¡Comprobante ${reason ? 'actualizado' : ''} despachado con éxito a ${clientEmail} vía Brevo!`, 'success');
+        showToast(`¡Comprobante ${reason ? 'actualizado ' : ''}enviado a ${clientEmail}! (Por favor revisa tu bandeja y la carpeta de Spam)`, 'success');
       } else {
-        showToast(`Comprobante registrado en auditoría. Para despacho por Brevo desde esta red, desactive el bloqueo de IP en su panel de Brevo.`, 'info');
+        showToast(`Comprobante registrado en auditoría interna.`, 'info');
       }
 
     } catch (e) {
