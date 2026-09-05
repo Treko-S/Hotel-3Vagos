@@ -259,7 +259,14 @@ const RatesSeasonsModule = {
   },
 
   async deleteSeason(id) {
-    if (!confirm('¿Está seguro de que desea eliminar esta temporada?')) return;
+    const ok = await CustomDialog.confirm({
+      title: 'Eliminar Temporada',
+      message: '¿Está seguro de que desea eliminar esta temporada? Las tarifas volverán a sus valores estándar.',
+      icon: 'fa-calendar-times',
+      confirmText: 'Sí, Eliminar',
+      isDanger: true
+    });
+    if (!ok) return;
     try {
       const { error } = await supabaseClient
         .from('temporadas')

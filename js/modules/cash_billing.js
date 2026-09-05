@@ -152,7 +152,13 @@ const CashBillingModule = {
 
   async closeSession() {
     if (!this.currentSession) return;
-    if (!confirm('¿Está seguro de realizar el Cierre de Caja del turno actual?')) return;
+    const ok = await CustomDialog.confirm({
+      title: 'Cierre de Caja de Turno',
+      message: '¿Está seguro de realizar el Cierre de Caja del turno actual? Esta acción consolidará las operaciones del turno.',
+      icon: 'fa-cash-register',
+      confirmText: 'Sí, Cerrar Caja'
+    });
+    if (!ok) return;
 
     try {
       await supabaseClient.from('sesiones_caja').update({

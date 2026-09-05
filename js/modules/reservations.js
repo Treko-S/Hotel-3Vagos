@@ -452,14 +452,26 @@ const ReservationsModule = {
     return history;
   },
 
-  configureBrevoKey() {
+  async configureBrevoKey() {
     const currentKey = localStorage.getItem('BREVO_API_KEY') || window.BREVO_API_KEY || '';
     const currentEmail = localStorage.getItem('BREVO_SENDER_EMAIL') || window.BREVO_SENDER_EMAIL || 'mckakucorpii@gmail.com';
-    const key = prompt('Ingrese su Brevo API Key (obtenida en Brevo -> SMTP & API -> API Keys, comienza con xkeysib-...):', currentKey);
+    const key = await CustomDialog.prompt({
+      title: 'Configurar Brevo API Key',
+      message: 'Ingrese su Brevo API Key oficial (xkeysib-...):',
+      label: 'API Key',
+      defaultValue: currentKey,
+      placeholder: 'xkeysib-...'
+    });
     if (key !== null && key.trim()) {
       localStorage.setItem('BREVO_API_KEY', key.trim());
       window.BREVO_API_KEY = key.trim();
-      const email = prompt('Ingrese el correo remitente verificado en Brevo (su cuenta):', currentEmail);
+      const email = await CustomDialog.prompt({
+        title: 'Correo Remitente Verificado',
+        message: 'Ingrese el correo remitente verificado en su cuenta de Brevo:',
+        label: 'Email Remitente',
+        defaultValue: currentEmail,
+        placeholder: 'ej. mckakucorpii@gmail.com'
+      });
       if (email !== null && email.trim()) {
         localStorage.setItem('BREVO_SENDER_EMAIL', email.trim());
         window.BREVO_SENDER_EMAIL = email.trim();
@@ -480,39 +492,28 @@ const ReservationsModule = {
   },
 
   /**
-   * Permite a recepción registrar un consumo extra rápido en el folio
+   * Permite a recepción registrar un consumo extra rápido en el folio usando el modal personalizado
    */
-  async promptAddConsumption(bookingId) {
-    const desc = prompt('Ingrese el concepto del consumo (ej. Frigobar: 2x Agua + Snickers, Room Service):', 'Consumo Frigobar / Minibar');
-    if (!desc) return;
-    const montoStr = prompt('Ingrese el monto del consumo en Guaraníes (Gs.):', '35000');
-    if (!montoStr) return;
-    const monto = Number(montoStr.replace(/\D/g, '')) || 0;
-    if (monto <= 0) {
-      showToast('Monto inválido', 'warning');
+  promptAddConsumption(bookingId) {
+    if (typeof CustomDialog !== 'undefined' && CustomDialog.openAddConsumption) {
+      CustomDialog.openAddConsumption(bookingId);
+    } else {
+      showToast('Módulo de consumos no disponible', 'warning');
+    }
+  },
+
+  /**
+   * Descarga el Folio de Cuenta oficial en PDF en el navegador
+   */
+  downloadCurrentFolioPdf() {
+    if (!this.currentActiveFolioBooking) {
+      showToast('Seleccione un folio primero', 'warning');
       return;
     }
-
-    const booking = this.currentBookings.find(b => b.id === bookingId);
-    if (!booking) return;
-
-    const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
-    const nuevoConsumo = (Number(folio.total_consumos) || 0) + monto;
-    const nuevoSaldo = (Number(folio.saldo_pendiente) || 0) + monto;
-
-    try {
-      if (folio.id) {
-        await supabaseClient.from('folios').update({
-          total_consumos: nuevoConsumo,
-          saldo_pendiente: nuevoSaldo
-        }).eq('id', folio.id);
-      }
-      showToast(`¡Consumo de ${formatGs(monto)} registrado en folio!`, 'success');
-      await this.loadReservations();
-      this.viewFolioDetail(bookingId);
-    } catch (e) {
-      console.error('Error al agregar consumo:', e);
-      showToast('Error al registrar consumo: ' + e.message, 'error');
+    if (typeof FolioPdfService !== 'undefined') {
+      FolioPdfService.downloadFolioPdf(this.currentActiveFolioBooking);
+    } else {
+      showToast('Servicio PDF no disponible', 'warning');
     }
   },
 
@@ -922,8 +923,17 @@ const ReservationsModule = {
             </tr>
           </table>
 
-          <div style="background: #F8FAFC; border-radius: 8px; padding: 12px; font-size: 11.5px; color: #64748B; margin-bottom: 20px;">
+          <div style="background: #F8FAFC; border-radius: 8px; padding: 12px; font-size: 11.5px; color: #64748B; margin-bottom: 16px;">
             <strong>Liquidación Impositiva SET (Paraguay):</strong> Gravadas 10%: ${formatGs(Math.round(granTotal / 1.10))} | Liquidación IVA 10%: ${formatGs(iva10)} | Exentas: 0 Gs.
+          </div>
+
+          <!-- Notificación de Documento Oficial PDF Adjunto -->
+          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
+            <div style="font-size: 26px;">📎</div>
+            <div>
+              <strong style="color: #1E40AF; font-size: 13px;">Comprobante Legal en Formato PDF Adjunto</strong>
+              <p style="margin: 2px 0 0; font-size: 11.5px; color: #1E3A8A;">Hemos adjuntado a este correo su Folio de Cuenta oficial en PDF de alta definición con validez legal SET y código de auditoría.</p>
+            </div>
           </div>
 
           <div style="text-align: center; color: #94A3B8; font-size: 12px; line-height: 1.5;">
@@ -973,8 +983,35 @@ const ReservationsModule = {
       let sentOk = false;
       let sentMessageId = '';
 
-      // 2. Intentar despacho directo vía Brevo API
+      // Generar PDF del folio para adjunto
+      let pdfBase64 = null;
       try {
+        if (typeof FolioPdfService !== 'undefined') {
+          pdfBase64 = FolioPdfService.generatePdfBase64(booking, folio);
+          console.log('PDF de folio generado con éxito para adjunto en Brevo');
+        }
+      } catch (pdfErr) {
+        console.warn('Advertencia al generar PDF para adjunto Brevo:', pdfErr);
+      }
+
+      // 2. Intentar despacho directo vía Brevo API con PDF adjunto
+      try {
+        const brevoPayload = {
+          sender: { name: brevoSenderName, email: brevoSenderEmail },
+          to: [{ email: clientEmail, name: clientName }],
+          subject: subjectTitle,
+          htmlContent: emailHtml
+        };
+
+        if (pdfBase64) {
+          brevoPayload.attachment = [
+            {
+              content: pdfBase64,
+              name: `Folio_Reserva_${booking.codigo_reserva}.pdf`
+            }
+          ];
+        }
+
         const brevoRes = await fetch('https://api.brevo.com/v3/smtp/email', {
           method: 'POST',
           headers: {
@@ -982,12 +1019,7 @@ const ReservationsModule = {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
-          body: JSON.stringify({
-            sender: { name: brevoSenderName, email: brevoSenderEmail },
-            to: [{ email: clientEmail, name: clientName }],
-            subject: subjectTitle,
-            htmlContent: emailHtml
-          })
+          body: JSON.stringify(brevoPayload)
         });
 
         if (brevoRes.ok) {

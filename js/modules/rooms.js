@@ -634,13 +634,20 @@ const RoomsModule = {
   /**
    * Eliminar todas las imágenes de la galería
    */
-  removeAllGalleryImages() {
+  async removeAllGalleryImages() {
     if (!this.currentGalleryImages || this.currentGalleryImages.length === 0) return;
     const count = this.currentGalleryImages.length;
-    if (confirm(`¿Deseas eliminar todas las fotos (${count}) de la galería?\n\nNota: La habitación requerirá al menos una imagen obligatoria antes de poder guardarse.`)) {
+    const ok = await CustomDialog.confirm({
+      title: 'Eliminar Fotos de Galería',
+      message: `¿Deseas eliminar todas las fotos (${count}) de la galería? La habitación requerirá al menos una imagen antes de poder guardarse.`,
+      icon: 'fa-trash-alt',
+      confirmText: 'Sí, Eliminar Todas',
+      isDanger: true
+    });
+    if (ok) {
       this.currentGalleryImages = [];
       this.renderGalleryEditor();
-      showToast('Se eliminaron todas las fotos. Recuerda agregar al menos una imagen antes de guardar.', 'warning');
+      showToast('Se eliminaron todas las fotos de la galería.', 'warning');
     }
   },
 
@@ -855,7 +862,14 @@ const RoomsModule = {
    * Cambio Rápido de Estado Operativo
    */
   async changeStatusPrompt(roomId, currentStatus) {
-    const newStatus = prompt(`Cambiar estado para la habitación.\nEstado actual: ${currentStatus}\nOpciones: Disponible, Ocupada, Sucia, En limpieza, Mantenimiento`, currentStatus);
+    const newStatus = await CustomDialog.prompt({
+      title: 'Cambiar Estado Operativo',
+      message: `Estado actual: ${currentStatus}. Ingrese el nuevo estado:`,
+      label: 'Nuevo Estado (Disponible, Ocupada, Sucia, En limpieza, Mantenimiento)',
+      defaultValue: currentStatus,
+      placeholder: 'Ej. Disponible',
+      confirmText: 'Actualizar Estado'
+    });
     if (!newStatus || newStatus === currentStatus) return;
 
     try {
