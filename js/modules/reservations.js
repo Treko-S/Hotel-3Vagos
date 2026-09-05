@@ -517,6 +517,10 @@ const ReservationsModule = {
     }
   },
 
+  viewFolio(bookingId) {
+    return this.viewFolioDetail(bookingId);
+  },
+
   viewFolioDetail(bookingId) {
     const booking = this.currentBookings.find(b => b.id === bookingId);
     if (!booking) return;
@@ -838,6 +842,18 @@ const ReservationsModule = {
     }
   },
 
+  downloadCurrentFolioPdf() {
+    if (!this.currentActiveFolioBooking) {
+      showToast('No hay ninguna reserva seleccionada para descargar el folio', 'warning');
+      return;
+    }
+    if (typeof FolioPdfService !== 'undefined') {
+      FolioPdfService.downloadFolioPdf(this.currentActiveFolioBooking);
+    } else {
+      showToast('El servicio de generación de PDF no está disponible. Recargue la página.', 'danger');
+    }
+  },
+
   async dispatchBrevoEmail(booking, reason = null) {
     const user = booking.users || {};
     const hab = booking.habitaciones || {};
@@ -850,6 +866,7 @@ const ReservationsModule = {
     const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(booking.anticipo_pagado || 0);
     const saldo = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, granTotal - anticipo);
     const iva10 = Math.round(granTotal / 11);
+    const gravada10 = granTotal - iva10;
 
     const clientEmail = user.email || 'rc652107@gmail.com';
     const clientName = user.full_name || 'Huésped Distinguido';
@@ -861,84 +878,128 @@ const ReservationsModule = {
       ? `Reenviando cuenta actualizada #${currentDispatchNum} a ${clientEmail} vía Brevo...` 
       : `Enviando comprobante oficial a ${clientEmail} vía Brevo...`, 'info');
 
+    const escarapelaImgTag = (typeof window !== 'undefined' && window.ESCARAPELA_PY_BASE64)
+      ? `<img src="${window.ESCARAPELA_PY_BASE64}" alt="Escarapela de la República del Paraguay" style="width: 64px; height: 64px; object-fit: contain; margin-bottom: 10px; display: inline-block;" />`
+      : '';
+
     const emailHtml = `
-      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-        <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #ffffff; padding: 28px 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #D4AF37; letter-spacing: 1px;">HOTEL 3 VAGOS</h1>
-          <p style="margin: 6px 0 0; font-size: 12px; color: #94A3B8;">Hospitalidad & Excelencia - UTCD Asunción</p>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 14px rgba(0,0,0,0.06);">
+        <!-- Tricolor Paraguayo Superior -->
+        <div style="height: 4px; display: flex; width: 100%;">
+          <div style="flex: 1; background: #DC2626;"></div>
+          <div style="flex: 1; background: #FFFFFF; border-top: 1px solid #E2E8F0; border-bottom: 1px solid #E2E8F0;"></div>
+          <div style="flex: 1; background: #1E40AF;"></div>
         </div>
 
-        <div style="padding: 24px;">
-          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
-            <div style="font-size: 11px; color: #64748B;">RUC: <strong>80092341-2</strong> | Timbrado SET: <strong>16789423</strong> (Válido hasta 31/12/2026)</div>
-            <div style="font-size: 14px; font-weight: 700; color: #0F172A; margin-top: 4px;">
-              ${reason ? `COMPROBANTE ACTUALIZADO (VERSIÓN #${currentDispatchNum})` : 'COMPROBANTE OFICIAL DE RESERVA & FOLIO'}
+        <!-- Encabezado Institucional de Prestigio -->
+        <div style="background: linear-gradient(135deg, #0B1329 0%, #1E293B 100%); color: #ffffff; padding: 28px 24px; text-align: center;">
+          ${escarapelaImgTag}
+          <h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #C5A059; letter-spacing: 1.5px; text-transform: uppercase;">HOTEL 3 VAGOS S.A.</h1>
+          <p style="margin: 6px 0 0; font-size: 12px; color: #94A3B8; font-weight: 500;">Servicios de Alojamiento y Hospedaje Turístico de Alta Gama</p>
+          <p style="margin: 4px 0 0; font-size: 11px; color: #64748B;">Asunción, Paraguay • Convenio Académico e Institucional UTCD</p>
+        </div>
+
+        <div style="padding: 24px 28px;">
+          <!-- Bloque Timbrado Legal SET -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <span style="font-size: 11px; color: #64748B; display: block;">RUC: <strong>80092341-2</strong> | Timbrado Nº: <strong>16789423</strong></span>
+                <span style="font-size: 10.5px; color: #94A3B8;">Válido hasta: 31/12/2026 • Emisión Oficial SET</span>
+              </div>
+              <div style="text-align: right;">
+                <span style="display: inline-block; background: #FEF3C7; color: #92400E; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; border: 1px solid #FDE68A;">
+                  ${reason ? `ACTUALIZACIÓN #${currentDispatchNum}` : 'ORIGINAL'}
+                </span>
+              </div>
             </div>
+            <div style="font-size: 14px; font-weight: 800; color: #0F172A; margin-top: 6px;">
+              ${reason ? `COMPROBANTE DE FOLIO ACTUALIZADO (VERSIÓN #${currentDispatchNum})` : 'COMPROBANTE OFICIAL DE RESERVA & FOLIO LEGAL'}
+            </div>
+          </div>
+
+          <!-- Declaración del porqué del correo (Profesional e Institucional) -->
+          <div style="background: #F0FDF4; border-left: 4px solid #16A34A; border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 20px;">
+            <strong style="font-size: 13px; color: #166534; display: block; margin-bottom: 4px;">
+              📌 Notificación Oficial de Hospedaje & Facturación
+            </strong>
+            <p style="margin: 0; font-size: 12.5px; color: #14532D; line-height: 1.5;">
+              Le hacemos entrega formal de su <strong>Folio de Cuenta de Hospedaje</strong> emitido por la administración de <strong>Hotel 3 Vagos S.A.</strong> Este comprobante desglosa con total transparencia los cargos de estadía, consumos realizados y pagos acreditados en el sistema PMS, conforme a las regulaciones tributarias de la República del Paraguay.
+            </p>
           </div>
 
           ${reason ? `
-            <div style="background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 12px 16px; border-radius: 0 8px 8px 0; margin-bottom: 20px;">
+            <div style="background: #EFF6FF; border-left: 4px solid #2563EB; border-radius: 0 8px 8px 0; padding: 12px 16px; margin-bottom: 20px;">
               <strong style="font-size: 12px; color: #1E40AF; display: block; margin-bottom: 2px;">
-                <i class="fas fa-info-circle"></i> Motivo de la actualización:
+                <i class="fas fa-history"></i> Justificación Registrada de la Actualización (Auditoría de Recepción):
               </strong>
-              <span style="font-size: 12.5px; color: #1E3A8A;">${sanitizeInput(reason)}</span>
+              <span style="font-size: 12.5px; color: #1E3A8A; font-weight: 600;">${sanitizeInput(reason)}</span>
             </div>
           ` : ''}
 
-          <p style="font-size: 14px; color: #334155; margin-bottom: 16px;">
+          <p style="font-size: 13.5px; color: #334155; margin-bottom: 16px; line-height: 1.5;">
             Estimado/a <strong>${clientName}</strong>,<br>
-            Adjuntamos el desglose oficial de tu folio y cuenta de hospedaje en Hotel 3 Vagos:
+            A continuación se presenta el resumen certificado de su cuenta de habitación y el estado de liquidación:
           </p>
 
+          <!-- Tabla de Datos del Folio -->
           <table style="width: 100%; font-size: 13px; border-collapse: collapse; margin-bottom: 20px;">
             <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B;">Código de Reserva:</td>
-              <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #0F172A;">${booking.codigo_reserva}</td>
+              <td style="padding: 9px 0; color: #64748B;">Código de Reserva:</td>
+              <td style="padding: 9px 0; text-align: right; font-weight: 800; color: #0F172A; font-family: monospace; font-size: 14px;">${booking.codigo_reserva}</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B;">Habitación:</td>
-              <td style="padding: 8px 0; text-align: right; font-weight: 600;">Hab. ${hab.numero || 'N/A'} (${tipo.nombre || 'Estándar'})</td>
+              <td style="padding: 9px 0; color: #64748B;">Habitación Asignada:</td>
+              <td style="padding: 9px 0; text-align: right; font-weight: 600; color: #0F172A;">Habitación ${hab.numero || 'N/A'} (${tipo.nombre || 'Estándar'})</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B;">Estadía:</td>
-              <td style="padding: 8px 0; text-align: right;">${formatDate(booking.check_in_previsto)} al ${formatDate(booking.check_out_previsto)}</td>
+              <td style="padding: 9px 0; color: #64748B;">Periodo de Estadía:</td>
+              <td style="padding: 9px 0; text-align: right; font-weight: 500;">${formatDate(booking.check_in_previsto || booking.check_in)} al ${formatDate(booking.check_out_previsto || booking.check_out)}</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B;">Monto Estadía:</td>
-              <td style="padding: 8px 0; text-align: right; font-weight: 700;">${formatGs(montoTotal)}</td>
+              <td style="padding: 9px 0; color: #64748B;">Total Alojamiento:</td>
+              <td style="padding: 9px 0; text-align: right; font-weight: 700; color: #0F172A;">${formatGs(montoTotal)}</td>
             </tr>
             ${totalConsumos > 0 ? `
               <tr style="border-bottom: 1px solid #E2E8F0;">
-                <td style="padding: 8px 0; color: #64748B;">Consumos Extras / Minibar:</td>
-                <td style="padding: 8px 0; text-align: right; font-weight: 700; color: #D97706;">+${formatGs(totalConsumos)}</td>
+                <td style="padding: 9px 0; color: #64748B;">Consumos Extras (Frigobar / Servicios):</td>
+                <td style="padding: 9px 0; text-align: right; font-weight: 700; color: #D97706;">+${formatGs(totalConsumos)}</td>
               </tr>
             ` : ''}
             <tr style="border-bottom: 1px solid #E2E8F0; background: #F0FDF4;">
-              <td style="padding: 8px 6px; color: #166534; font-weight: 600;">Total Abonado / Seña:</td>
-              <td style="padding: 8px 6px; text-align: right; font-weight: 700; color: #15803D;">-${formatGs(anticipo)}</td>
+              <td style="padding: 9px 6px; color: #166534; font-weight: 600;">Total Pagado / Seña Acreditada:</td>
+              <td style="padding: 9px 6px; text-align: right; font-weight: 700; color: #15803D;">-${formatGs(anticipo)}</td>
             </tr>
             <tr style="border-bottom: 1px solid #E2E8F0;">
-              <td style="padding: 8px 0; color: #64748B; font-weight: 700;">Saldo a Liquidar:</td>
-              <td style="padding: 8px 0; text-align: right; font-weight: 800; color: ${saldo > 0 ? '#DC2626' : '#15803D'}; font-size: 15px;">${formatGs(saldo)}</td>
+              <td style="padding: 10px 0; color: #0F172A; font-weight: 800; font-size: 14px;">Saldo Pendiente de Pago:</td>
+              <td style="padding: 10px 0; text-align: right; font-weight: 900; color: ${saldo > 0 ? '#DC2626' : '#15803D'}; font-size: 16px;">
+                ${saldo > 0 ? formatGs(saldo) : '0 Gs. (CUENTA LIQUIDADA)'}
+              </td>
             </tr>
           </table>
 
-          <div style="background: #F8FAFC; border-radius: 8px; padding: 12px; font-size: 11.5px; color: #64748B; margin-bottom: 16px;">
-            <strong>Liquidación Impositiva SET (Paraguay):</strong> Gravadas 10%: ${formatGs(Math.round(granTotal / 1.10))} | Liquidación IVA 10%: ${formatGs(iva10)} | Exentas: 0 Gs.
+          <!-- Liquidación Tributaria SET -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px; font-size: 11.5px; color: #64748B; margin-bottom: 20px;">
+            <strong style="color: #0F172A; display: block; margin-bottom: 2px;">Liquidación del IVA (Art. 85 Ley Nº 6380/19 - SET Paraguay):</strong>
+            Gravadas 10%: <strong>${formatGs(gravada10)}</strong> | Liquidación IVA 10%: <strong>${formatGs(iva10)}</strong> | Exentas: <strong>0 Gs.</strong>
           </div>
 
-          <!-- Notificación de Documento Oficial PDF Adjunto -->
-          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px;">
-            <div style="font-size: 26px;">📎</div>
+          <!-- Cuadro Destacado: Documento PDF Adjunto de Alta Calidad -->
+          <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center; gap: 14px;">
+            <div style="font-size: 30px; line-height: 1;">📑</div>
             <div>
-              <strong style="color: #1E40AF; font-size: 13px;">Comprobante Legal en Formato PDF Adjunto</strong>
-              <p style="margin: 2px 0 0; font-size: 11.5px; color: #1E3A8A;">Hemos adjuntado a este correo su Folio de Cuenta oficial en PDF de alta definición con validez legal SET y código de auditoría.</p>
+              <strong style="color: #1E40AF; font-size: 13.5px; display: block;">Documento Oficial en Formato PDF Adjunto</strong>
+              <p style="margin: 3px 0 0; font-size: 12px; color: #1E3A8A; line-height: 1.4;">
+                Se adjunta el archivo <strong>Folio_Reserva_${booking.codigo_reserva}.pdf</strong> generado con membrete oficial, la Escarapela Nacional de la República del Paraguay, timbrado SET vigente y espacios de firma de recepción para su auditoría y archivo personal.
+              </p>
             </div>
           </div>
 
-          <div style="text-align: center; color: #94A3B8; font-size: 12px; line-height: 1.5;">
-            <p style="margin: 0 0 4px;">Hotel 3 Vagos S.A. - Asunción, Paraguay</p>
-            <p style="margin: 0; font-size: 11px;">Recepción y Asistencia 24/7 disponible en el hotel o vía WhatsApp.</p>
+          <!-- Pie de Firma Institucional -->
+          <div style="text-align: center; color: #94A3B8; font-size: 11.5px; line-height: 1.6; border-top: 1px solid #E2E8F0; padding-top: 18px;">
+            <p style="margin: 0; font-weight: 700; color: #0F172A;">Hotel 3 Vagos S.A. | Asunción, Paraguay</p>
+            <p style="margin: 2px 0 0;">Av. Eusebio Ayala y Defensores del Chaco • Tel: +595 21 555-0199</p>
+            <p style="margin: 2px 0 0; color: #64748B;">Recepción y Asistencia a Huéspedes 24/7 vía recepcion@hotel3vagos.com.py</p>
           </div>
         </div>
       </div>
@@ -946,8 +1007,8 @@ const ReservationsModule = {
 
     try {
       const subjectTitle = reason 
-        ? `[Cuenta Actualizada #${currentDispatchNum}] Folio & Reserva ${booking.codigo_reserva} | Hotel 3 Vagos` 
-        : `Comprobante de Reserva & Folio - ${booking.codigo_reserva} | Hotel 3 Vagos`;
+        ? `📄 [Folio Oficial Actualizado #${currentDispatchNum}] Reserva ${booking.codigo_reserva} | Hotel 3 Vagos S.A.` 
+        : `🧾 [Folio Oficial & Factura Legal SET] Reserva ${booking.codigo_reserva} | Hotel 3 Vagos S.A.`;
 
       let brevoApiKey = window.BREVO_API_KEY || (typeof localStorage !== 'undefined' ? localStorage.getItem('BREVO_API_KEY') : null);
       if (!brevoApiKey || brevoApiKey.length < 20) {
@@ -955,12 +1016,12 @@ const ReservationsModule = {
         if (typeof localStorage !== 'undefined') localStorage.setItem('BREVO_API_KEY', brevoApiKey);
       }
       
-      // Remitente verificado en Brevo (exclusivo para envíos SMTP autorizados)
+      // Remitente oficial personalizado con el nombre solicitado
       const brevoSenderEmail = 'mckakucorpii@gmail.com';
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('BREVO_SENDER_EMAIL', brevoSenderEmail);
       }
-      const brevoSenderName = 'Hotel 3 Vagos';
+      const brevoSenderName = 'Hotel 3 Vagos - Folio';
 
       // 1. Sincronizar automáticamente el contacto en la libreta de Brevo
       try {
@@ -988,7 +1049,7 @@ const ReservationsModule = {
       try {
         if (typeof FolioPdfService !== 'undefined') {
           pdfBase64 = FolioPdfService.generatePdfBase64(booking, folio);
-          console.log('PDF de folio generado con éxito para adjunto en Brevo');
+          console.log('PDF de folio generado con éxito para adjunto en Brevo. Longitud:', pdfBase64 ? pdfBase64.length : 0);
         }
       } catch (pdfErr) {
         console.warn('Advertencia al generar PDF para adjunto Brevo:', pdfErr);
@@ -1003,7 +1064,7 @@ const ReservationsModule = {
           htmlContent: emailHtml
         };
 
-        if (pdfBase64) {
+        if (pdfBase64 && pdfBase64.length > 500) {
           brevoPayload.attachment = [
             {
               content: pdfBase64,
