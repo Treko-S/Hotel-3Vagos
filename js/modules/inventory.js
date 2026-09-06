@@ -5,15 +5,19 @@
  * 2. Uso Interno (Insumos de limpieza, Lencería/Blancos, Amenidades, Repuestos) con control de fugas
  */
 const InventoryModule = {
-  activeTab: 'sales', // 'sales' | 'internal'
+  activeTab: 'sales', // 'sales' | 'internal' | 'kardex' | 'providers'
   salesItems: [],
   internalItems: [],
   stockMovements: [],
+  kardexEntries: [],
+  providers: [],
   selectedCategory: 'all',
   sortBy: 'category',
 
   async init() {
     this.loadData();
+    this.loadKardexData();
+    this.loadProviders();
     this.renderSalesCatalog();
     this.renderInternalInventory();
   },
@@ -212,12 +216,18 @@ const InventoryModule = {
     // Paneles de contenido
     const salesContent = document.getElementById('inv-content-sales');
     const internalContent = document.getElementById('inv-content-internal');
+    const kardexContent = document.getElementById('inv-content-kardex');
+    const providersContent = document.getElementById('inv-content-providers');
 
     if (salesContent) salesContent.style.display = (tabName === 'sales') ? 'block' : 'none';
     if (internalContent) internalContent.style.display = (tabName === 'internal') ? 'block' : 'none';
+    if (kardexContent) kardexContent.style.display = (tabName === 'kardex') ? 'block' : 'none';
+    if (providersContent) providersContent.style.display = (tabName === 'providers') ? 'block' : 'none';
 
     if (tabName === 'sales') this.renderSalesCatalog();
     if (tabName === 'internal') this.renderInternalInventory();
+    if (tabName === 'kardex') this.renderKardex();
+    if (tabName === 'providers') this.renderProviders();
   },
 
   /* =========================================================
@@ -722,6 +732,8 @@ const InventoryModule = {
     const item = this.internalItems.find(i => i.id == itemId);
     if (!item) return;
 
+    const prevStock = item.currentStock;
+
     if (type === 'OUT') {
       if (qty > item.currentStock) {
         showToast(`Stock insuficiente. Solo hay ${item.currentStock} ${item.unit} disponibles en pañol.`, 'warning');
@@ -737,7 +749,357 @@ const InventoryModule = {
     item.lastUpdated = "Hoy " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     this.saveInternalData();
 
+    // Registrar en el Libro Kardex
+    const authorName = (typeof AppState !== 'undefined' && AppState.currentUser) ? (AppState.currentUser.full_name || AppState.currentUser.email || 'Recepción') : 'Marcos Rolón';
+    const newKardexEntry = {
+      id: 'k_' + Date.now(),
+      date: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      itemName: `${item.name} (${item.unit})`,
+      type: type,
+      qty: qty,
+      prevStock: prevStock,
+      newStock: item.currentStock,
+      user: authorName,
+      reason: reason
+    };
+    this.kardexEntries.unshift(newKardexEntry);
+    this.saveKardexData();
+
     closeModal('modal-stock-movement');
     this.renderInternalInventory();
+    if (this.activeTab === 'kardex') this.renderKardex();
+  },
+
+  /* =========================================================
+     3. PESTAÑA KARDEX DE MOVIMIENTOS & AUDITORÍA DE STOCK
+     ========================================================= */
+  loadKardexData() {
+    try {
+      const saved = localStorage.getItem('hotel_inventory_kardex');
+      if (saved) {
+        this.kardexEntries = JSON.parse(saved);
+      } else {
+        this.kardexEntries = [
+          {
+            id: 'k1',
+            date: '2026-09-05 08:30',
+            itemName: 'Jaboncillos Hoteleros Hipoalergénicos 25g (Unidades)',
+            type: 'IN',
+            qty: 100,
+            prevStock: 35,
+            newStock: 135,
+            user: 'Andrea Benítez',
+            reason: 'Compra reposición Factura #001-002-8491 (Química Asunción)'
+          },
+          {
+            id: 'k2',
+            date: '2026-09-05 11:15',
+            itemName: 'Toallas de Baño Grandes 100% Algodón (Unidades)',
+            type: 'OUT',
+            qty: 7,
+            prevStock: 15,
+            newStock: 8,
+            user: 'Sofía Villalba (Mucama)',
+            reason: 'Dotación a pisos 1 y 2 para recambio de huéspedes'
+          },
+          {
+            id: 'k3',
+            date: '2026-09-05 14:00',
+            itemName: 'Pilas AAA para Controles de Aire Split (Pares)',
+            type: 'OUT',
+            qty: 6,
+            prevStock: 10,
+            newStock: 4,
+            user: 'Carlos Duarte (Técnico)',
+            reason: 'Reemplazo en Habs. 101, 104 y 202'
+          },
+          {
+            id: 'k4',
+            date: '2026-09-06 09:10',
+            itemName: 'Detergente Desinfectante Hospitalario Clorado 5L (Bidones)',
+            type: 'IN',
+            qty: 10,
+            prevStock: 2,
+            newStock: 12,
+            user: 'Marcos Rolón',
+            reason: 'Entrega de Proveedor Limpieza Total S.A.'
+          }
+        ];
+        this.saveKardexData();
+      }
+    } catch (e) {
+      this.kardexEntries = [];
+    }
+  },
+
+  saveKardexData() {
+    try {
+      localStorage.setItem('hotel_inventory_kardex', JSON.stringify(this.kardexEntries));
+    } catch (e) {}
+  },
+
+  renderKardex(filterItemName = 'ALL') {
+    const tbody = document.getElementById('kardex-table-body');
+    const selectFilter = document.getElementById('kardex-filter-item');
+    if (!tbody) return;
+
+    // Poblar opciones del select si está vacío
+    if (selectFilter && selectFilter.options.length <= 1) {
+      this.internalItems.forEach(it => {
+        const opt = document.createElement('option');
+        opt.value = it.name;
+        opt.innerText = it.name;
+        selectFilter.appendChild(opt);
+      });
+    }
+
+    // Filtrar
+    const list = (filterItemName === 'ALL')
+      ? this.kardexEntries
+      : this.kardexEntries.filter(k => k.itemName.includes(filterItemName));
+
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay registros de movimientos para este criterio.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    list.forEach(k => {
+      const isEntry = k.type === 'IN';
+      const badge = isEntry
+        ? `<span class="badge-kardex-in"><i class="fas fa-arrow-down"></i> Entrada</span>`
+        : `<span class="badge-kardex-out"><i class="fas fa-arrow-up"></i> Salida</span>`;
+
+      html += `
+        <tr>
+          <td>
+            <div style="font-weight: 600; font-size: 12px; color: var(--primary-navy);">${k.date} hs</div>
+          </td>
+          <td>
+            <strong style="color: #1E293B; font-size: 13px;">${sanitizeInput(k.itemName)}</strong>
+          </td>
+          <td>${badge}</td>
+          <td>
+            <strong style="color: ${isEntry ? '#166534' : '#991B1B'}; font-size: 13px;">${isEntry ? '+' : '-'}${k.qty}</strong>
+          </td>
+          <td style="color: var(--text-muted); font-size: 12.5px;">${k.prevStock}</td>
+          <td>
+            <strong style="color: var(--primary-navy); font-size: 13px;">${k.newStock}</strong>
+          </td>
+          <td>
+            <span class="badge" style="background: #F1F5F9; color: #475569; font-size: 11px;">${sanitizeInput(k.user)}</span>
+          </td>
+          <td>
+            <span style="font-size: 11.5px; color: #64748B;">${sanitizeInput(k.reason)}</span>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  filterKardex() {
+    const val = document.getElementById('kardex-filter-item')?.value || 'ALL';
+    this.renderKardex(val);
+  },
+
+  /* =========================================================
+     4. PESTAÑA COMPRAS & DIRECTORIO DE PROVEEDORES
+     ========================================================= */
+  loadProviders() {
+    try {
+      const saved = localStorage.getItem('hotel_providers_list');
+      if (saved) {
+        this.providers = JSON.parse(saved);
+      } else {
+        this.providers = [
+          {
+            id: 'prv-1',
+            name: 'Distribuidora Central de Bebidas S.A.',
+            ruc: '80041295-4',
+            rubro: 'Alimentos & Bebidas',
+            phone: '021 552 100',
+            email: 'pedidos@centralbebidas.com.py',
+            address: 'Avda. Eusebio Ayala 3450, Asunción',
+            status: 'Activo'
+          },
+          {
+            id: 'prv-2',
+            name: 'Textil & Lencería Hotelera Guaraní S.R.L.',
+            ruc: '80019283-7',
+            rubro: 'Lencería & Blancos',
+            phone: '0981 445 678',
+            email: 'ventas@textilguarani.com.py',
+            address: 'Calle Palma c/ Montevideo, Asunción',
+            status: 'Activo'
+          },
+          {
+            id: 'prv-3',
+            name: 'Limpieza Total & Químicos Paraguay S.A.',
+            ruc: '80077641-1',
+            rubro: 'Insumos de Limpieza',
+            phone: '0971 889 012',
+            email: 'comercial@limpiezatotal.com.py',
+            address: 'Acceso Sur Km 4.5, Fernando de la Mora',
+            status: 'Activo'
+          },
+          {
+            id: 'prv-4',
+            name: 'Refrigeración & Repuestos del Este',
+            ruc: '80063219-9',
+            rubro: 'Mantenimiento Técnico',
+            phone: '0983 234 567',
+            email: 'contacto@refrigeste.com.py',
+            address: 'Avda. San Martín 1240, Asunción',
+            status: 'Activo'
+          }
+        ];
+        this.saveProviders();
+      }
+    } catch (e) {
+      this.providers = [];
+    }
+  },
+
+  saveProviders() {
+    try {
+      localStorage.setItem('hotel_providers_list', JSON.stringify(this.providers));
+    } catch (e) {}
+  },
+
+  renderProviders() {
+    const grid = document.getElementById('providers-grid');
+    if (!grid) return;
+
+    if (this.providers.length === 0) {
+      grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 32px; color: var(--text-muted);"><i class="fas fa-truck"></i> No hay proveedores registrados. Presione "Registrar Nuevo Proveedor" arriba.</div>`;
+      return;
+    }
+
+    let html = '';
+    this.providers.forEach(p => {
+      const rubroColors = {
+        'Alimentos & Bebidas': { bg: '#FEF3C7', color: '#92400E' },
+        'Lencería & Blancos': { bg: '#EFF6FF', color: '#1D4ED8' },
+        'Insumos de Limpieza': { bg: '#F0FDF4', color: '#166534' },
+        'Mantenimiento Técnico': { bg: '#FAF5FF', color: '#7E22CE' }
+      };
+      const styleBadge = rubroColors[p.rubro] || { bg: '#F1F5F9', color: '#334155' };
+
+      html += `
+        <div class="provider-card">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+              <span class="badge" style="background: ${styleBadge.bg}; color: ${styleBadge.color}; font-size: 11px; font-weight: 700;">
+                <i class="fas fa-tag"></i> ${sanitizeInput(p.rubro)}
+              </span>
+              <span class="badge badge-confirmada" style="font-size: 10px;">${sanitizeInput(p.status || 'Activo')}</span>
+            </div>
+            <h4 style="font-size: 15px; font-weight: 800; color: var(--primary-navy); margin-bottom: 6px;">${sanitizeInput(p.name)}</h4>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+              <strong style="color: #1E293B;">RUC:</strong> ${sanitizeInput(p.ruc)}
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+              <i class="fas fa-phone" style="width: 14px;"></i> ${sanitizeInput(p.phone || '-')}
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+              <i class="fas fa-envelope" style="width: 14px;"></i> ${sanitizeInput(p.email || '-')}
+            </div>
+            <div style="font-size: 11.5px; color: #64748B; margin-top: 6px; line-height: 1.4;">
+              <i class="fas fa-map-marker-alt" style="width: 14px; color: var(--primary-gold);"></i> ${sanitizeInput(p.address || 'Asunción, Paraguay')}
+            </div>
+          </div>
+          <div style="border-top: 1px solid #E2E8F0; padding-top: 12px; margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px;">
+            <button class="btn btn-outline btn-xs" onclick="InventoryModule.editProvider('${p.id}')" title="Editar Proveedor">
+              <i class="fas fa-edit"></i> Editar
+            </button>
+            <button class="btn btn-outline btn-xs" style="color: #DC2626; border-color: #FECACA;" onclick="InventoryModule.deleteProvider('${p.id}')" title="Eliminar Proveedor">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    grid.innerHTML = html;
+  },
+
+  openNewProviderModal() {
+    document.getElementById('provider-id').value = '';
+    document.getElementById('provider-name').value = '';
+    document.getElementById('provider-ruc').value = '';
+    document.getElementById('provider-phone').value = '';
+    document.getElementById('provider-email').value = '';
+    document.getElementById('provider-address').value = '';
+    document.getElementById('provider-modal-title').innerText = 'Registrar Proveedor';
+    openModal('modal-provider');
+  },
+
+  editProvider(id) {
+    const p = this.providers.find(item => item.id === id);
+    if (!p) return;
+    document.getElementById('provider-id').value = p.id;
+    document.getElementById('provider-name').value = p.name;
+    document.getElementById('provider-ruc').value = p.ruc;
+    document.getElementById('provider-rubro').value = p.rubro;
+    document.getElementById('provider-phone').value = p.phone || '';
+    document.getElementById('provider-email').value = p.email || '';
+    document.getElementById('provider-address').value = p.address || '';
+    document.getElementById('provider-modal-title').innerText = 'Editar Proveedor';
+    openModal('modal-provider');
+  },
+
+  saveProvider() {
+    const id = document.getElementById('provider-id').value;
+    const name = document.getElementById('provider-name').value.trim();
+    const ruc = document.getElementById('provider-ruc').value.trim();
+    const rubro = document.getElementById('provider-rubro').value;
+    const phone = document.getElementById('provider-phone').value.trim();
+    const email = document.getElementById('provider-email').value.trim();
+    const address = document.getElementById('provider-address').value.trim();
+
+    if (!name || !ruc) {
+      showToast('Por favor complete los campos obligatorios (*)', 'warning');
+      return;
+    }
+
+    if (id) {
+      const p = this.providers.find(item => item.id === id);
+      if (p) {
+        p.name = name;
+        p.ruc = ruc;
+        p.rubro = rubro;
+        p.phone = phone;
+        p.email = email;
+        p.address = address;
+        showToast(`Proveedor "${name}" actualizado con éxito`, 'success');
+      }
+    } else {
+      const newP = {
+        id: 'prv_' + Date.now(),
+        name,
+        ruc,
+        rubro,
+        phone,
+        email,
+        address,
+        status: 'Activo'
+      };
+      this.providers.unshift(newP);
+      showToast(`Proveedor "${name}" registrado con éxito`, 'success');
+    }
+
+    this.saveProviders();
+    closeModal('modal-provider');
+    this.renderProviders();
+  },
+
+  deleteProvider(id) {
+    if (!confirm('¿Está seguro de que desea eliminar este proveedor del directorio?')) return;
+    this.providers = this.providers.filter(p => p.id !== id);
+    this.saveProviders();
+    this.renderProviders();
+    showToast('Proveedor eliminado correctamente', 'info');
   }
 };

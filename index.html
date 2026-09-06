@@ -106,6 +106,12 @@
         <i class="fas fa-user-friends"></i>
         <span>Huéspedes & CRM</span>
       </a>
+
+      <div class="nav-category">Configuración & Sistema</div>
+      <a class="nav-item" onclick="openModal('modal-hotel-config')" style="cursor: pointer;" title="Ajustes institucionales, políticas y timbrado SET">
+        <i class="fas fa-hotel"></i>
+        <span>Configuración Hotel</span>
+      </a>
     </nav>
 
     <div class="sidebar-footer">
@@ -134,7 +140,7 @@
        ========================================================= -->
   <div class="main-wrapper">
     <!-- Top Header Bar con soporte táctil y móvil -->
-    <header class="top-header">
+    <header class="top-header" style="display: flex; align-items: center; justify-content: space-between;">
       <div style="display: flex; align-items: center; gap: 14px;">
         <button id="btn-sidebar-toggle" class="sidebar-toggle-btn" aria-label="Abrir Menú de Navegación" onclick="toggleMobileSidebar()">
           <i class="fas fa-bars"></i>
@@ -143,6 +149,11 @@
           <h2 id="page-title">Dashboard Ejecutivo & KPIs</h2>
           <p id="page-subtitle">Métricas operativas y financieras en tiempo real</p>
         </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button class="btn-report-pdf" onclick="DashboardModule.downloadExecutiveReportPdf()" title="Descargar Balance y Reporte Ejecutivo Oficial en PDF">
+          <i class="fas fa-file-pdf" style="color: #F87171;"></i> Reporte Mensual PDF
+        </button>
       </div>
     </header>
 
@@ -308,7 +319,15 @@
               <h3 class="panel-title" style="margin-bottom: 4px;">Gestión de Reservas & Front Desk</h3>
               <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Recepción, control de anticipos legales SET y liquidación de folios</p>
             </div>
-            <div class="panel-tools">
+            <div class="panel-tools" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <div class="view-toggle-group" style="display: flex; background: #E2E8F0; padding: 3px; border-radius: 8px; gap: 3px;">
+                <button type="button" id="btn-view-res-table" class="btn-toggle-view active" onclick="ReservationsModule.switchSubView('table')">
+                  <i class="fas fa-list"></i> Lista
+                </button>
+                <button type="button" id="btn-view-res-rack" class="btn-toggle-view" onclick="ReservationsModule.switchSubView('rack')">
+                  <i class="fas fa-calendar-alt"></i> Rack de Ocupación
+                </button>
+              </div>
               <div class="search-box">
                 <i class="fas fa-search"></i>
                 <input type="text" id="search-reservations" placeholder="Buscar por código, huésped o habitación...">
@@ -327,25 +346,70 @@
             </div>
           </div>
 
-          <div style="overflow-x: auto;">
-            <table class="custom-table">
-              <thead>
-                <tr>
-                  <th>Código / Canal</th>
-                  <th>Habitación & Tipo</th>
-                  <th>Estadía (In / Out)</th>
-                  <th>Huésped Titular</th>
-                  <th>Monto Total</th>
-                  <th>Seña / Anticipo</th>
-                  <th>Saldo Pendiente</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="reservations-table-body">
-                <!-- Dinámico -->
-              </tbody>
-            </table>
+          <!-- CONTENEDOR 1: VISTA LISTA CLÁSICA -->
+          <div id="reservations-table-container">
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Código / Canal</th>
+                    <th>Habitación & Tipo</th>
+                    <th>Estadía (In / Out)</th>
+                    <th>Huésped Titular</th>
+                    <th>Monto Total</th>
+                    <th>Seña / Anticipo</th>
+                    <th>Saldo Pendiente</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="reservations-table-body">
+                  <!-- Dinámico -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CONTENEDOR 2: VISTA RACK DE OCUPACIÓN / CALENDARIO GANTT -->
+          <div id="reservations-rack-container" style="display: none;">
+            <div class="rack-wrapper">
+              <div class="rack-toolbar">
+                <div class="rack-month-title">
+                  <i class="fas fa-calendar-day" style="color: var(--primary-gold);"></i>
+                  <span id="rack-month-display">Septiembre 2026</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <button class="btn btn-outline btn-xs" onclick="ReservationsModule.navigateRackMonth(-1)" title="Mes Anterior">
+                    <i class="fas fa-chevron-left"></i>
+                  </button>
+                  <button class="btn btn-outline btn-xs" onclick="ReservationsModule.navigateRackMonth(0)" title="Ir a Hoy">
+                    Hoy
+                  </button>
+                  <button class="btn btn-outline btn-xs" onclick="ReservationsModule.navigateRackMonth(1)" title="Mes Siguiente">
+                    <i class="fas fa-chevron-right"></i>
+                  </button>
+                  <div style="margin-left: 12px; display: flex; gap: 10px; font-size: 11px; align-items: center;">
+                    <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #10B981; display: inline-block;"></span> Confirmada</span>
+                    <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #3B82F6; display: inline-block;"></span> En Estadía</span>
+                    <span style="display: flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; border-radius: 2px; background: #64748B; display: inline-block;"></span> Finalizada</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="rack-scroll-area">
+                <table class="rack-table">
+                  <thead>
+                    <tr id="rack-thead-days">
+                      <th class="rack-th-room">Habitación</th>
+                      <!-- Días generados dinámicamente -->
+                    </tr>
+                  </thead>
+                  <tbody id="rack-tbody-rooms">
+                    <!-- Filas de habitaciones generadas dinámicamente -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -574,12 +638,18 @@
         <div class="card-panel" style="margin-bottom: 24px;">
           <!-- Barra de Pestañas (Tabs) de Inventario -->
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
               <button id="inv-tab-sales" class="inv-tab-btn active" onclick="InventoryModule.switchTab('sales')">
                 <i class="fas fa-shopping-bag"></i> Para la Venta (App & Room Service)
               </button>
               <button id="inv-tab-internal" class="inv-tab-btn" onclick="InventoryModule.switchTab('internal')">
                 <i class="fas fa-boxes"></i> Uso Interno (Insumos & Pañol)
+              </button>
+              <button id="inv-tab-kardex" class="inv-tab-btn" onclick="InventoryModule.switchTab('kardex')">
+                <i class="fas fa-history"></i> Kardex de Movimientos
+              </button>
+              <button id="inv-tab-providers" class="inv-tab-btn" onclick="InventoryModule.switchTab('providers')">
+                <i class="fas fa-truck"></i> Compras & Proveedores
               </button>
             </div>
             <div>
@@ -706,6 +776,106 @@
                   <!-- Dinámico -->
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- CONTENIDO PESTAÑA 3: KARDEX DE MOVIMIENTOS & AUDITORÍA DE STOCK -->
+          <div id="inv-content-kardex" style="display: none;">
+            <!-- KPIs Kardex -->
+            <div class="kardex-summary-grid">
+              <div class="kardex-card" style="border-left: 4px solid var(--primary-navy);">
+                <div>
+                  <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Stock Inicial Consolidado</p>
+                  <h3 id="kardex-kpi-initial" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">350 unds</h3>
+                  <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Balance al inicio de mes</p>
+                </div>
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(10,25,47,0.08); display: flex; align-items: center; justify-content: center; color: var(--primary-navy); font-size: 18px;">
+                  <i class="fas fa-boxes"></i>
+                </div>
+              </div>
+
+              <div class="kardex-card" style="border-left: 4px solid #10B981;">
+                <div>
+                  <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Entradas / Reposiciones (+)</p>
+                  <h3 id="kardex-kpi-entries" style="font-size: 22px; font-weight: 800; color: #166534; margin: 6px 0 2px;">+140 unds</h3>
+                  <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Compras y donaciones a pañol</p>
+                </div>
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16,185,129,0.1); display: flex; align-items: center; justify-content: center; color: #10B981; font-size: 18px;">
+                  <i class="fas fa-arrow-down"></i>
+                </div>
+              </div>
+
+              <div class="kardex-card" style="border-left: 4px solid #EF4444;">
+                <div>
+                  <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Salidas / Consumos (-)</p>
+                  <h3 id="kardex-kpi-outputs" style="font-size: 22px; font-weight: 800; color: #991B1B; margin: 6px 0 2px;">-85 unds</h3>
+                  <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Consumo mucamas y room service</p>
+                </div>
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(239,68,68,0.1); display: flex; align-items: center; justify-content: center; color: #EF4444; font-size: 18px;">
+                  <i class="fas fa-arrow-up"></i>
+                </div>
+              </div>
+
+              <div class="kardex-card" style="border-left: 4px solid var(--accent-gold);">
+                <div>
+                  <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Valorización Estimada</p>
+                  <h3 id="kardex-kpi-valuation" style="font-size: 20px; font-weight: 800; color: #B45309; margin: 6px 0 2px;">4.850.000 Gs.</h3>
+                  <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Capital activo en existencias</p>
+                </div>
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(212,175,55,0.12); display: flex; align-items: center; justify-content: center; color: #B45309; font-size: 18px;">
+                  <i class="fas fa-coins"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <h3 class="panel-title"><i class="fas fa-history" style="color: var(--primary-navy);"></i> Libro Kardex de Movimientos Físicos</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Auditoría contable y operativa: `Saldo Inicial + Entradas - Salidas = Saldo Actual`</p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <select id="kardex-filter-item" class="form-control" style="width: auto; padding: 7px 12px;" onchange="InventoryModule.filterKardex()">
+                  <option value="ALL">Todos los Artículos</option>
+                  <!-- Dinámico -->
+                </select>
+              </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Artículo / Insumo</th>
+                    <th>Tipo</th>
+                    <th>Cantidad</th>
+                    <th>Saldo Anterior</th>
+                    <th>Saldo Resultante</th>
+                    <th>Responsable</th>
+                    <th>Motivo / Referencia</th>
+                  </tr>
+                </thead>
+                <tbody id="kardex-table-body">
+                  <!-- Dinámico -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CONTENIDO PESTAÑA 4: COMPRAS & DIRECTORIO DE PROVEEDORES -->
+          <div id="inv-content-providers" style="display: none;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+              <div>
+                <h3 class="panel-title"><i class="fas fa-truck" style="color: #0284C7;"></i> Directorio Oficial de Proveedores & Compras</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Gestión de empresas abastecedoras para alimentos, lencería hotelera, lavandería y químicos</p>
+              </div>
+              <button class="btn btn-primary" onclick="InventoryModule.openNewProviderModal()">
+                <i class="fas fa-plus-circle"></i> Registrar Nuevo Proveedor
+              </button>
+            </div>
+
+            <div id="providers-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;">
+              <!-- Tarjetas dinámicas de proveedores -->
             </div>
           </div>
         </div>
@@ -2853,6 +3023,120 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal Registro / Edición de Proveedor -->
+  <div id="modal-provider" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 520px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <h3 id="provider-modal-title" style="font-size: 18px; color: var(--primary-navy); margin: 0;">Registrar Proveedor</h3>
+        <button class="modal-close" onclick="closeModal('modal-provider')">&times;</button>
+      </div>
+      <form id="form-provider" onsubmit="event.preventDefault(); InventoryModule.saveProvider();">
+        <input type="hidden" id="provider-id">
+        <div class="form-group">
+          <label style="font-size: 12.5px; font-weight: 600;">Razón Social / Empresa *</label>
+          <input type="text" id="provider-name" class="form-control" placeholder="Ej: Distribuidora Central de Bebidas S.A." required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12.5px; font-weight: 600;">RUC / Identificación *</label>
+            <input type="text" id="provider-ruc" class="form-control" placeholder="Ej: 80012345-6" required>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12.5px; font-weight: 600;">Rubro / Especialidad *</label>
+            <select id="provider-rubro" class="form-control" required>
+              <option value="Alimentos & Bebidas">Alimentos & Bebidas</option>
+              <option value="Lencería & Blancos">Lencería & Blancos</option>
+              <option value="Insumos de Limpieza">Insumos de Limpieza</option>
+              <option value="Mantenimiento Técnico">Mantenimiento Técnico</option>
+              <option value="Amenities & Aseo">Amenities & Aseo</option>
+              <option value="Servicios Varios">Servicios Varios</option>
+            </select>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12.5px; font-weight: 600;">Teléfono de Contacto</label>
+            <input type="text" id="provider-phone" class="form-control" placeholder="0981 123 456">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12.5px; font-weight: 600;">Correo Electrónico</label>
+            <input type="email" id="provider-email" class="form-control" placeholder="ventas@proveedor.com.py">
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="font-size: 12.5px; font-weight: 600;">Dirección / Localidad</label>
+          <input type="text" id="provider-address" class="form-control" placeholder="Ej: Av. Fernando de la Mora c/ Eusebio Ayala, Asunción">
+        </div>
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-provider')">Cancelar</button>
+          <button type="submit" id="btn-save-provider" class="btn btn-primary">
+            <i class="fas fa-save"></i> Guardar Proveedor
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Configuración Institucional & Políticas del Hotel -->
+  <div id="modal-hotel-config" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 600px; padding: 26px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(10,25,47,0.08); display: flex; align-items: center; justify-content: center; color: var(--primary-navy); font-size: 18px;">
+            <i class="fas fa-hotel"></i>
+          </div>
+          <div>
+            <h3 style="font-size: 18px; color: var(--primary-navy); margin: 0;">Configuración Institucional & Políticas</h3>
+            <p style="font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0;">Parámetros oficiales del establecimiento y reglamentos operativos</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-hotel-config')">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 65vh; overflow-y: auto; padding-right: 4px;">
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+          <h4 style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-stamp" style="color: var(--primary-gold);"></i> Datos Tributarios (SET Paraguay)
+          </h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12.5px;">
+            <div><span style="color: var(--text-muted);">Razón Social:</span> <strong>Hotel 3 Vagos S.A.</strong></div>
+            <div><span style="color: var(--text-muted);">RUC Emisor:</span> <strong>80092341-2</strong></div>
+            <div><span style="color: var(--text-muted);">Timbrado Legal:</span> <strong style="color: #166534;">16789423</strong></div>
+            <div><span style="color: var(--text-muted);">Régimen:</span> <strong>General (IVA 10%)</strong></div>
+          </div>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+          <h4 style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-clock" style="color: #3B82F6;"></i> Horarios Oficiales de Recepción
+          </h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12.5px;">
+            <div><span style="color: var(--text-muted);">Check-in Estándar:</span> <strong>Desde 14:00 hs</strong></div>
+            <div><span style="color: var(--text-muted);">Check-out Límite:</span> <strong>Hasta 11:00 hs</strong></div>
+            <div><span style="color: var(--text-muted);">Early Check-in:</span> <strong>Sujeto a disponibilidad</strong></div>
+            <div><span style="color: var(--text-muted);">Late Check-out:</span> <strong>Hasta 14:00 hs (50.000 Gs.)</strong></div>
+          </div>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+          <h4 style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-shield-alt" style="color: #10B981;"></i> Políticas de Convivencia y Cancelación
+          </h4>
+          <ul style="font-size: 12px; color: #334155; margin: 0; padding-left: 18px; line-height: 1.6;">
+            <li><strong>Cancelación Gratuita:</strong> Permitida hasta 24 horas antes del check-in (reembolso del 100% de la seña).</li>
+            <li><strong>No-Show:</strong> El huésped pierde el anticipo del 20% en concepto de retención de disponibilidad.</li>
+            <li><strong>Normativa Libre de Humo:</strong> Prohibido fumar en habitaciones cerradas (Ley 5538/15). Multa de 350.000 Gs. por desinfección.</li>
+            <li><strong>Depósito / Custodia:</strong> Se exige documento de identidad válido de cada huésped titular y acompañante.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 12px; text-align: right;">
+        <button type="button" class="btn btn-primary" onclick="closeModal('modal-hotel-config')">
+          <i class="fas fa-check"></i> Entendido
+        </button>
+      </div>
     </div>
   </div>
 

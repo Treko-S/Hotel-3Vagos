@@ -1597,5 +1597,277 @@ html[data-user-role="jefa_limpieza"] .nav-category:first-of-type {
   box-shadow: 0 2px 6px rgba(10, 25, 47, 0.25);
 }
 
+/* =========================================================
+   RACK DE OCUPACIÓN / CALENDARIO GANTT DE HABITACIONES
+   ========================================================= */
+.rack-wrapper {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  margin-top: 16px;
+}
+
+.rack-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: #F8FAFC;
+  border-bottom: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rack-month-title {
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-navy);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rack-scroll-area {
+  overflow-x: auto;
+  position: relative;
+  max-height: 560px;
+}
+
+.rack-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1100px;
+}
+
+.rack-table th,
+.rack-table td {
+  border: 1px solid #E2E8F0;
+  padding: 0;
+  text-align: center;
+}
+
+.rack-th-room {
+  position: sticky;
+  left: 0;
+  z-index: 20;
+  background: #0A192F !important;
+  color: #FFFFFF !important;
+  width: 160px;
+  min-width: 160px;
+  padding: 10px 14px !important;
+  text-align: left !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.rack-th-day {
+  background: #F1F5F9;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 8px 4px !important;
+  min-width: 36px;
+}
+
+.rack-th-day.today {
+  background: #DBEAFE;
+  color: #1E40AF;
+  border-bottom: 2px solid #2563EB;
+}
+
+.rack-th-day.weekend {
+  background: #F8FAFC;
+  color: #94A3B8;
+}
+
+.rack-td-room {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  background: #FFFFFF;
+  padding: 10px 14px !important;
+  text-align: left !important;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--primary-navy);
+  border-right: 2px solid #CBD5E1 !important;
+  box-shadow: 2px 0 6px rgba(0,0,0,0.04);
+}
+
+.rack-td-day {
+  position: relative;
+  height: 44px;
+  background: #FFFFFF;
+  transition: background 0.15s ease;
+}
+
+.rack-td-day:hover {
+  background: #F8FAFC;
+}
+
+.rack-td-day.today {
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.rack-res-bar {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 2px;
+  right: 2px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #FFFFFF;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  z-index: 5;
+}
+
+.rack-res-bar:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+  z-index: 8;
+}
+
+.rack-res-bar.confirmada {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+}
+
+.rack-res-bar.checkin {
+  background: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%);
+}
+
+.rack-res-bar.finalizada {
+  background: linear-gradient(135deg, #64748B 0%, #475569 100%);
+}
+
+.btn-toggle-view {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  color: #475569;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-toggle-view.active {
+  background: var(--primary-navy) !important;
+  color: #FFFFFF !important;
+  border-color: var(--primary-navy) !important;
+  box-shadow: 0 2px 4px rgba(10, 25, 47, 0.2);
+}
+
+/* =========================================================
+   KARDEX DE MOVIMIENTOS & AUDITORÍA DE STOCK
+   ========================================================= */
+.kardex-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.kardex-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.badge-kardex-in {
+  background: #DCFCE7;
+  color: #166534;
+  border: 1px solid #BBF7D0;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-kardex-out {
+  background: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FECACA;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* =========================================================
+   DIRECTORIO DE COMPRAS & PROVEEDORES
+   ========================================================= */
+.provider-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.provider-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: #CBD5E1;
+}
+
+/* =========================================================
+   BOTÓN REPORTE EJECUTIVO PDF (DASHBOARD)
+   ========================================================= */
+.btn-report-pdf {
+  background: linear-gradient(135deg, #0A192F 0%, #1E3A8A 100%);
+  color: #FFFFFF;
+  border: 1px solid #3B82F6;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(10, 25, 47, 0.25);
+}
+
+.btn-report-pdf:hover {
+  background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+
 
 

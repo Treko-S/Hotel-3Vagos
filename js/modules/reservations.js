@@ -5,10 +5,195 @@
 
 const ReservationsModule = {
   currentBookings: [],
+  currentSubView: 'table',
+  rackYear: new Date().getFullYear(),
+  rackMonth: new Date().getMonth(),
 
   async init() {
     await this.loadReservations();
     this.setupEventListeners();
+  },
+
+  switchSubView(viewType) {
+    this.currentSubView = viewType;
+    const tableContainer = document.getElementById('reservations-table-container');
+    const rackContainer = document.getElementById('reservations-rack-container');
+    const btnTable = document.getElementById('btn-view-res-table');
+    const btnRack = document.getElementById('btn-view-res-rack');
+
+    if (viewType === 'rack') {
+      if (tableContainer) tableContainer.style.display = 'none';
+      if (rackContainer) rackContainer.style.display = 'block';
+      if (btnTable) btnTable.classList.remove('active');
+      if (btnRack) btnRack.classList.add('active');
+      this.renderRackView();
+    } else {
+      if (tableContainer) tableContainer.style.display = 'block';
+      if (rackContainer) rackContainer.style.display = 'none';
+      if (btnTable) btnTable.classList.add('active');
+      if (btnRack) btnRack.classList.remove('active');
+      this.renderTable(this.currentBookings);
+    }
+  },
+
+  navigateRackMonth(delta) {
+    if (delta === 0) {
+      const now = new Date();
+      this.rackYear = now.getFullYear();
+      this.rackMonth = now.getMonth();
+    } else {
+      this.rackMonth += delta;
+      if (this.rackMonth < 0) {
+        this.rackMonth = 11;
+        this.rackYear--;
+      } else if (this.rackMonth > 11) {
+        this.rackMonth = 0;
+        this.rackYear++;
+      }
+    }
+    this.renderRackView();
+  },
+
+  async renderRackView() {
+    const theadDays = document.getElementById('rack-thead-days');
+    const tbodyRooms = document.getElementById('rack-tbody-rooms');
+    const monthDisplay = document.getElementById('rack-month-display');
+    if (!theadDays || !tbodyRooms) return;
+
+    const monthNames = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    if (monthDisplay) {
+      monthDisplay.innerText = `${monthNames[this.rackMonth]} ${this.rackYear}`;
+    }
+
+    const daysInMonth = new Date(this.rackYear, this.rackMonth + 1, 0).getDate();
+    const today = new Date();
+    const isCurrentMonth = (today.getFullYear() === this.rackYear && today.getMonth() === this.rackMonth);
+
+    // 1. Render Encabezado de Días
+    let theadHtml = '<th class="rack-th-room">Habitación</th>';
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateObj = new Date(this.rackYear, this.rackMonth, day);
+      const dayOfWeek = dateObj.getDay(); // 0 = Domingo, 6 = Sábado
+      const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+      const isToday = isCurrentMonth && (today.getDate() === day);
+
+      const dayLetters = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+      theadHtml += `
+        <th class="rack-th-day ${isToday ? 'today' : ''} ${isWeekend ? 'weekend' : ''}">
+          <div style="font-size: 13px; font-weight: 800;">${day}</div>
+          <div style="font-size: 9px; opacity: 0.8;">${dayLetters[dayOfWeek]}</div>
+        </th>
+      `;
+    }
+    theadDays.innerHTML = theadHtml;
+
+    // 2. Obtener lista de habitaciones (desde Supabase o estático de respaldo)
+    let rooms = [];
+    try {
+      const { data: roomsData } = await supabaseClient
+        .from('habitaciones')
+        .select('*, tipos_habitacion(nombre)')
+        .order('numero', { ascending: true });
+      rooms = roomsData || [];
+    } catch (e) {
+      console.warn('Fallback rooms rack:', e);
+    }
+
+    if (rooms.length === 0) {
+      rooms = [
+        { id: 1, numero: '101', tipos_habitacion: { nombre: 'Std Single' } },
+        { id: 2, numero: '102', tipos_habitacion: { nombre: 'Std Doble' } },
+        { id: 3, numero: '103', tipos_habitacion: { nombre: 'Matrimonial' } },
+        { id: 4, numero: '104', tipos_habitacion: { nombre: 'Suite Deluxe' } },
+        { id: 5, numero: '201', tipos_habitacion: { nombre: 'Std Single' } },
+        { id: 6, numero: '202', tipos_habitacion: { nombre: 'Std Doble' } },
+        { id: 7, numero: '203', tipos_habitacion: { nombre: 'Matrimonial' } },
+        { id: 8, numero: '204', tipos_habitacion: { nombre: 'Suite Deluxe' } },
+        { id: 9, numero: '301', tipos_habitacion: { nombre: 'Suite Ejecutiva' } },
+        { id: 10, numero: '302', tipos_habitacion: { nombre: 'Suite Presidencial' } },
+        { id: 11, numero: '303', tipos_habitacion: { nombre: 'Familiar King' } },
+        { id: 12, numero: '304', tipos_habitacion: { nombre: 'Familiar Penthouse' } }
+      ];
+    }
+
+    // 3. Render Filas por Habitación
+    let tbodyHtml = '';
+    rooms.forEach(room => {
+      const roomNum = room.numero;
+      const typeName = room.tipos_habitacion?.nombre || 'Standard';
+
+      tbodyHtml += `<tr>`;
+      tbodyHtml += `
+        <td class="rack-td-room">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <div>
+              <span style="font-size: 14px; font-weight: 800; color: var(--primary-navy);">Hab. ${roomNum}</span>
+              <div style="font-size: 10px; color: var(--text-muted);">${typeName}</div>
+            </div>
+            <i class="fas fa-bed" style="color: var(--primary-gold); font-size: 13px; opacity: 0.7;"></i>
+          </div>
+        </td>
+      `;
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const cellDate = new Date(this.rackYear, this.rackMonth, day);
+        const dateStr = `${this.rackYear}-${String(this.rackMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const isToday = isCurrentMonth && (today.getDate() === day);
+
+        // Buscar si hay reserva que ocupe esta fecha y habitación
+        const matchedRes = this.currentBookings.find(b => {
+          if (b.habitacion_id != room.id && b.habitaciones?.numero != roomNum) return false;
+          if (b.estado === 'Cancelada') return false;
+
+          const checkIn = new Date(b.fecha_entrada);
+          const checkOut = new Date(b.fecha_salida);
+          const cIn = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
+          const cOut = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
+          return (cellDate >= cIn && cellDate < cOut);
+        });
+
+        if (matchedRes) {
+          const isCheckInDay = (new Date(matchedRes.fecha_entrada).getDate() === day && new Date(matchedRes.fecha_entrada).getMonth() === this.rackMonth);
+          const guestName = matchedRes.users?.full_name || 'Huésped';
+          const resState = (matchedRes.estado || 'Confirmada').toLowerCase();
+          const stateClass = resState.includes('check-in') ? 'checkin' : (resState.includes('finaliz') ? 'finalizada' : 'confirmada');
+
+          tbodyHtml += `
+            <td class="rack-td-day ${isToday ? 'today' : ''}" style="background: rgba(16, 185, 129, 0.05); padding: 0;">
+              <div class="rack-res-bar ${stateClass}" onclick="ReservationsModule.openResModalDetail('${matchedRes.id}')" title="Reserva #${matchedRes.codigo_reserva || matchedRes.id} - ${guestName} (${matchedRes.estado})">
+                ${isCheckInDay ? `<i class="fas fa-user-check" style="margin-right: 4px; font-size: 10px;"></i> ${guestName.split(' ')[0]}` : ''}
+              </div>
+            </td>
+          `;
+        } else {
+          tbodyHtml += `
+            <td class="rack-td-day ${isToday ? 'today' : ''}" onclick="ReservationsModule.openQuickReservationFromRack('${room.id}', '${dateStr}')" title="Día libre. Clic para reservar Hab. ${roomNum}">
+            </td>
+          `;
+        }
+      }
+
+      tbodyHtml += `</tr>`;
+    });
+
+    tbodyRooms.innerHTML = tbodyHtml;
+  },
+
+  openQuickReservationFromRack(roomId, dateStr) {
+    this.openNewReservationModal();
+    const roomSelect = document.getElementById('new-res-room');
+    const checkInInput = document.getElementById('new-res-checkin');
+    if (roomSelect && roomId) roomSelect.value = roomId;
+    if (checkInInput && dateStr) checkInInput.value = dateStr;
+  },
+
+  openResModalDetail(bookingId) {
+    const booking = this.currentBookings.find(b => b.id == bookingId);
+    if (!booking) return;
+    this.openFolioModal(booking.id);
   },
 
   setupEventListeners() {
@@ -49,7 +234,11 @@ const ReservationsModule = {
 
       this.currentBookings = data || [];
       this.updateFrontDeskKPIs(this.currentBookings);
-      this.renderTable(this.currentBookings);
+      if (this.currentSubView === 'rack') {
+        this.renderRackView();
+      } else {
+        this.renderTable(this.currentBookings);
+      }
 
     } catch (err) {
       console.error('Error al cargar reservas:', err);
