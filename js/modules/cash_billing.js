@@ -475,34 +475,64 @@ const CashBillingModule = {
             console.warn('No se pudo generar base64 del PDF para adjuntar:', pdfErr);
           }
 
-          // Plantilla directa, limpia y sin escarapela
+          const safeHtml = (str) => {
+            if (!str) return '';
+            return String(str)
+              .replace(/ñ/g, '&ntilde;')
+              .replace(/Ñ/g, '&Ntilde;')
+              .replace(/á/g, '&aacute;')
+              .replace(/é/g, '&eacute;')
+              .replace(/í/g, '&iacute;')
+              .replace(/ó/g, '&oacute;')
+              .replace(/ú/g, '&uacute;')
+              .replace(/Á/g, '&Aacute;')
+              .replace(/É/g, '&Eacute;')
+              .replace(/Í/g, '&Iacute;')
+              .replace(/Ó/g, '&Oacute;')
+              .replace(/Ú/g, '&Uacute;')
+              .replace(/•/g, '&bull;')
+              .replace(/°/g, '&deg;');
+          };
+
+          // Plantilla directa, limpia y 100% libre de errores de codificación
           const emailSubject = `Hotel 3Vagos - Factura Legal SET ${invoiceNumber}`;
           const emailHtml = `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: Arial, sans-serif;">
+            <div style="max-width: 580px; margin: 20px auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
               <div style="background: #0F172A; color: #ffffff; padding: 22px 20px; text-align: center;">
                 <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #D4AF37; letter-spacing: 1px;">Hotel 3Vagos</h1>
-                <p style="margin: 4px 0 0; font-size: 11.5px; color: #94A3B8;">Facturación Legal Homologada - SET Paraguay</p>
+                <p style="margin: 4px 0 0; font-size: 11.5px; color: #94A3B8;">Facturaci&oacute;n Legal Homologada - SET Paraguay</p>
               </div>
 
               <div style="padding: 24px;">
                 <h2 style="margin: 0 0 12px; font-size: 16px; color: #0F172A; font-weight: 700;">
-                  Factura Legal SET N° ${invoiceNumber}
+                  Factura Legal SET N&deg; ${invoiceNumber}
                 </h2>
 
                 <p style="font-size: 14.5px; color: #1e293b; line-height: 1.6; margin: 16px 0;">
-                  Estimado/a <strong>${clientName}</strong>:<br><br>
-                  Le hacemos entrega de su Factura Legal correspondiente a su estadía / reserva <strong>${bookingCode}</strong> en Hotel 3Vagos por un monto total liquidado de <strong>${formatGs(amount)}</strong>.
+                  Estimado/a <strong>${safeHtml(clientName)}</strong>:<br><br>
+                  Le hacemos entrega de su Factura Legal correspondiente a su estad&iacute;a / reserva <strong>${safeHtml(bookingCode)}</strong> en Hotel 3Vagos por un monto total liquidado de <strong>${formatGs(amount)}</strong>.
                 </p>
 
                 <!-- Documento PDF adjunto y su contenido directo -->
                 <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 18px; margin: 20px 0;">
-                  <div style="display: flex; align-items: center; margin-bottom: 14px;">
-                    <span style="font-size: 32px; margin-right: 12px;">📄</span>
-                    <div>
-                      <div style="font-size: 15px; font-weight: bold; color: #0f172a;">Factura_${invoiceNumber}.pdf</div>
-                      <div style="font-size: 11.5px; color: #64748b;">Comprobante Tributario Oficial SET (Timbrado 16789423 • RUC 80092341-2)</div>
-                    </div>
-                  </div>
+                  <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 14px; width: 100%;">
+                    <tr>
+                      <td style="width: 48px; vertical-align: middle;">
+                        <div style="background: #E11D48; color: #ffffff; font-weight: bold; font-size: 11px; padding: 7px 10px; border-radius: 5px; text-align: center; display: inline-block;">PDF</div>
+                      </td>
+                      <td style="vertical-align: middle; padding-left: 10px;">
+                        <div style="font-size: 15px; font-weight: bold; color: #0f172a;">Factura_${invoiceNumber}.pdf</div>
+                        <div style="font-size: 11.5px; color: #64748b;">Comprobante Tributario Oficial SET (Timbrado 16789423 &bull; RUC 80092341-2)</div>
+                      </td>
+                    </tr>
+                  </table>
 
                   <table style="width: 100%; border-collapse: collapse; font-size: 13px; background: #ffffff; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 12px;">
                     <tr style="background: #0f172a; color: #ffffff;">
@@ -510,7 +540,7 @@ const CashBillingModule = {
                       <th style="padding: 9px 12px; text-align: right;">Monto Total</th>
                     </tr>
                     <tr>
-                      <td style="padding: 11px 12px; color: #334155; border-bottom: 1px solid #f1f5f9;">${concepto}</td>
+                      <td style="padding: 11px 12px; color: #334155; border-bottom: 1px solid #f1f5f9;">${safeHtml(concepto)}</td>
                       <td style="padding: 11px 12px; font-weight: bold; color: #166534; text-align: right; border-bottom: 1px solid #f1f5f9;">${formatGs(amount)}</td>
                     </tr>
                     <tr style="background: #f8fafc;">
@@ -519,17 +549,20 @@ const CashBillingModule = {
                     </tr>
                   </table>
 
-                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; color: #1e40af; font-size: 12px; font-weight: 500;">
-                    📎 El archivo oficial <strong>Factura_${invoiceNumber}.pdf</strong> se encuentra adjunto a este correo para su descarga y descargo tributario.
+                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; color: #1e40af; font-size: 12px;">
+                    <span style="background: #dbeafe; color: #1d4ed8; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-right: 6px;">ADJUNTO</span>
+                    El archivo oficial <strong>Factura_${invoiceNumber}.pdf</strong> se encuentra adjunto a este correo para su descarga y descargo tributario.
                   </div>
                 </div>
 
                 <div style="border-top: 1px solid #E2E8F0; padding-top: 16px; text-align: center; color: #94A3B8; font-size: 11.5px;">
-                  <p style="margin: 0 0 4px;">Hotel 3Vagos • Asunción, Paraguay</p>
-                  <p style="margin: 0;">Recepción y Administración 24/7 • WhatsApp: +595 993 554920</p>
+                  <p style="margin: 0 0 4px;">Hotel 3Vagos &bull; Asunci&oacute;n, Paraguay</p>
+                  <p style="margin: 0;">Recepci&oacute;n y Administraci&oacute;n 24/7 &bull; WhatsApp: +595 993 554920</p>
                 </div>
               </div>
             </div>
+            </body>
+            </html>
           `;
 
           // Obtener Brevo API key de forma segura (LocalStorage, Window o partes dinámicas)
