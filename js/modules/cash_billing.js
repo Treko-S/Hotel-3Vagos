@@ -520,39 +520,22 @@ const CashBillingModule = {
                   Le hacemos entrega de su Factura Legal correspondiente a su estad&iacute;a / reserva <strong>${safeHtml(bookingCode)}</strong> en Hotel 3Vagos por un monto total liquidado de <strong>${formatGs(amount)}</strong>.
                 </p>
 
-                <!-- Documento PDF adjunto y su contenido directo -->
-                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 18px; margin: 20px 0;">
-                  <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 14px; width: 100%;">
+                <!-- Documento PDF directo y limpio sin tablas ni cosas de más -->
+                <div style="margin: 25px 0; padding: 18px 20px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; text-align: center;">
+                  <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto 10px auto;">
                     <tr>
-                      <td style="width: 48px; vertical-align: middle;">
-                        <div style="background: #E11D48; color: #ffffff; font-weight: bold; font-size: 11px; padding: 7px 10px; border-radius: 5px; text-align: center; display: inline-block;">PDF</div>
+                      <td style="width: 44px; vertical-align: middle;">
+                        <div style="background: #E11D48; color: #ffffff; font-weight: bold; font-size: 11px; padding: 7px 10px; border-radius: 5px; text-align: center;">PDF</div>
                       </td>
-                      <td style="vertical-align: middle; padding-left: 10px;">
+                      <td style="vertical-align: middle; padding-left: 12px; text-align: left;">
                         <div style="font-size: 15px; font-weight: bold; color: #0f172a;">Factura_${invoiceNumber}.pdf</div>
-                        <div style="font-size: 11.5px; color: #64748b;">Comprobante Tributario Oficial SET (Timbrado 16789423 &bull; RUC 80092341-2)</div>
+                        <div style="font-size: 12px; color: #64748b;">Comprobante Tributario Oficial SET (Timbrado 16789423 &bull; RUC 80092341-2)</div>
                       </td>
                     </tr>
                   </table>
-
-                  <table style="width: 100%; border-collapse: collapse; font-size: 13px; background: #ffffff; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 12px;">
-                    <tr style="background: #0f172a; color: #ffffff;">
-                      <th style="padding: 9px 12px; text-align: left;">Concepto Liquidado</th>
-                      <th style="padding: 9px 12px; text-align: right;">Monto Total</th>
-                    </tr>
-                    <tr>
-                      <td style="padding: 11px 12px; color: #334155; border-bottom: 1px solid #f1f5f9;">${safeHtml(concepto)}</td>
-                      <td style="padding: 11px 12px; font-weight: bold; color: #166534; text-align: right; border-bottom: 1px solid #f1f5f9;">${formatGs(amount)}</td>
-                    </tr>
-                    <tr style="background: #f8fafc;">
-                      <td style="padding: 7px 12px; color: #64748b; font-size: 11px;">IVA 10% Incluido</td>
-                      <td style="padding: 7px 12px; text-align: right; color: #64748b; font-size: 11px;">${formatGs(iva10)}</td>
-                    </tr>
-                  </table>
-
-                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; color: #1e40af; font-size: 12px;">
-                    <span style="background: #dbeafe; color: #1d4ed8; font-weight: bold; font-size: 10px; padding: 2px 6px; border-radius: 3px; margin-right: 6px;">ADJUNTO</span>
-                    El archivo oficial <strong>Factura_${invoiceNumber}.pdf</strong> se encuentra adjunto a este correo para su descarga y descargo tributario.
-                  </div>
+                  <p style="margin: 12px 0 0 0; font-size: 12.5px; color: #475569; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
+                    El archivo PDF oficial se encuentra <strong>adjunto a este correo</strong> para su descarga directa y respaldo tributario.
+                  </p>
                 </div>
 
                 <div style="border-top: 1px solid #E2E8F0; padding-top: 16px; text-align: center; color: #94A3B8; font-size: 11.5px;">
