@@ -250,6 +250,14 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// Cerrar modales o menú lateral con tecla Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+    toggleMobileSidebar(false);
+  }
+});
+
 /**
  * Escucha de cambios en tiempo real vía Supabase Realtime
  */

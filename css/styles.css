@@ -76,7 +76,7 @@ body {
   top: 0;
   bottom: 0;
   left: 0;
-  z-index: 50;
+  z-index: 100;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
   transition: var(--transition);
 }
@@ -638,10 +638,12 @@ body {
   justify-content: center;
   z-index: 9999;
   padding: 20px;
+  pointer-events: none;
 }
 
 .modal-backdrop.open {
-  display: flex;
+  display: flex !important;
+  pointer-events: auto !important;
 }
 
 .modal-box {
@@ -909,11 +911,21 @@ html[data-user-role="jefa_limpieza"] .nav-category:first-of-type {
   z-index: 998;
   opacity: 0;
   transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .sidebar-backdrop.open {
   display: block;
   opacity: 1;
+  pointer-events: auto;
+}
+
+@media (min-width: 1025px) {
+  .sidebar-backdrop,
+  .sidebar-backdrop.open {
+    display: none !important;
+    pointer-events: none !important;
+  }
 }
 
 /* =========================================================
