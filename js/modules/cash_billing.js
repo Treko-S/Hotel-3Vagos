@@ -489,21 +489,40 @@ const CashBillingModule = {
                   Factura Legal SET N° ${invoiceNumber}
                 </h2>
 
-                <p style="font-size: 13.5px; color: #334155; line-height: 1.6; margin-bottom: 16px;">
-                  Estimado/a <strong>${clientName}</strong>:<br>
-                  Le remitimos su Factura Legal Electrónica oficial emitida por <strong>Hotel 3Vagos S.A.</strong> (RUC 80092341-2, Timbrado SET 16789423) en concepto de <em>${concepto}</em> por un monto total de <strong>${formatGs(amount)}</strong>.
+                <p style="font-size: 14.5px; color: #1e293b; line-height: 1.6; margin: 16px 0;">
+                  Estimado/a <strong>${clientName}</strong>:<br><br>
+                  Le hacemos entrega de su Factura Legal correspondiente a su estadía / reserva <strong>${bookingCode}</strong> en Hotel 3Vagos por un monto total liquidado de <strong>${formatGs(amount)}</strong>.
                 </p>
 
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 14px; margin-bottom: 20px; font-size: 12.5px;">
-                  <div style="margin-bottom: 6px;"><strong>RUC / CI Huésped:</strong> ${rucCi}</div>
-                  <div style="margin-bottom: 6px;"><strong>Código de Reserva:</strong> ${bookingCode}</div>
-                  <div style="margin-bottom: 6px;"><strong>Monto Total Liquidado:</strong> <strong style="color: #166534;">${formatGs(amount)}</strong> (IVA 10%: ${formatGs(iva10)})</div>
-                  <div><strong>Archivo PDF Oficial:</strong> Factura_${invoiceNumber}.pdf (Adjunto)</div>
+                <!-- Documento PDF adjunto y su contenido directo -->
+                <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 18px; margin: 20px 0;">
+                  <div style="display: flex; align-items: center; margin-bottom: 14px;">
+                    <span style="font-size: 32px; margin-right: 12px;">📄</span>
+                    <div>
+                      <div style="font-size: 15px; font-weight: bold; color: #0f172a;">Factura_${invoiceNumber}.pdf</div>
+                      <div style="font-size: 11.5px; color: #64748b;">Comprobante Tributario Oficial SET (Timbrado 16789423 • RUC 80092341-2)</div>
+                    </div>
+                  </div>
+
+                  <table style="width: 100%; border-collapse: collapse; font-size: 13px; background: #ffffff; border-radius: 6px; overflow: hidden; border: 1px solid #e2e8f0; margin-bottom: 12px;">
+                    <tr style="background: #0f172a; color: #ffffff;">
+                      <th style="padding: 9px 12px; text-align: left;">Concepto Liquidado</th>
+                      <th style="padding: 9px 12px; text-align: right;">Monto Total</th>
+                    </tr>
+                    <tr>
+                      <td style="padding: 11px 12px; color: #334155; border-bottom: 1px solid #f1f5f9;">${concepto}</td>
+                      <td style="padding: 11px 12px; font-weight: bold; color: #166534; text-align: right; border-bottom: 1px solid #f1f5f9;">${formatGs(amount)}</td>
+                    </tr>
+                    <tr style="background: #f8fafc;">
+                      <td style="padding: 7px 12px; color: #64748b; font-size: 11px;">IVA 10% Incluido</td>
+                      <td style="padding: 7px 12px; text-align: right; color: #64748b; font-size: 11px;">${formatGs(iva10)}</td>
+                    </tr>
+                  </table>
+
+                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; color: #1e40af; font-size: 12px; font-weight: 500;">
+                    📎 El archivo oficial <strong>Factura_${invoiceNumber}.pdf</strong> se encuentra adjunto a este correo para su descarga y descargo tributario.
+                  </div>
                 </div>
-
-                <p style="font-size: 12.5px; color: #64748B; margin-bottom: 20px;">
-                  Adjunto a este correo encontrará el archivo PDF con validez fiscal para su respaldo y descargo tributario.
-                </p>
 
                 <div style="border-top: 1px solid #E2E8F0; padding-top: 16px; text-align: center; color: #94A3B8; font-size: 11.5px;">
                   <p style="margin: 0 0 4px;">Hotel 3Vagos • Asunción, Paraguay</p>
