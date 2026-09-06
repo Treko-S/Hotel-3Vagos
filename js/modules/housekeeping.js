@@ -3,8 +3,11 @@
  * Housekeeping & Gobernanza Operativa Avanzada
  * - Despacho por Prioridades 1, 2, 3 (Jefa de Limpieza / Gobernanta)
  * - Turno y Checklist de 5 Áreas (Mucamas / Asistentes)
- * - Bitácora de Incidencias con Respaldo Fotográfico (Cámara/Tablet)
+ * - Tareas estrictamente separadas por usuario (Mucama 1 no ve las de Mucama 2)
+ * - Nombre de mucama bloqueado (readonly) para evitar falsas acusaciones
+ * - Botón "Editar Tarea" para habitaciones ya asignadas
  * - Matriz de Custodia de Llaves Físicas & Tarjetas RFID
+ * - Bitácora de Incidencias con Respaldo Fotográfico
  */
 
 const HousekeepingModule = {
@@ -114,19 +117,43 @@ const HousekeepingModule = {
       if (error) throw error;
       this.currentRooms = data || [];
 
-      // Poblar selector de habitaciones en los modales
-      this.populateRoomSelects();
+      // Poblar selector de incidencias
+      const incidentSelect = document.getElementById('incident-room-select');
+      if (incidentSelect) {
+        incidentSelect.innerHTML = this.currentRooms.map(r => 
+          `<option value="${r.numero}">Habitación ${r.numero} (${r.tipos_habitacion?.nombre || 'Estándar'})</option>`
+        ).join('');
+      }
 
-      // Configuración según el rol activo
-      const role = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
+      // Configuración estricta según el rol activo
+      const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
+      const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
+      const isMucama = (currentRole === 'mucama');
+
+      const tabsNav = document.getElementById('hk-tabs-nav');
       const dispatchBtn = document.getElementById('btn-hk-dispatch-order');
+      const filterCont = document.getElementById('hk-mucama-filter-container');
 
-      if (role === 'mucama') {
+      if (isMucama) {
+        // La mucama SOLO debe ver el Panel de mucamas
+        if (tabsNav) tabsNav.style.display = 'none';
         if (dispatchBtn) dispatchBtn.style.display = 'none';
+        if (filterCont) filterCont.style.display = 'none';
+
+        const activeName = (currentUser && currentUser.name) ? currentUser.name : 'Rosa Almada (Mucama)';
+        const titleEl = document.getElementById('hk-mucama-view-title');
+        const subtitleEl = document.getElementById('hk-mucama-view-subtitle');
+        if (titleEl) titleEl.innerText = `Mis Habitaciones Asignadas (${activeName})`;
+        if (subtitleEl) subtitleEl.innerText = 'Lista exclusiva de tareas asignadas para su turno de trabajo.';
+
         this.switchTab('mucama');
       } else {
+        // Jefa o Administrador
+        if (tabsNav) tabsNav.style.display = 'flex';
         if (dispatchBtn) dispatchBtn.style.display = 'inline-flex';
-        this.switchTab(this.activeTab || 'jefa');
+        if (filterCont) filterCont.style.display = 'flex';
+
+        this.switchTab(this.activeTab === 'mucama' ? 'jefa' : (this.activeTab || 'jefa'));
       }
 
     } catch (err) {
@@ -135,24 +162,13 @@ const HousekeepingModule = {
     }
   },
 
-  populateRoomSelects() {
-    const dispatchSelect = document.getElementById('dispatch-room-select');
-    const incidentSelect = document.getElementById('incident-room-select');
-
-    if (dispatchSelect) {
-      dispatchSelect.innerHTML = this.currentRooms.map(r => 
-        `<option value="${r.id}">Habitación ${r.numero} (${r.tipos_habitacion?.nombre || 'Estándar'}) • Estado: ${r.estado}</option>`
-      ).join('');
-    }
-
-    if (incidentSelect) {
-      incidentSelect.innerHTML = this.currentRooms.map(r => 
-        `<option value="${r.numero}">Habitación ${r.numero} (${r.tipos_habitacion?.nombre || 'Estándar'})</option>`
-      ).join('');
-    }
-  },
-
   switchTab(tabName) {
+    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
+    // Si el usuario es mucama, queda bloqueada en 'mucama'
+    if (currentRole === 'mucama') {
+      tabName = 'mucama';
+    }
+
     this.activeTab = tabName;
 
     // Actualizar botones de pestañas
@@ -176,10 +192,10 @@ const HousekeepingModule = {
 
   /**
    * TAB 1: VISTA JEFA DE LIMPIEZA / GOBERNANTA
-   * Orden estricto de prioridad:
-   * Prioridad 1 (Urgente): Early Check-in con huésped esperando
-   * Prioridad 2: Check-out normal para liberar
-   * Prioridad 3: Ocupada (Repaso diario)
+   * - Orden estricto de prioridades (1, 2, 3)
+   * - Si la habitación ya tiene tarea asignada: Botón "Editar Tarea"
+   * - Si NO tiene tarea asignada: Botón "Asignar Tarea"
+   * - Se elimina el botón Checklist (que es exclusivo de la mucama)
    */
   renderJefaView() {
     const tbody = document.getElementById('hk-jefa-table-body');
@@ -244,12 +260,15 @@ const HousekeepingModule = {
           </td>
           <td>
             <div class="action-btn-group">
-              <button class="btn-action btn-action-reserve" onclick="HousekeepingModule.openDispatchModal(${room.id})" title="Asignar o Modificar Orden de Limpieza">
-                <i class="fas fa-user-edit"></i> Asignar
-              </button>
-              <button class="btn-action btn-action-view" onclick="HousekeepingModule.openCleaningChecklist(${room.id})" title="Supervisar Checklist Calidad">
-                <i class="fas fa-clipboard-check"></i> Checklist
-              </button>
+              ${order ? `
+                <button class="btn-action btn-action-edit" onclick="HousekeepingModule.openDispatchModal(${room.id}, true)" title="Editar o Reasignar Tarea de Limpieza">
+                  <i class="fas fa-edit"></i> Editar Tarea
+                </button>
+              ` : `
+                <button class="btn-action btn-action-reserve" onclick="HousekeepingModule.openDispatchModal(${room.id}, false)" title="Asignar Nueva Tarea a Mucama">
+                  <i class="fas fa-plus"></i> Asignar Tarea
+                </button>
+              `}
             </div>
           </td>
         </tr>
@@ -261,23 +280,42 @@ const HousekeepingModule = {
 
   /**
    * TAB 2: VISTA MUCAMA / ASISTENTE DE LIMPIEZA
+   * - Las órdenes están estrictamente separadas por usuario (Mucama 1 NO ve las de Mucama 2)
    */
   renderMucamaView() {
     const container = document.getElementById('hk-mucama-grid');
     if (!container) return;
 
-    const filterMaid = document.getElementById('filter-mucama-select')?.value || 'ALL';
+    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
+    const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
+    const isMucama = (currentRole === 'mucama');
     const orders = this.getOrders();
 
-    // Filtrar habitaciones asignadas
-    let assignedList = this.currentRooms.filter(room => {
-      const ord = orders[room.id];
-      if (!ord) return room.estado === 'Sucia' || room.estado === 'En limpieza';
-      if (filterMaid === 'ALL') return true;
-      return ord.maid.toLowerCase().includes(filterMaid.toLowerCase());
-    });
+    let assignedList = [];
 
-    // Ordenar por prioridad 1, 2, 3
+    if (isMucama) {
+      // La mucama SOLO puede ver las habitaciones asignadas a su propio usuario
+      const myName = (currentUser && currentUser.name) ? currentUser.name : 'Rosa Almada';
+      const myFirstName = myName.toLowerCase().split(' ')[0].replace(/[^a-z]/g, '');
+
+      assignedList = this.currentRooms.filter(room => {
+        const ord = orders[room.id];
+        if (!ord) return false;
+        const ordMaidFirst = (ord.maid || '').toLowerCase().split(' ')[0].replace(/[^a-z]/g, '');
+        return ordMaidFirst === myFirstName;
+      });
+    } else {
+      // Jefa o Administrador pueden filtrar o ver todas
+      const filterMaid = document.getElementById('filter-mucama-select')?.value || 'ALL';
+      assignedList = this.currentRooms.filter(room => {
+        const ord = orders[room.id];
+        if (!ord) return room.estado === 'Sucia' || room.estado === 'En limpieza';
+        if (filterMaid === 'ALL') return true;
+        return ord.maid.toLowerCase().includes(filterMaid.toLowerCase());
+      });
+    }
+
+    // Ordenar estrictamente por prioridad 1, 2, 3
     assignedList.sort((a, b) => {
       const prioA = orders[a.id]?.priority || 2;
       const prioB = orders[b.id]?.priority || 2;
@@ -285,11 +323,15 @@ const HousekeepingModule = {
     });
 
     if (assignedList.length === 0) {
+      const emptyMsg = isMucama
+        ? 'No tienes habitaciones asignadas para tu turno en este momento.'
+        : 'No hay habitaciones asignadas bajo el filtro seleccionado.';
+
       container.innerHTML = `
         <div style="grid-column: 1/-1; text-align: center; padding: 48px; background: #F8FAFC; border-radius: 14px; border: 1px dashed #CBD5E1;">
-          <i class="fas fa-check-circle" style="font-size: 38px; color: #10B981; margin-bottom: 12px; display: block;"></i>
-          <h4 style="color: var(--primary-navy); margin: 0 0 6px 0;">¡Excelente trabajo! No hay habitaciones pendientes</h4>
-          <p style="font-size: 13px; color: var(--text-muted); margin: 0;">Todas las habitaciones asignadas están verificadas o no tienen órdenes pendientes.</p>
+          <i class="fas fa-clipboard-check" style="font-size: 40px; color: #10B981; margin-bottom: 12px; display: block;"></i>
+          <h4 style="color: var(--primary-navy); margin: 0 0 6px 0; font-size: 17px;">¡Turno al día!</h4>
+          <p style="font-size: 13px; color: var(--text-muted); margin: 0;">${emptyMsg}</p>
         </div>
       `;
       return;
@@ -373,7 +415,6 @@ const HousekeepingModule = {
         lastMoved: 'Hoy 08:00'
       };
 
-      // Colores de estado de custodia
       let statusColor = '#10B981';
       let statusBg = 'rgba(16, 185, 129, 0.12)';
       let icon = 'fa-key';
@@ -504,35 +545,100 @@ const HousekeepingModule = {
   },
 
   /**
-   * MODAL DESPACHO DE ORDEN DE LIMPIEZA
+   * MODAL DESPACHO / EDICIÓN DE ORDEN DE LIMPIEZA
    */
-  openDispatchModal(roomId) {
-    this.populateRoomSelects();
-    if (roomId) {
-      const sel = document.getElementById('dispatch-room-select');
-      if (sel) sel.value = String(roomId);
+  openDispatchModal(roomId, isEditing = false) {
+    const orders = this.getOrders();
+    const editingIdInput = document.getElementById('dispatch-editing-room-id');
+    const titleEl = document.getElementById('dispatch-modal-title');
+    const subtitleEl = document.getElementById('dispatch-modal-subtitle');
+    const btnSubmit = document.getElementById('btn-confirm-dispatch-order');
+    const roomSelect = document.getElementById('dispatch-room-select');
+    const prioSelect = document.getElementById('dispatch-priority-select');
+    const maidSelect = document.getElementById('dispatch-maid-select');
+    const notesInput = document.getElementById('dispatch-notes');
+
+    if (isEditing && roomId && orders[roomId]) {
+      // MODO EDICIÓN DE TAREA EXISTENTE
+      const order = orders[roomId];
+      const room = this.currentRooms.find(r => r.id == roomId);
+      const roomNum = room ? room.numero : roomId;
+
+      if (editingIdInput) editingIdInput.value = String(roomId);
+      if (titleEl) titleEl.innerHTML = `<i class="fas fa-edit" style="color: var(--primary-blue);"></i> Editar Tarea de Limpieza - Hab. ${roomNum}`;
+      if (subtitleEl) subtitleEl.innerText = `Modifique prioridad, mucama o instrucciones para Habitación ${roomNum}`;
+      if (btnSubmit) btnSubmit.innerHTML = '<i class="fas fa-save"></i> Guardar Cambios de Tarea';
+
+      if (roomSelect) {
+        roomSelect.innerHTML = `<option value="${roomId}" selected>Habitación ${roomNum} (${room?.tipos_habitacion?.nombre || 'Habitación'})</option>`;
+        roomSelect.disabled = true;
+      }
+
+      if (prioSelect) prioSelect.value = String(order.priority || 2);
+      if (maidSelect) maidSelect.value = order.maid || 'Rosa Almada';
+      if (notesInput) notesInput.value = order.notes || '';
+
+    } else {
+      // MODO ASIGNACIÓN NUEVA
+      if (editingIdInput) editingIdInput.value = '';
+      if (titleEl) titleEl.innerHTML = `<i class="fas fa-clipboard-list" style="color: var(--primary-navy);"></i> Asignar Tarea de Limpieza`;
+      if (subtitleEl) subtitleEl.innerText = 'Seleccione una habitación disponible/sucia y asigne mucama y prioridad';
+      if (btnSubmit) btnSubmit.innerHTML = '<i class="fas fa-paper-plane"></i> Emitir Orden a Mucama';
+
+      if (roomSelect) {
+        roomSelect.disabled = false;
+        let optionsHtml = '';
+        let firstAvailableId = null;
+
+        this.currentRooms.forEach(r => {
+          const isAssigned = !!orders[r.id];
+          if (isAssigned) {
+            optionsHtml += `<option value="${r.id}" disabled style="color: #94A3B8; background: #F1F5F9;">Habitación ${r.numero} (Ya asignada a ${orders[r.id].maid} - P${orders[r.id].priority})</option>`;
+          } else {
+            if (!firstAvailableId) firstAvailableId = r.id;
+            const isSelected = roomId ? (r.id == roomId) : false;
+            optionsHtml += `<option value="${r.id}" ${isSelected ? 'selected' : ''}>Habitación ${r.numero} (${r.tipos_habitacion?.nombre || 'Habitación'}) • ${r.estado}</option>`;
+          }
+        });
+
+        roomSelect.innerHTML = optionsHtml;
+        if (roomId) roomSelect.value = String(roomId);
+        else if (firstAvailableId) roomSelect.value = String(firstAvailableId);
+      }
+
+      if (prioSelect) prioSelect.value = '2';
+      if (maidSelect) maidSelect.value = 'Rosa Almada';
+      if (notesInput) notesInput.value = '';
     }
+
     openModal('modal-dispatch-cleaning');
   },
 
   async confirmDispatchOrder() {
-    const roomId = document.getElementById('dispatch-room-select').value;
+    const editingIdInput = document.getElementById('dispatch-editing-room-id');
+    const isEditing = editingIdInput && editingIdInput.value !== '';
+    const roomId = isEditing ? editingIdInput.value : document.getElementById('dispatch-room-select').value;
     const priority = parseInt(document.getElementById('dispatch-priority-select').value || '2', 10);
     const maid = document.getElementById('dispatch-maid-select').value;
     const notes = document.getElementById('dispatch-notes').value || 'Limpieza y preparación asignada';
 
     const orders = this.getOrders();
+    const prevOrder = orders[roomId] || {};
+
     orders[roomId] = {
       priority: priority,
       maid: maid,
       notes: notes,
-      status: 'Pendiente',
-      assignedAt: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })
+      status: prevOrder.status || 'Pendiente',
+      assignedAt: prevOrder.assignedAt || new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })
     };
 
     this.saveOrders(orders);
 
-    // Actualizar estado en Supabase a 'Sucia' o 'En limpieza' si estaba disponible
+    const roomObj = this.currentRooms.find(r => r.id == roomId);
+    const roomNum = roomObj ? roomObj.numero : roomId;
+
+    // Actualizar estado en Supabase
     try {
       await supabaseClient
         .from('habitaciones')
@@ -545,7 +651,12 @@ const HousekeepingModule = {
     }
 
     closeModal('modal-dispatch-cleaning');
-    showToast(`¡Orden de limpieza emitida a ${maid} con Prioridad ${priority}!`, 'success');
+
+    if (isEditing) {
+      showToast(`¡Tarea de Habitación ${roomNum} actualizada con éxito!`, 'success');
+    } else {
+      showToast(`¡Orden de limpieza de Habitación ${roomNum} emitida a ${maid} (P${priority})!`, 'success');
+    }
 
     await this.loadHousekeepingBoard();
     if (typeof RoomsModule !== 'undefined') RoomsModule.loadRooms();
@@ -555,10 +666,15 @@ const HousekeepingModule = {
    * MODAL REGISTRO DE INCIDENCIA CON FOTO
    */
   openIncidentModal(roomNumber) {
-    this.populateRoomSelects();
     if (roomNumber) {
       const sel = document.getElementById('incident-room-select');
       if (sel) sel.value = String(roomNumber);
+    }
+
+    const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
+    const reporterInput = document.getElementById('incident-reporter');
+    if (reporterInput && currentUser) {
+      reporterInput.value = currentUser.name || 'Mucama de Turno';
     }
 
     // Limpiar formulario y foto
@@ -641,7 +757,7 @@ const HousekeepingModule = {
         await supabaseClient.from('ordenes_mantenimiento').insert({
           habitacion_id: roomObj ? roomObj.id : null,
           tipo_incidencia: 'Incidencia reportada por Housekeeping',
-          descripcion: `[Reporte Mucama ${reporter}]: ${description}`,
+          descripcion: `[Reporte ${reporter}]: ${description}`,
           prioridad: 'Alta',
           tecnico_asignado: 'Mario Gómez (Mantenimiento Técnico)',
           costo_estimado: 0,
@@ -657,12 +773,15 @@ const HousekeepingModule = {
 
     showToast(`¡Incidencia de Habitación ${roomNumber} registrada y derivada con éxito!`, 'success');
 
-    // Cambiar a la pestaña de incidencias
-    this.switchTab('incidents');
+    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
+    if (currentRole !== 'mucama') {
+      this.switchTab('incidents');
+    }
   },
 
   /**
-   * CHECKLIST DE 5 ÁREAS
+   * CHECKLIST DE 5 ÁREAS (MUCAMAS)
+   * - Nombre de la mucama fijado en readonly por seguridad y autoría
    */
   openCleaningChecklist(roomId) {
     const room = this.currentRooms.find(r => r.id === roomId);
@@ -672,6 +791,8 @@ const HousekeepingModule = {
 
     const orders = this.getOrders();
     const order = orders[room.id] || { priority: 2, maid: 'Rosa Almada (Mucama)' };
+    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
+    const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
 
     document.getElementById('hk-modal-room-id').value = room.id;
     document.getElementById('hk-modal-room-number').innerText = room.numero;
@@ -692,9 +813,16 @@ const HousekeepingModule = {
       if (textEl) textEl.innerText = 'Check-out normal: Liberar para disponibilidad general.';
     }
 
-    // Nombre de la mucama
+    // Nombre de la mucama FIJADO / READONLY para evitar acusaciones falsas
     const cleanerInput = document.getElementById('hk-cleaner-name');
-    if (cleanerInput) cleanerInput.value = order.maid || 'Rosa Almada (Mucama)';
+    if (cleanerInput) {
+      const assignedName = order.maid || ((currentUser && currentUser.name) ? currentUser.name : 'Rosa Almada (Mucama)');
+      cleanerInput.value = assignedName;
+      cleanerInput.readOnly = true;
+      cleanerInput.style.background = '#F1F5F9';
+      cleanerInput.style.color = '#475569';
+      cleanerInput.style.cursor = 'not-allowed';
+    }
 
     // Reset checkboxes
     document.getElementById('chk-cama').checked = false;

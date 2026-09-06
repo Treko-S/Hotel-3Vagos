@@ -29,7 +29,7 @@ const RolePermissions = {
   },
   jefa_limpieza: {
     name: 'Jefa de Limpieza / Gobernanta',
-    allowedViews: ['housekeeping', 'rooms'],
+    allowedViews: ['housekeeping'],
     defaultView: 'housekeeping'
   },
   mucama: {
@@ -39,7 +39,7 @@ const RolePermissions = {
   },
   housekeeping: {
     name: 'Supervisora Housekeeping',
-    allowedViews: ['housekeeping', 'rooms', 'maintenance'],
+    allowedViews: ['housekeeping'],
     defaultView: 'housekeeping'
   },
   guest: {

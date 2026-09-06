@@ -766,24 +766,29 @@ select:focus {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  z-index: 1000;
+  z-index: 999999 !important;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  pointer-events: none;
 }
 
 .toast {
+  pointer-events: auto;
   background: #ffffff;
+  color: #0F172A;
+  font-weight: 500;
   border-radius: var(--radius-md);
   padding: 14px 18px;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   gap: 12px;
-  border-left: 4px solid var(--primary-navy);
+  border-left: 5px solid var(--primary-navy);
   font-size: 13px;
   min-width: 280px;
-  animation: slideToast 0.3s ease-out;
+  max-width: 420px;
+  animation: slideToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .toast.success { border-left-color: var(--success); }
