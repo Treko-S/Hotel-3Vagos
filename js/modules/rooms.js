@@ -100,6 +100,12 @@ const RoomsModule = {
     const tbody = document.getElementById('rooms-table-body');
     if (!tbody) return;
 
+    const isRecepcionista = (typeof AppState !== 'undefined' && AppState.currentRole === 'recepcionista');
+    const newRoomBtn = document.getElementById('btn-new-room');
+    if (newRoomBtn) {
+      newRoomBtn.style.display = isRecepcionista ? 'none' : 'inline-flex';
+    }
+
     if (!list || list.length === 0) {
       tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 32px; color: var(--text-muted);">No se encontraron habitaciones registradas.</td></tr>`;
       return;
@@ -183,19 +189,21 @@ const RoomsModule = {
             })()}
           </td>
           <td>
-            <div style="display: flex; gap: 6px;">
-              <button class="btn btn-sm btn-outline" onclick="RoomsModule.viewRoomDetails(${r.id})" title="Ver Ficha y Especificaciones Completas" style="padding: 6px 10px;">
+            <div class="action-btn-group">
+              <button class="btn-action btn-action-view" onclick="RoomsModule.viewRoomDetails(${r.id})" title="Ver Ficha y Especificaciones Completas">
                 <i class="fas fa-eye"></i> Ficha
               </button>
-              <button class="btn btn-sm btn-gold" onclick="ReservationsModule.openNewReservationModal(${r.id})" title="Reservar Fechas Libres de esta Habitación" style="padding: 6px 8px;">
-                <i class="fas fa-calendar-plus"></i>
+              <button class="btn-action btn-action-reserve" onclick="ReservationsModule.openNewReservationModal(${r.id})" title="Reservar Habitación">
+                <i class="fas fa-calendar-plus"></i> Reservar
               </button>
-              <button class="btn btn-sm btn-primary" onclick="RoomsModule.openEditRoomModal(${r.id})" title="Editar Especificaciones y Fotos" style="padding: 6px 10px;">
-                <i class="fas fa-sliders-h"></i> Editar
-              </button>
-              <button class="btn btn-sm" onclick="RoomsModule.changeStatusPrompt(${r.id}, '${r.estado}')" title="Cambio Rápido de Estado" style="padding: 6px 8px; background: #F1F5F9; border: 1px solid #CBD5E1; color: #334155;">
-                <i class="fas fa-exchange-alt"></i>
-              </button>
+              ${!isRecepcionista ? `
+                <button class="btn-action btn-action-edit" onclick="RoomsModule.openEditRoomModal(${r.id})" title="Editar Especificaciones y Fotos">
+                  <i class="fas fa-sliders-h"></i> Editar
+                </button>
+                <button class="btn-action btn-action-status" onclick="RoomsModule.changeStatusPrompt(${r.id}, '${r.estado}')" title="Cambio Rápido de Estado">
+                  <i class="fas fa-exchange-alt"></i> Estado
+                </button>
+              ` : ''}
             </div>
           </td>
         </tr>

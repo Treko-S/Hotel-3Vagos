@@ -75,12 +75,14 @@ const GuestsModule = {
           <td>${sanitizeInput(g.phone || '-')}</td>
           <td><span class="badge badge-confirmada">${g.role_id === 1 ? 'Administrador' : 'Huésped'}</span></td>
           <td>
-            <button class="btn btn-sm btn-outline" onclick="showToast('Historial cargado para ${sanitizeInput(g.full_name)}', 'info')">
-              <i class="fas fa-history"></i> Historial
-            </button>
-            <button class="btn btn-sm btn-outline" style="color: #0284C7; border-color: #BAE6FD;" onclick="GuestsModule.syncGuestToBrevo('${g.id}')" title="Registrar / Sincronizar Huésped en Brevo CRM">
-              <i class="fas fa-address-book"></i> Brevo
-            </button>
+            <div class="action-btn-group">
+              <button class="btn-action btn-action-view" onclick="showToast('Historial cargado para ${sanitizeInput(g.full_name)}', 'info')" title="Ver Historial de Estadías">
+                <i class="fas fa-history"></i> Historial
+              </button>
+              <button class="btn-action btn-action-folio" onclick="GuestsModule.syncGuestToBrevo('${g.id}')" title="Sincronizar con CRM Brevo">
+                <i class="fas fa-address-book"></i> Brevo CRM
+              </button>
+            </div>
           </td>
         </tr>
       `;

@@ -133,13 +133,13 @@ const DashboardModule = {
       const subRevenue = document.getElementById('kpi-revenue-sub');
       if (subRevenue) {
         subRevenue.innerHTML = `
-          <div style="font-size: 11px; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap;">
-            <span style="color: #1D4ED8;" title="Tarjetas App/POS"><i class="fas fa-credit-card"></i> Tarj: <strong>${formatGs(totalTarjetasCobrado)}</strong></span>
-            <span style="color: #166534;" title="Efectivo en Mostrador"><i class="fas fa-money-bill-wave"></i> Efec: <strong>${formatGs(totalEfectivoCobrado)}</strong></span>
-            <span style="color: #0D9488;" title="QR / Transferencia"><i class="fas fa-qrcode"></i> QR: <strong>${formatGs(totalDigitalCobrado)}</strong></span>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 11px;">
+            <span style="background: #EFF6FF; color: #1D4ED8; padding: 2px 7px; border-radius: 6px; border: 1px solid #BFDBFE; font-weight: 500;" title="Tarjetas App/POS"><i class="fas fa-credit-card"></i> Tarj: <strong>${formatGs(totalTarjetasCobrado)}</strong></span>
+            <span style="background: #F0FDF4; color: #166534; padding: 2px 7px; border-radius: 6px; border: 1px solid #BBF7D0; font-weight: 500;" title="Efectivo en Mostrador"><i class="fas fa-money-bill-wave"></i> Efec: <strong>${formatGs(totalEfectivoCobrado)}</strong></span>
+            <span style="background: #F0FDFA; color: #0D9488; padding: 2px 7px; border-radius: 6px; border: 1px solid #99F6E4; font-weight: 500;" title="QR / Transferencia"><i class="fas fa-qrcode"></i> QR: <strong>${formatGs(totalDigitalCobrado)}</strong></span>
           </div>
-          <div style="font-size: 11px; color: #b45309; font-weight: 600; margin-top: 3px;">
-            Pendiente: <strong>${formatGs(totalCuentasPorCobrar)}</strong>
+          <div style="font-size: 11.5px; color: #B45309; font-weight: 600; margin-top: 6px;">
+            <i class="fas fa-hourglass-half"></i> Pendiente: <strong>${formatGs(totalCuentasPorCobrar)}</strong>
           </div>
         `;
       }

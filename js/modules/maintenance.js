@@ -75,11 +75,13 @@ const MaintenanceModule = {
           <td>${sanitizeInput(ord.tecnico_asignado || 'Técnico de Turno')}</td>
           <td>${formatGs(ord.costo_estimado || 0)}</td>
           <td>
-            ${isPending ? `
-              <button class="btn btn-sm btn-success" onclick="MaintenanceModule.resolveOrder(${ord.id}, ${ord.habitacion_id})">
-                <i class="fas fa-check"></i> Resolver
-              </button>
-            ` : `<span class="badge badge-disponible"><i class="fas fa-check-double"></i> Resuelto</span>`}
+            <div class="action-btn-group">
+              ${isPending ? `
+                <button class="btn-action btn-action-reserve" onclick="MaintenanceModule.resolveOrder(${ord.id}, ${ord.habitacion_id})" title="Marcar orden como resuelta">
+                  <i class="fas fa-check"></i> Resolver
+                </button>
+              ` : `<span class="badge badge-disponible"><i class="fas fa-check-double"></i> Resuelto</span>`}
+            </div>
           </td>
         </tr>
       `;

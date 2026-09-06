@@ -310,12 +310,10 @@ body {
 .kpi-card {
   background: var(--bg-card);
   border-radius: var(--radius-lg);
-  padding: 22px 24px;
+  padding: 20px 22px;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: block;
   transition: var(--transition);
   position: relative;
   overflow: hidden;
@@ -333,12 +331,19 @@ body {
   left: 0;
   bottom: 0;
   width: 4px;
+  z-index: 2;
 }
 
 .kpi-card.blue::after { background: var(--primary-blue); }
 .kpi-card.gold::after { background: var(--accent-gold); }
 .kpi-card.green::after { background: var(--success); }
 .kpi-card.purple::after { background: var(--purple); }
+
+.kpi-data {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
 
 .kpi-data span {
   font-size: 13px;
@@ -359,20 +364,32 @@ body {
   font-weight: 600;
 }
 
+/* Ícono decorativo tipo marca de agua en el fondo de la tarjeta */
 .kpi-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 22px;
+  position: absolute;
+  right: 12px;
+  bottom: 2px;
+  width: auto;
+  height: auto;
+  background: transparent !important;
+  font-size: 78px;
+  line-height: 1;
+  opacity: 0.07;
+  pointer-events: none;
+  border-radius: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
 }
 
-.kpi-icon.blue { background: var(--info-bg); color: var(--info); }
-.kpi-icon.gold { background: var(--warning-bg); color: #b45309; }
-.kpi-icon.green { background: var(--success-bg); color: var(--success); }
-.kpi-icon.purple { background: var(--purple-bg); color: var(--purple); }
+.kpi-card:hover .kpi-icon {
+  opacity: 0.16;
+  transform: scale(1.08) rotate(-4deg);
+}
+
+.kpi-icon.blue { color: var(--primary-blue); }
+.kpi-icon.gold { color: var(--accent-gold); }
+.kpi-icon.green { color: var(--success); }
+.kpi-icon.purple { color: var(--purple); }
 
 /* =========================================================
    TABLES & DATA GRIDS
@@ -949,4 +966,311 @@ select:focus {
   background: var(--accent-gold);
   color: #fff;
 }
+
+/* =========================================================
+   GRUPO UNIFICADO DE BOTONES DE ACCIÓN (ESTÁNDAR HOTEL LUXURY)
+   ========================================================= */
+
+.action-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.btn-action {
+  height: 32px;
+  padding: 0 11px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  font-family: var(--font-sans);
+  text-decoration: none;
+}
+
+.btn-action i {
+  font-size: 12px;
+}
+
+/* Check-in */
+.btn-action-checkin {
+  background: #1D4ED8;
+  color: #FFFFFF;
+  border-color: #2563EB;
+}
+.btn-action-checkin:hover {
+  background: #1E40AF;
+  border-color: #1D4ED8;
+  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Check-out */
+.btn-action-checkout {
+  background: #D97706;
+  color: #FFFFFF;
+  border-color: #B45309;
+}
+.btn-action-checkout:hover {
+  background: #B45309;
+  border-color: #92400E;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Folio */
+.btn-action-folio {
+  background: rgba(14, 165, 233, 0.1);
+  color: #0284C7;
+  border-color: rgba(14, 165, 233, 0.35);
+}
+.btn-action-folio:hover {
+  background: #0284C7;
+  color: #FFFFFF;
+  border-color: #0284C7;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Brevo / Correo */
+.btn-action-email {
+  background: rgba(245, 158, 11, 0.1);
+  color: #D97706;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.btn-action-email:hover {
+  background: #D97706;
+  color: #FFFFFF;
+  border-color: #D97706;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Ficha */
+.btn-action-view {
+  background: rgba(100, 116, 139, 0.1);
+  color: #334155;
+  border-color: rgba(100, 116, 139, 0.3);
+}
+.btn-action-view:hover {
+  background: #334155;
+  color: #FFFFFF;
+  border-color: #334155;
+  box-shadow: 0 2px 6px rgba(51, 65, 85, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Reservar */
+.btn-action-reserve {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.btn-action-reserve:hover {
+  background: #059669;
+  color: #FFFFFF;
+  border-color: #059669;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Editar */
+.btn-action-edit {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563EB;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+.btn-action-edit:hover {
+  background: #2563EB;
+  color: #FFFFFF;
+  border-color: #2563EB;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Estado */
+.btn-action-status {
+  background: rgba(168, 85, 247, 0.1);
+  color: #7C3AED;
+  border-color: rgba(168, 85, 247, 0.35);
+}
+.btn-action-status:hover {
+  background: #7C3AED;
+  color: #FFFFFF;
+  border-color: #7C3AED;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.3);
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   HOUSEKEEPING & GOBERNANZA: PRIORIDADES, CHECKLIST & INCIDENCIAS
+   ========================================================= */
+
+/* Badges de Prioridad de Limpieza */
+.badge-priority {
+  padding: 4px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.badge-priority-1 {
+  background: #FEE2E2;
+  color: #991B1B;
+  border: 1px solid #FCA5A5;
+  animation: pulse-urgent 2s infinite;
+}
+
+.badge-priority-2 {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+}
+
+.badge-priority-3 {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #BFDBFE;
+}
+
+@keyframes pulse-urgent {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Pestañas de Housekeeping */
+.hk-tab-btn {
+  padding: 12px 20px;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: #64748B;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition);
+}
+
+.hk-tab-btn.active {
+  color: var(--primary-navy);
+  border-bottom-color: var(--accent-gold);
+}
+
+.hk-tab-btn:hover:not(.active) {
+  color: var(--primary-navy);
+}
+
+/* Checklist Card */
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  transition: all 0.2s ease;
+}
+
+.checklist-item:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+.checklist-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #10B981;
+  cursor: pointer;
+}
+
+.checklist-item label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  flex: 1;
+}
+
+/* Caja de preview de fotos de incidencias */
+.incident-photo-box {
+  border: 2px dashed #CBD5E1;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  background: #F8FAFC;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.incident-photo-box:hover {
+  border-color: var(--accent-gold);
+  background: #FFFBEB;
+}
+
+.incident-photo-preview {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  margin-top: 10px;
+  object-fit: cover;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Matriz de Control de Llaves */
+.keys-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.key-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.key-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: #CBD5E1;
+}
+
+.key-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.key-status-reception { background: #DCFCE7; color: #15803D; }
+.key-status-guest { background: #DBEAFE; color: #1E40AF; }
+.key-status-maid { background: #FEF3C7; color: #92400E; }
+.key-status-maintenance { background: #FFEDD5; color: #C2410C; }
+.key-status-lost { background: #FEE2E2; color: #B91C1C; }
+
 

@@ -150,52 +150,52 @@ const ReservationsModule = {
           </td>
           <td>
             ${anticipo > 0 ? `
-              <span class="badge" style="background: #DCFCE7; color: #15803D; border: 1px solid #86EFAC; font-weight: bold; padding: 3px 8px;">
-                <i class="fas fa-check-circle"></i> ${formatGs(anticipo)}
-              </span>
-              <div style="font-size: 10px; color: #166534; font-weight: 600; margin-top: 2px;">
-                Seña Pagada (${Math.round((anticipo / montoTotal) * 100)}%)
-              </div>
-              <div style="margin-top: 3px;">
-                <span class="badge" style="font-size: 9.5px; padding: 2px 6px; background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;">
+              <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 110px;">
+                <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 700; padding: 3px 8px; font-size: 11.5px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                  <i class="fas fa-check-circle" style="font-size: 10.5px;"></i> ${formatGs(anticipo)}
+                </span>
+                <span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">
+                  Seña Pagada (${Math.round((anticipo / montoTotal) * 100)}%)
+                </span>
+                <span class="badge" style="font-size: 9.5px; padding: 2px 7px; background: rgba(59, 130, 246, 0.12); color: #3B82F6; border: 1px solid rgba(59, 130, 246, 0.25); border-radius: 5px; display: inline-flex; align-items: center; gap: 4px;">
                   <i class="${this.getPaymentIcon(folio.pagos_folio, b.canal_venta)}"></i> ${sanitizeInput(this.getPaymentName(folio.pagos_folio, b.canal_venta))}
                 </span>
               </div>
             ` : `
-              <span style="color: var(--text-muted); font-size: 11px;">0 Gs. (Sin seña)</span>
+              <span style="color: var(--text-muted); font-size: 11px; font-style: italic;">0 Gs. (Sin seña)</span>
             `}
           </td>
           <td>
             ${saldoPendiente <= 0 ? `
-              <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-weight: 700;">
+              <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
                 <i class="fas fa-check-double"></i> 0 Gs. Saldado
               </span>
             ` : `
-              <span class="badge" style="background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; font-weight: 700;">
+              <span class="badge" style="background: rgba(239, 68, 68, 0.12); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
                 <i class="fas fa-clock"></i> ${formatGs(saldoPendiente)}
               </span>
             `}
           </td>
           <td>${estadoBadge}</td>
           <td>
-            <div style="display: flex; gap: 5px; align-items: center;">
+            <div class="action-btn-group">
               ${b.estado !== 'Check-in' && b.estado !== 'Finalizada' && b.estado !== 'Cancelada' ? `
-                <button class="btn btn-sm btn-primary" onclick="ReservationsModule.openCheckInModal('${b.id}')" title="Realizar Check-in">
+                <button class="btn-action btn-action-checkin" onclick="ReservationsModule.openCheckInModal('${b.id}')" title="Realizar Check-in">
                   <i class="fas fa-sign-in-alt"></i> Check-in
                 </button>
               ` : ''}
 
               ${b.estado === 'Check-in' || b.estado === 'En estadía' ? `
-                <button class="btn btn-sm btn-gold" onclick="ReservationsModule.openCheckOutModal('${b.id}')" title="Realizar Check-out y Cobro">
+                <button class="btn-action btn-action-checkout" onclick="ReservationsModule.openCheckOutModal('${b.id}')" title="Realizar Check-out y Cobro">
                   <i class="fas fa-sign-out-alt"></i> Check-out
                 </button>
               ` : ''}
 
-              <button class="btn btn-sm btn-outline" style="color: #0284C7; border-color: #38BDF8; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" onclick="ReservationsModule.viewFolioDetail('${b.id}')" title="Ver Folio & Cuenta del Cliente">
+              <button class="btn-action btn-action-folio" onclick="ReservationsModule.viewFolioDetail('${b.id}')" title="Ver Folio & Cuenta del Cliente">
                 <i class="fas fa-file-invoice-dollar"></i> Folio
               </button>
 
-              <button class="btn btn-sm btn-outline" style="color: #D97706; border-color: #FCD34D; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" onclick="ReservationsModule.quickSendEmail('${b.id}')" title="Enviar o Reenviar Folio vía Brevo">
+              <button class="btn-action btn-action-email" onclick="ReservationsModule.quickSendEmail('${b.id}')" title="Enviar o Reenviar Folio vía Brevo">
                 <i class="fas fa-paper-plane"></i> Brevo
               </button>
             </div>

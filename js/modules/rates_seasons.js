@@ -144,12 +144,12 @@ const RatesSeasonsModule = {
           </td>
           <td>${statusBadge}</td>
           <td>
-            <div style="display: flex; gap: 6px;">
-              <button class="btn btn-sm btn-outline" onclick="RatesSeasonsModule.openSeasonModal(${s.id})" title="Editar Temporada" style="padding: 5px 8px;">
-                <i class="fas fa-edit"></i>
+            <div class="action-btn-group">
+              <button class="btn-action btn-action-edit" onclick="RatesSeasonsModule.openSeasonModal(${s.id})" title="Editar Temporada">
+                <i class="fas fa-edit"></i> Editar
               </button>
-              <button class="btn btn-sm btn-danger" onclick="RatesSeasonsModule.deleteSeason(${s.id})" title="Eliminar Temporada" style="padding: 5px 8px; background: #DC2626;">
-                <i class="fas fa-trash-alt"></i>
+              <button class="btn-action btn-action-checkout" onclick="RatesSeasonsModule.deleteSeason(${s.id})" title="Eliminar Temporada" style="background: rgba(220, 38, 38, 0.1); color: #DC2626; border-color: rgba(220, 38, 38, 0.3);">
+                <i class="fas fa-trash-alt"></i> Borrar
               </button>
             </div>
           </td>
@@ -304,9 +304,11 @@ const RatesSeasonsModule = {
         <td><span style="font-size: 12.5px; color: var(--text-muted);">${p.desc}</span></td>
         <td><span class="badge ${p.active ? 'badge-success' : 'badge-danger'}">${p.active ? 'Activo' : 'Inactivo'}</span></td>
         <td>
-          <button class="btn btn-sm btn-outline" onclick="RatesSeasonsModule.togglePromo(${idx})" style="padding: 4px 8px; font-size: 11px;">
-            ${p.active ? '<i class="fas fa-ban"></i> Desactivar' : '<i class="fas fa-check"></i> Activar'}
-          </button>
+          <div class="action-btn-group">
+            <button class="btn-action ${p.active ? 'btn-action-status' : 'btn-action-reserve'}" onclick="RatesSeasonsModule.togglePromo(${idx})">
+              ${p.active ? '<i class="fas fa-ban"></i> Desactivar' : '<i class="fas fa-check"></i> Activar'}
+            </button>
+          </div>
         </td>
       </tr>
     `).join('');

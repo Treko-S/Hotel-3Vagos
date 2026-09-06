@@ -34,10 +34,24 @@ const AuthModule = {
       passwordHash: "79bc62f88ec490bd0b06c764858949f3c0186f4283d05d833f3359636387edb9" // recepcion123 + salt
     },
     {
+      email: "jefa@hotel3vagos.com",
+      username: "jefa",
+      name: "Miriam González (Gobernanta)",
+      role: "jefa_limpieza",
+      passwordHash: "3111f3e321766c19d4c25dbd0f1db03b482291d4e620035c827d538a55f4b9af" // jefa123 + salt
+    },
+    {
+      email: "mucama@hotel3vagos.com",
+      username: "mucama",
+      name: "Rosa Almada (Mucama)",
+      role: "mucama",
+      passwordHash: "f428e8c159990a363153f4b352ff9eea986f1f208e71a13ed4870aaad50d44aa" // mucama123 + salt
+    },
+    {
       email: "housekeeping@hotel3vagos.com",
       username: "housekeeping",
       name: "Elena Morales",
-      role: "housekeeping",
+      role: "jefa_limpieza",
       passwordHash: "43b520eee83e83ee1aeac02520d15d731cb6ff4ed196be818b5be9278f2ded36" // housekeeping123 + salt
     },
     {

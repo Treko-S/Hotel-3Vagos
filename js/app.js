@@ -24,8 +24,18 @@ const RolePermissions = {
   },
   recepcionista: {
     name: 'Recepcionista Front Desk',
-    allowedViews: ['reservations', 'rooms', 'cash', 'guests'],
+    allowedViews: ['reservations', 'rooms'],
     defaultView: 'reservations'
+  },
+  jefa_limpieza: {
+    name: 'Jefa de Limpieza / Gobernanta',
+    allowedViews: ['housekeeping', 'rooms'],
+    defaultView: 'housekeeping'
+  },
+  mucama: {
+    name: 'Mucama / Asistente de Limpieza',
+    allowedViews: ['housekeeping'],
+    defaultView: 'housekeeping'
   },
   housekeeping: {
     name: 'Supervisora Housekeeping',

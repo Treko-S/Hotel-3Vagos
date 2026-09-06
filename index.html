@@ -346,7 +346,7 @@
               <select id="filter-room-type" class="form-control" style="width: auto; padding: 7px 12px;">
                 <option value="ALL">Todos los Tipos</option>
               </select>
-              <button class="btn btn-primary" onclick="RoomsModule.openNewRoomModal()">
+              <button id="btn-new-room" class="btn btn-primary" onclick="RoomsModule.openNewRoomModal()">
                 <i class="fas fa-plus"></i> Nueva Habitación
               </button>
             </div>
@@ -374,24 +374,156 @@
       </section>
 
       <!-- =====================================================
-           VIEW 4: HOUSEKEEPING & LIMPIEZA
+           VIEW 4: HOUSEKEEPING & GOBERNANZA OPERATIVA
            ===================================================== -->
       <section id="view-housekeeping" class="view-section">
         <div class="card-panel">
-          <div class="panel-header">
+          <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
             <div>
-              <h3 class="panel-title">Tablero Operativo de Limpieza (Housekeeping)</h3>
-              <p style="font-size: 12px; color: var(--text-muted);">Inspección y liberación de habitaciones con checklist de 5 áreas</p>
+              <h3 class="panel-title"><i class="fas fa-broom" style="color: var(--accent-gold);"></i> Housekeeping & Gobernanza Operativa</h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                Despacho por prioridades (Jefa de Limpieza), checklist operativo 5 áreas (Mucamas), incidencias con foto y control de llaves
+              </p>
             </div>
-            <button class="btn btn-outline" onclick="HousekeepingModule.loadHousekeepingBoard()">
-              <i class="fas fa-sync-alt"></i> Actualizar Tablero
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button id="btn-hk-dispatch-order" class="btn btn-primary" onclick="HousekeepingModule.openDispatchModal()">
+                <i class="fas fa-paper-plane"></i> Despachar Orden
+              </button>
+              <button class="btn btn-warning" onclick="HousekeepingModule.openIncidentModal()" style="background: #D97706; color: #FFFFFF; border-color: #D97706;">
+                <i class="fas fa-camera"></i> Reportar Incidencia
+              </button>
+              <button class="btn btn-outline" onclick="HousekeepingModule.loadHousekeepingBoard()">
+                <i class="fas fa-sync-alt"></i> Actualizar
+              </button>
+            </div>
+          </div>
+
+          <!-- Pestañas Operativas de Housekeeping -->
+          <div style="display: flex; gap: 6px; border-bottom: 2px solid #E2E8F0; padding: 0 20px; overflow-x: auto; background: #F8FAFC;">
+            <button id="hk-tab-jefa" class="hk-tab-btn active" onclick="HousekeepingModule.switchTab('jefa')">
+              <i class="fas fa-clipboard-list"></i> Tablero Jefa de Limpieza (Prioridades)
+            </button>
+            <button id="hk-tab-mucama" class="hk-tab-btn" onclick="HousekeepingModule.switchTab('mucama')">
+              <i class="fas fa-broom"></i> Panel de Mucamas (Mis Tareas & Checklist)
+            </button>
+            <button id="hk-tab-keys" class="hk-tab-btn" onclick="HousekeepingModule.switchTab('keys')">
+              <i class="fas fa-key"></i> Matriz de Control de Llaves & RFID
+            </button>
+            <button id="hk-tab-incidents" class="hk-tab-btn" onclick="HousekeepingModule.switchTab('incidents')">
+              <i class="fas fa-exclamation-triangle"></i> Bitácora de Incidencias & Fotos
             </button>
           </div>
 
+          <!-- Contenido de las pestañas -->
           <div style="padding: 24px;">
-            <div id="housekeeping-grid" class="rooms-matrix">
-              <!-- Dinámico -->
+            <!-- TAB 1: JEFA DE LIMPIEZA -->
+            <div id="hk-content-jefa" class="hk-tab-content">
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+                  <span style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">ORDEN DE PRIORIDADES:</span>
+                  <span class="badge-priority badge-priority-1"><i class="fas fa-bolt"></i> Prioridad 1: Early Check-in (Urgente)</span>
+                  <span class="badge-priority badge-priority-2"><i class="fas fa-sign-out-alt"></i> Prioridad 2: Check-out Normal</span>
+                  <span class="badge-priority badge-priority-3"><i class="fas fa-bed"></i> Prioridad 3: Repaso Ocupada</span>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="HousekeepingModule.openDispatchModal()">
+                  <i class="fas fa-plus"></i> Asignar Limpieza a Mucama
+                </button>
+              </div>
+
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Prioridad</th>
+                      <th>Habitación</th>
+                      <th>Tipo / Piso</th>
+                      <th>Estado Hab.</th>
+                      <th>Mucama Asignada</th>
+                      <th>Observación / Orden</th>
+                      <th>Acción Jefa</th>
+                    </tr>
+                  </thead>
+                  <tbody id="hk-jefa-table-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
             </div>
+
+            <!-- TAB 2: PANEL DE MUCAMA -->
+            <div id="hk-content-mucama" class="hk-tab-content" style="display: none;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
+                <div>
+                  <h4 style="font-size: 16px; color: var(--primary-navy); margin: 0 0 4px 0;">Mis Habitaciones Asignadas</h4>
+                  <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Siga el orden de prioridad asignado por la Gobernanta para liberar habitaciones a recepción.</p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                  <label style="font-size: 12.5px; font-weight: 600; color: #334155;">Filtrar por Mucama:</label>
+                  <select id="filter-mucama-select" class="form-control" style="width: auto; padding: 6px 12px;" onchange="HousekeepingModule.renderMucamaView()">
+                    <option value="ALL">Todas las Asignadas</option>
+                    <option value="Rosa Almada">Rosa Almada</option>
+                    <option value="Elena Morales">Elena Morales</option>
+                    <option value="Carmen Duarte">Carmen Duarte</option>
+                  </select>
+                </div>
+              </div>
+
+              <div id="hk-mucama-grid" class="rooms-matrix">
+                <!-- Tarjetas dinámicas con botón Checklist e Incidencia -->
+              </div>
+            </div>
+
+            <!-- TAB 3: CONTROL DE LLAVES -->
+            <div id="hk-content-keys" class="hk-tab-content" style="display: none;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+                <div>
+                  <h4 style="font-size: 16px; color: var(--primary-navy); margin: 0 0 4px 0;">Matriz de Custodia de Llaves Físicas & Tarjetas RFID</h4>
+                  <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Control de entrega de llaves a recepción, huéspedes, mucamas y mantenimiento en tiempo real.</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-sm btn-outline" onclick="HousekeepingModule.renderKeysMatrix()">
+                    <i class="fas fa-sync-alt"></i> Actualizar Llaves
+                  </button>
+                </div>
+              </div>
+
+              <div id="hk-keys-grid" class="keys-grid">
+                <!-- Dinámico -->
+              </div>
+            </div>
+
+            <!-- TAB 4: BITÁCORA DE INCIDENCIAS -->
+            <div id="hk-content-incidents" class="hk-tab-content" style="display: none;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
+                <div>
+                  <h4 style="font-size: 16px; color: var(--primary-navy); margin: 0 0 4px 0;">Bitácora de Incidencias & Faltantes Reportados</h4>
+                  <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Reportes con respaldo fotográfico derivados a Mantenimiento o Inventario/Administración.</p>
+                </div>
+                <button class="btn btn-warning" onclick="HousekeepingModule.openIncidentModal()" style="background: #D97706; color: #FFFFFF; border-color: #D97706;">
+                  <i class="fas fa-camera"></i> Nueva Incidencia con Foto
+                </button>
+              </div>
+
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha / Hora</th>
+                      <th>Habitación</th>
+                      <th>Naturaleza / Destino</th>
+                      <th>Motivo / Descripción</th>
+                      <th>Foto Respaldo</th>
+                      <th>Reportado Por</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="hk-incidents-table-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -977,57 +1109,225 @@
     </div>
   </div>
 
-  <!-- Modal Housekeeping Checklist -->
-  <div id="modal-housekeeping" class="modal-backdrop">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3><i class="fas fa-clipboard-check" style="color: var(--primary-navy);"></i> Checklist de Limpieza & Calidad</h3>
-        <button class="modal-close" onclick="closeModal('modal-housekeeping')">&times;</button>
+  <!-- Modal Despacho de Orden de Limpieza (Jefa de Limpieza) -->
+  <div id="modal-dispatch-cleaning" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 540px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 18px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(18, 59, 99, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary-navy); font-size: 18px;">
+            <i class="fas fa-clipboard-list"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 18px; color: var(--primary-navy);">Despachar Orden de Limpieza</h3>
+            <p style="margin: 0; font-size: 11.5px; color: var(--text-muted);">Gobernanza & Asignación de Turnos</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-dispatch-cleaning')">&times;</button>
       </div>
-      <div class="modal-body">
-        <input type="hidden" id="hk-modal-room-id">
-        <div style="background: var(--warning-bg); padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 18px;">
-          <h4 style="color: #9a3412;">Habitación <span id="hk-modal-room-number"></span> (<span id="hk-modal-room-type"></span>)</h4>
-          <p style="font-size: 11px; color: #7c2d12;">Verifique los 5 estándares de calidad antes de liberar la habitación para venta.</p>
+
+      <form id="form-dispatch-cleaning" onsubmit="event.preventDefault(); HousekeepingModule.confirmDispatchOrder();">
+        <div class="modal-body" style="padding: 0;">
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">
+              Habitación a Asignar *
+            </label>
+            <select id="dispatch-room-select" class="form-control" required style="font-size: 13.5px; font-weight: 600;">
+              <!-- Opciones dinámicas -->
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">
+              Orden de Prioridad Operativa *
+            </label>
+            <select id="dispatch-priority-select" class="form-control" required style="font-weight: 700; font-size: 13px;">
+              <option value="1" style="color: #991B1B; font-weight: bold;">🔴 Prioridad 1 (Urgente): Early Check-in (Huésped en recepción esperando)</option>
+              <option value="2" selected style="color: #92400E; font-weight: bold;">🟡 Prioridad 2: Check-out normal (Liberar para venta lo antes posible)</option>
+              <option value="3" style="color: #1E40AF; font-weight: bold;">🔵 Prioridad 3: Habitación Ocupada (Limpieza de repaso diario)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">
+              Asignar Mucama / Asistente de Limpieza *
+            </label>
+            <select id="dispatch-maid-select" class="form-control" required style="font-size: 13.5px;">
+              <option value="Rosa Almada">Rosa Almada (Turno Mañana)</option>
+              <option value="Elena Morales">Elena Morales (Turno Tarde)</option>
+              <option value="Carmen Duarte">Carmen Duarte (Refuerzo General)</option>
+              <option value="Miriam González">Miriam González (Gobernanta)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">
+              Instrucciones Específicas / Observaciones
+            </label>
+            <textarea id="dispatch-notes" class="form-control" rows="2" placeholder="Ej: Huésped solicitó toallas adicionales y sábanas hipoalergénicas..."></textarea>
+          </div>
         </div>
 
-        <div style="background: #f8fafc; padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-dispatch-cleaning')">Cancelar</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-paper-plane"></i> Emitir Orden a Mucama
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Registro de Incidencias con Cámara de Celular / Tablet -->
+  <div id="modal-incident-report" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 520px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 18px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(217, 119, 6, 0.12); display: flex; align-items: center; justify-content: center; color: #D97706; font-size: 18px;">
+            <i class="fas fa-camera"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 18px; color: var(--primary-navy);">Registrar Incidencia / Faltante</h3>
+            <p style="margin: 0; font-size: 11.5px; color: var(--text-muted);">Derivación automática a Mantenimiento o Inventario</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-incident-report')">&times;</button>
+      </div>
+
+      <form id="form-incident-report" onsubmit="event.preventDefault(); HousekeepingModule.confirmIncidentReport();">
+        <div class="modal-body" style="padding: 0;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+            <div class="form-group" style="margin: 0;">
+              <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">Habitación *</label>
+              <select id="incident-room-select" class="form-control" required style="font-weight: 600;">
+                <!-- Dinámico -->
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">Reportado Por</label>
+              <input type="text" id="incident-reporter" class="form-control" value="Rosa Almada (Mucama)" required>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">
+              Naturaleza y Destino de la Incidencia *
+            </label>
+            <select id="incident-nature" class="form-control" required style="font-weight: 600; font-size: 13px;">
+              <option value="mantenimiento">🔧 Daño Técnico / Avería -> Derivar a MANTENIMIENTO / ADMINISTRADOR</option>
+              <option value="inventario">📦 Faltante de Insumos / Toallas / Minibar -> Derivar a INVENTARIO / ADMINISTRADOR</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">
+              Motivo / Detalle de la Incidencia *
+            </label>
+            <textarea id="incident-description" class="form-control" rows="3" placeholder="Explique qué sucedió o qué insumo falta (ej: Control remoto no enciende / Faltan 2 toallas de cuerpo que no se encontraron)..." required style="font-size: 13px;"></textarea>
+          </div>
+
+          <!-- Captura de Foto con Celular / Tablet -->
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">
+              <i class="fas fa-camera" style="color: #D97706;"></i> Foto de Respaldo (Cámara o Archivo)
+            </label>
+            <div class="incident-photo-box" onclick="document.getElementById('incident-photo-input').click()">
+              <input type="file" id="incident-photo-input" accept="image/*" capture="environment" style="display: none;" onchange="HousekeepingModule.onIncidentPhotoSelected(event)">
+              <div id="incident-photo-placeholder">
+                <i class="fas fa-camera-retro" style="font-size: 28px; color: #94A3B8; margin-bottom: 6px; display: block;"></i>
+                <span style="font-size: 12.5px; font-weight: 600; color: #334155;">Tocar para tomar foto con la cámara</span>
+                <span style="display: block; font-size: 11px; color: #94A3B8;">Compatible con celulares y tablets de trabajo</span>
+              </div>
+              <img id="incident-photo-preview" class="incident-photo-preview" style="display: none;" alt="Foto incidencia">
+            </div>
+            <div id="incident-photo-actions" style="display: none; margin-top: 6px; text-align: right;">
+              <button type="button" class="btn btn-sm btn-outline" style="color: #DC2626; border-color: #FCA5A5; font-size: 11px; padding: 3px 8px;" onclick="HousekeepingModule.clearIncidentPhoto()">
+                <i class="fas fa-trash-alt"></i> Quitar foto
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 10px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-incident-report')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background: #D97706; border-color: #D97706;">
+            <i class="fas fa-paper-plane"></i> Registrar & Notificar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Housekeeping Checklist Completo de 5 Áreas -->
+  <div id="modal-housekeeping" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 580px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(16, 185, 129, 0.15); display: flex; align-items: center; justify-content: center; color: #10B981; font-size: 18px;">
+            <i class="fas fa-clipboard-check"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 18px; color: var(--primary-navy);">Checklist de Limpieza & Calidad (5 Áreas)</h3>
+            <p style="margin: 0; font-size: 11.5px; color: var(--text-muted);">Inspección y liberación para venta</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-housekeeping')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <input type="hidden" id="hk-modal-room-id">
+        <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <h4 style="color: #92400E; margin: 0; font-size: 15px;">Habitación <span id="hk-modal-room-number"></span> (<span id="hk-modal-room-type"></span>)</h4>
+            <p id="hk-modal-priority-text" style="font-size: 11.5px; color: #B45309; margin: 2px 0 0 0; font-weight: 600;"></p>
+          </div>
+          <span id="hk-modal-priority-badge" class="badge-priority"></span>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 14px; border-radius: var(--radius-md); margin-bottom: 16px;">
           <div class="checklist-item">
             <input type="checkbox" id="chk-cama">
-            <label for="chk-cama">1. Cama & Ropa blanca (Sábanas, almohadas limpias y piso aspirado)</label>
+            <label for="chk-cama">1. Cama & Ropa blanca (Sábanas higienizadas, fundas estiradas, almohadas aromatizadas)</label>
           </div>
           <div class="checklist-item">
             <input type="checkbox" id="chk-bano">
-            <label for="chk-bano">2. Baño & Sanitarios (Ducha, espejos, toallas y reposición de amenities)</label>
+            <label for="chk-bano">2. Baño & Sanitarios (Inodoro desinfectado con precinto, mampara seca, amenities y toallas)</label>
           </div>
           <div class="checklist-item">
             <input type="checkbox" id="chk-equipamiento">
-            <label for="chk-equipamiento">3. Equipamiento (Aire acondicionado a 24°C, TV y control remoto operativo)</label>
+            <label for="chk-equipamiento">3. Climatización & Luces (A/C split a 24°C, TV y control remoto con pilas operativas)</label>
           </div>
           <div class="checklist-item">
             <input type="checkbox" id="chk-minibar">
-            <label for="chk-minibar">4. Frigobar & Minibar (Bebidas completas, limpio y refrigerando)</label>
+            <label for="chk-minibar">4. Minibar & Frigobar (Bebidas completas según estándar y enfriando correctamente)</label>
           </div>
           <div class="checklist-item">
             <input type="checkbox" id="chk-inspeccion">
-            <label for="chk-inspeccion">5. Inspección Final de Calidad (Aromaterapia y habitación impecable)</label>
+            <label for="chk-inspeccion">5. Suelos, Ventanas & Aromaterapia (Piso aspirado/trapeado, cortinas y desinfección final)</label>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Responsable de Limpieza</label>
-          <input type="text" id="hk-cleaner-name" class="form-control" value="Camarera de Turno">
-        </div>
-        <div class="form-group">
-          <label>Observaciones de Inspección (Opcional)</label>
-          <input type="text" id="hk-observations" class="form-control" placeholder="Ej: Faltaba toalla, fue repuesta.">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600; color: #1E293B;">Mucama / Asistente</label>
+            <input type="text" id="hk-cleaner-name" class="form-control" value="Rosa Almada (Mucama)" style="font-size: 12.5px;">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600; color: #1E293B;">Observación / Incidencia</label>
+            <input type="text" id="hk-observations" class="form-control" placeholder="Opcional: Todo en perfecto orden" style="font-size: 12.5px;">
+          </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="HousekeepingModule.startCleaning()">Marcar En Limpieza</button>
-        <button class="btn btn-success" onclick="HousekeepingModule.completeCleaningAndLiberate()">
-          <i class="fas fa-check-circle"></i> Aprobar & Liberar (Disponible)
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <button class="btn btn-outline" style="color: #D97706; border-color: #FCD34D;" onclick="HousekeepingModule.openIncidentFromChecklist()">
+          <i class="fas fa-camera"></i> Reportar Incidencia
         </button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-outline" onclick="HousekeepingModule.startCleaning()">Marcar En Limpieza</button>
+          <button class="btn btn-success" onclick="HousekeepingModule.completeCleaningAndLiberate()">
+            <i class="fas fa-check-circle"></i> Aprobar & Liberar (Disponible)
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1305,26 +1605,65 @@
     </div>
   </div>
 
-  <!-- Modal Apertura Caja -->
+  <!-- Modal Apertura Caja Rediseñado con Estilo Luxury -->
   <div id="modal-apertura-caja" class="modal-backdrop">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3><i class="fas fa-cash-register"></i> Apertura de Turno de Caja</h3>
+    <div class="modal-box" style="max-width: 520px; padding: 26px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(197, 160, 89, 0.15); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--primary-gold);">
+            <i class="fas fa-cash-register"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 19px; color: var(--primary-navy); font-family: var(--font-heading);">Apertura de Turno de Caja</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Custodia de fondo fijo inicial & auditoría legal SET</p>
+          </div>
+        </div>
         <button class="modal-close" onclick="closeModal('modal-apertura-caja')">&times;</button>
       </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Monto Inicial en Efectivo (Gs.)</label>
-          <input type="number" id="caja-monto-inicial" class="form-control" value="500000">
+
+      <div class="modal-body" style="padding: 0;">
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px; margin-bottom: 18px;">
+          <label style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: block;">
+            Fondo Fijo Inicial en Efectivo (Gs.) *
+          </label>
+          <div style="position: relative; margin-bottom: 10px;">
+            <input type="number" id="caja-monto-inicial" class="form-control" value="500000" step="50000" style="font-size: 22px; font-weight: 700; color: var(--primary-navy); padding: 10px 52px 10px 14px; border-radius: 8px;">
+            <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--text-muted); font-size: 14px;">Gs.</span>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-xs" onclick="document.getElementById('caja-monto-inicial').value = 300000">300.000 Gs.</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="document.getElementById('caja-monto-inicial').value = 500000">500.000 Gs.</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="document.getElementById('caja-monto-inicial').value = 1000000">1.000.000 Gs.</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="document.getElementById('caja-monto-inicial').value = 1500000">1.500.000 Gs.</button>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Responsable de Turno</label>
-          <input type="text" id="caja-responsable" class="form-control" value="Kevin Santacruz (Recepcionista)">
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12.5px; font-weight: 600; color: #1E293B;">Turno Operativo *</label>
+            <select id="caja-turno-select" class="form-control" style="font-size: 13px;">
+              <option value="Turno Mañana (06:00 - 14:00)">🌅 Turno Mañana (06:00 - 14:00)</option>
+              <option value="Turno Tarde (14:00 - 22:00)">🌇 Turno Tarde (14:00 - 22:00)</option>
+              <option value="Turno Noche (22:00 - 06:00)">🌙 Turno Noche (22:00 - 06:00)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12.5px; font-weight: 600; color: #1E293B;">Responsable de Turno *</label>
+            <input type="text" id="caja-responsable" class="form-control" value="Marcos Rolón (Recepcionista)" style="font-size: 13px;">
+          </div>
+        </div>
+
+        <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 12px; font-size: 11.5px; color: #92400E; display: flex; gap: 8px; align-items: flex-start;">
+          <i class="fas fa-shield-alt" style="font-size: 14px; margin-top: 2px;"></i>
+          <span>Al iniciar el turno, el monto queda registrado bajo la responsabilidad legal del cajero. Los cobros online de la App Móvil se concilian en cuenta bancaria 24/7 de forma paralela e independiente.</span>
         </div>
       </div>
-      <div class="modal-footer">
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 16px; margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
         <button class="btn btn-outline" onclick="closeModal('modal-apertura-caja')">Cancelar</button>
-        <button class="btn btn-primary" onclick="CashBillingModule.confirmAperturaCaja()">Abrir Turno de Caja</button>
+        <button class="btn btn-primary" onclick="CashBillingModule.confirmAperturaCaja()">
+          <i class="fas fa-key"></i> Confirmar Apertura de Caja
+        </button>
       </div>
     </div>
   </div>
