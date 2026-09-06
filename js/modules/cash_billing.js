@@ -164,7 +164,7 @@ const CashBillingModule = {
 
       const { data: rawPayments, error } = await supabaseClient
         .from('pagos_folio')
-        .select('*, folios(id, reserva_id, total_pagos, saldo_pendiente, reservas(codigo_reserva, canal_venta, users(full_name)))')
+        .select('*, folios(id, reserva_id, total_pagos, saldo_pendiente, reservas(id, codigo_reserva, canal_venta, users(id, full_name, email, document_number)))')
         .order('id', { ascending: false });
 
       if (error) throw error;
@@ -276,11 +276,16 @@ const CashBillingModule = {
             : `<span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 10.5px;"><i class="fas fa-landmark"></i> Cuenta Bancaria (24/7)</span>`;
 
           // Estado de Facturación Legal (SET Paraguay)
-          const matchedInv = this.invoices.find(inv => inv.folio_id === p.folio_id || (inv.ruc_ci && inv.monto_total == p.monto));
+          const matchedInv = this.invoices.find(inv => inv.folio_id === p.folio_id || (inv.ruc_ci && Number(inv.monto_total) == Number(p.monto)));
           const isFacturado = Boolean(matchedInv || p.facturado || p.factura_id);
           const estadoFacturaBadge = isFacturado
-            ? `<span class="badge badge-confirmada" style="background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; font-size: 11px;"><i class="fas fa-file-invoice"></i> Facturado ${matchedInv ? '(' + (matchedInv.numero_factura || 'SET') + ')' : ''}</span>`
-            : `<span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-size: 11px;"><i class="fas fa-clock"></i> Pendiente Factura</span>`;
+            ? `<div style="display: flex; align-items: center; gap: 6px;">
+                 <span class="badge-invoiced" title="Factura legal emitida y registrada ante SET"><i class="fas fa-check-circle"></i> Facturado ${matchedInv ? '(' + (matchedInv.numero_factura || 'SET') + ')' : ''}</span>
+                 <button class="btn-action-pdf" onclick="CashBillingModule.viewInvoicePdf('${matchedInv ? matchedInv.id : ''}', '${p.folio_id}')" title="Ver Comprobante PDF Legal SET"><i class="fas fa-file-pdf" style="color: #DC2626;"></i> PDF</button>
+               </div>`
+            : `<button class="btn-invoice-pending" onclick="CashBillingModule.openInvoiceModal('${p.id}', '${p.folio_id}')" title="Emitir Factura Legal SET Paraguay (Clic para abrir modal de facturación)">
+                 <i class="fas fa-clock"></i> Pendiente Factura
+               </button>`;
 
           html += `
             <tr>
@@ -342,6 +347,177 @@ const CashBillingModule = {
     return `<span class="badge badge-confirmada">${sanitizeInput(metodoRaw || 'Digital')}</span>`;
   },
 
+  /**
+   * Abre el Modal de Facturación Legal (SET Paraguay)
+   */
+  openInvoiceModal(paymentId, folioId) {
+    const payment = this.payments.find(p => p.id === paymentId || p.folio_id === folioId);
+    if (!payment) {
+      showToast('No se encontró el registro de pago para facturación', 'warning');
+      return;
+    }
+
+    const folio = payment.folios || {};
+    const reserva = folio.reservas || {};
+    const user = reserva.users || {};
+    const monto = Number(payment.monto) || 0;
+    const iva10 = Math.round(monto / 11);
+    const gravada10 = monto - iva10;
+
+    document.getElementById('billing-payment-id').value = payment.id || '';
+    document.getElementById('billing-folio-id').value = folio.id || folioId || '';
+    document.getElementById('billing-booking-id').value = reserva.id || '';
+    document.getElementById('billing-raw-amount').value = monto;
+    document.getElementById('billing-client-email').value = user.email || 'rc652107@gmail.com';
+
+    document.getElementById('billing-res-code').innerText = reserva.codigo_reserva || ('Folio #' + (folio.id ? folio.id.slice(0, 8) : ''));
+    document.getElementById('billing-payment-method-badge').innerHTML = this.getMethodBadge(payment.metodo_pago);
+    document.getElementById('billing-display-amount').innerText = formatGs(monto);
+    document.getElementById('billing-display-gravada').innerText = formatGs(gravada10);
+    document.getElementById('billing-display-iva').innerText = formatGs(iva10);
+
+    // Autocompletar RUC / Cédula y Razón Social desde los datos del usuario en la App
+    const clientDoc = user.document_number || '44444401-7';
+    const clientName = user.full_name || 'Consumidor Final';
+    document.getElementById('billing-ruc-ci').value = clientDoc;
+    document.getElementById('billing-client-name').value = clientName;
+
+    // Concepto sugerido
+    const resCode = reserva.codigo_reserva || ('RES-' + (reserva.id ? reserva.id.slice(0, 8) : ''));
+    document.getElementById('billing-concepto').value = `Entrega / Seña por Reserva ${resCode}`;
+
+    // Correlativo de factura sugerido: 001-001-0000123
+    const nextSeq = 120 + this.invoices.length + 1;
+    const nextInvoiceNum = `001-001-${String(nextSeq).padStart(7, '0')}`;
+    document.getElementById('billing-invoice-number').value = nextInvoiceNum;
+
+    // Hint correo
+    const emailHint = document.getElementById('billing-email-target-hint');
+    if (emailHint) {
+      emailHint.innerText = `Destinatario: ${user.email || 'rc652107@gmail.com'}`;
+    }
+
+    openModal('modal-billing');
+  },
+
+  /**
+   * Confirma la emisión de la Factura Legal SET y la sincroniza con Supabase y Brevo
+   */
+  async confirmEmitInvoice() {
+    const btnConfirm = document.getElementById('btn-confirm-emit-invoice');
+    if (btnConfirm) btnConfirm.disabled = true;
+
+    try {
+      const paymentId = document.getElementById('billing-payment-id').value;
+      const folioId = document.getElementById('billing-folio-id').value;
+      const bookingId = document.getElementById('billing-booking-id').value;
+      const clientEmail = document.getElementById('billing-client-email').value;
+      const amount = Number(document.getElementById('billing-raw-amount').value) || 0;
+      const rucCi = document.getElementById('billing-ruc-ci').value.trim() || '44444401-7';
+      const clientName = document.getElementById('billing-client-name').value.trim() || 'Consumidor Final';
+      const invoiceNumber = document.getElementById('billing-invoice-number').value.trim();
+      const concepto = document.getElementById('billing-concepto').value.trim();
+      const shouldSendEmail = document.getElementById('billing-send-email')?.checked;
+
+      const iva10 = Math.round(amount / 11);
+      const gravada10 = amount - iva10;
+
+      // 1. Insertar Factura Legal en Supabase
+      const invoicePayload = {
+        folio_id: folioId || null,
+        numero_factura: invoiceNumber,
+        razon_social: clientName,
+        ruc_ci: rucCi,
+        monto_subtotal: gravada10,
+        monto_iva: iva10,
+        monto_total: amount,
+        fecha_emision: new Date().toISOString()
+      };
+
+      const { data: newInv, error: invErr } = await supabaseClient
+        .from('facturas')
+        .insert(invoicePayload)
+        .select()
+        .single();
+
+      if (invErr) {
+        console.warn('Error al insertar en facturas:', invErr);
+        throw invErr;
+      }
+
+      // 2. Guardar en memoria y estado local
+      const emittedInvoice = newInv || invoicePayload;
+      emittedInvoice.concepto = concepto;
+      this.invoices.unshift(emittedInvoice);
+
+      // 3. Si se marcó enviar por Brevo
+      if (shouldSendEmail && clientEmail) {
+        try {
+          const payment = this.payments.find(p => p.id === paymentId || p.folio_id === folioId) || {};
+          const booking = payment.folios?.reservas || {};
+          const bookingCode = booking.codigo_reserva || 'RES-STAY';
+
+          showToast(`Despachando Factura Legal ${invoiceNumber} vía Brevo a ${clientEmail}...`, 'info');
+
+          // Invocar despacho transaccional
+          if (typeof ReservationsModule !== 'undefined' && typeof ReservationsModule.dispatchBrevoEmail === 'function' && booking.id) {
+            ReservationsModule.dispatchBrevoEmail(booking, `Emisión de Factura Legal SET ${invoiceNumber} (${concepto})`);
+          } else {
+            fetch('https://nfbiqdhiowroosvfazid.supabase.co/functions/v1/send-hotel-email', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY
+              },
+              body: JSON.stringify({
+                to: clientEmail,
+                type: 'invoice',
+                bookingCode: bookingCode,
+                guestName: clientName,
+                totalAmount: amount,
+                paidAmount: amount,
+                remainingAmount: 0,
+                paymentMethod: payment.metodo_pago || 'Digital',
+                transactionRef: invoiceNumber
+              })
+            }).catch(e => console.warn('Brevo edge dispatch:', e));
+          }
+        } catch (mailErr) {
+          console.warn('Error Brevo email dispatch:', mailErr);
+        }
+      }
+
+      // 4. Notificar a la app móvil en tiempo real vía Broadcast
+      if (typeof notifyDataChanged === 'function') {
+        notifyDataChanged('facturas', {
+          action: 'invoice_emitted',
+          invoiceNumber: invoiceNumber,
+          folioId: folioId,
+          bookingId: bookingId,
+          amount: amount,
+          clientEmail: clientEmail
+        });
+      }
+
+      closeModal('modal-billing');
+      showToast(`¡Factura Legal ${invoiceNumber} emitida exitosamente!`, 'success');
+
+      // 5. Recargar vistas y actualizar la interfaz
+      await this.loadInvoices();
+      await this.loadPaymentsFlow();
+
+    } catch (err) {
+      console.error('Error al emitir factura:', err);
+      showToast('Error al emitir factura: ' + err.message, 'error');
+    } finally {
+      if (btnConfirm) btnConfirm.disabled = false;
+    }
+  },
+
+  /**
+   * Carga las facturas emitidas desde Supabase
+   */
   async loadInvoices() {
     try {
       const tbody = document.getElementById('invoices-table-body');
@@ -349,27 +525,64 @@ const CashBillingModule = {
 
       const { data, error } = await supabaseClient
         .from('facturas')
-        .select('*')
+        .select('*, folios(*, reservas(*, users(*), habitaciones(*)))')
         .order('id', { ascending: false });
 
-      if (error) throw error;
-      this.invoices = data || [];
+      if (error) {
+        console.warn('loadInvoices fallback query:', error);
+        const { data: rawData } = await supabaseClient.from('facturas').select('*').order('id', { ascending: false });
+        this.invoices = rawData || [];
+      } else {
+        this.invoices = data || [];
+      }
 
       if (this.invoices.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay facturas emitidas aún.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 28px; color: var(--text-muted);"><i class="fas fa-file-invoice"></i> No hay facturas emitidas aún. Presione el botón amarillo "Pendiente Factura" arriba para emitir.</td></tr>`;
         return;
       }
 
       let html = '';
       this.invoices.forEach(inv => {
+        const folio = inv.folios || {};
+        const reserva = folio.reservas || {};
+        const user = reserva.users || {};
+        const resCode = reserva.codigo_reserva || ('FOLIO-#' + (inv.folio_id ? String(inv.folio_id).slice(0, 8) : 'SET'));
+        const total = Number(inv.monto_total || 0);
+        const iva = Number(inv.monto_iva || inv.monto_iva10 || Math.round(total / 11));
+        const concepto = inv.concepto || (total < Number(reserva.monto_total || 999999999) ? `Entrega / Seña Reserva ${resCode}` : `Liquidación Final Estadía ${resCode}`);
+
         html += `
           <tr>
-            <td><strong>${sanitizeInput(inv.numero_factura || '001-001-0000000')}</strong></td>
-            <td>${sanitizeInput(inv.ruc_ci || '44444401-7')}</td>
-            <td><strong>${sanitizeInput(inv.razon_social || 'Consumidor Final')}</strong></td>
-            <td><strong style="color: var(--primary-dark);">${formatGs(inv.monto_total)}</strong></td>
-            <td>${formatGs(inv.monto_iva10 || 0)}</td>
-            <td><span class="badge badge-confirmada">${sanitizeInput(inv.metodo_pago || 'Efectivo')}</span></td>
+            <td>
+              <div style="font-weight: 600; font-size: 12.5px;">${formatDate(inv.fecha_emision || inv.created_at)}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${new Date(inv.fecha_emision || inv.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs</div>
+            </td>
+            <td>
+              <strong style="color: var(--primary-navy); font-family: monospace; font-size: 13px;">${sanitizeInput(inv.numero_factura || '001-001-0000000')}</strong>
+            </td>
+            <td>
+              <span style="font-weight: 600; color: #1E293B;">${sanitizeInput(inv.ruc_ci || '44444401-7')}</span>
+            </td>
+            <td>
+              <div style="font-weight: 700; color: var(--primary-dark); font-size: 13px;">${sanitizeInput(inv.razon_social || user.full_name || 'Consumidor Final')}</div>
+            </td>
+            <td>
+              <span class="badge" style="background: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; font-size: 11px;">${sanitizeInput(concepto)}</span>
+            </td>
+            <td style="text-align: right;">
+              <strong style="color: #15803D; font-size: 13.5px;">+${formatGs(total)}</strong>
+            </td>
+            <td style="text-align: right; color: var(--text-muted); font-size: 12px;">
+              ${formatGs(iva)}
+            </td>
+            <td>
+              <span class="badge badge-confirmada">${sanitizeInput(inv.metodo_pago || 'Contado / Digital')}</span>
+            </td>
+            <td style="text-align: center;">
+              <button class="btn-action-pdf" onclick="CashBillingModule.viewInvoicePdf('${inv.id}', '${inv.folio_id}')" title="Descargar o Imprimir Factura Legal SET">
+                <i class="fas fa-file-pdf" style="color: #DC2626;"></i> Ver PDF
+              </button>
+            </td>
           </tr>
         `;
       });
@@ -377,6 +590,36 @@ const CashBillingModule = {
       tbody.innerHTML = html;
     } catch (err) {
       console.warn('loadInvoices error:', err);
+    }
+  },
+
+  /**
+   * Previsualiza o descarga la Factura Legal SET en formato PDF de alta fidelidad
+   */
+  viewInvoicePdf(invoiceId, folioId) {
+    const inv = this.invoices.find(i => i.id === invoiceId || i.folio_id === folioId);
+    let booking = inv?.folios?.reservas;
+    let folio = inv?.folios;
+
+    if (!booking) {
+      const pay = this.payments.find(p => p.folio_id === folioId);
+      booking = pay?.folios?.reservas;
+      folio = pay?.folios;
+    }
+
+    if (!booking) {
+      booking = {
+        codigo_reserva: 'FAC-' + (inv?.numero_factura || 'SET'),
+        monto_total: inv?.monto_total || 72000,
+        anticipo_pagado: inv?.monto_total || 72000,
+        users: { full_name: inv?.razon_social || 'Consumidor Final', document_number: inv?.ruc_ci || '44444401-7' }
+      };
+    }
+
+    if (typeof FolioPdfService !== 'undefined' && typeof FolioPdfService.previewPdfInNewTab === 'function') {
+      FolioPdfService.previewPdfInNewTab(booking, folio);
+    } else {
+      showToast('Generador de PDF disponible en el navegador', 'info');
     }
   },
 

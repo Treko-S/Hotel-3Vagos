@@ -446,7 +446,15 @@ const ReservationsModule = {
     if (!booking) return;
 
     const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
-    const saldo = folio.saldo_pendiente !== undefined ? folio.saldo_pendiente : booking.monto_total;
+    const totalAlojam = Number(booking.monto_total || 0);
+    const totalConsumos = Number(folio.total_consumos || 0);
+    const granTotal = totalAlojam + totalConsumos;
+    const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(booking.anticipo_pagado || 0);
+    const saldo = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, granTotal - anticipo);
+
+    const user = booking.users || {};
+    const clientDoc = user.document_number || '44444401-7';
+    const clientName = user.full_name || 'Consumidor Final';
 
     document.getElementById('checkout-booking-id').value = booking.id;
     document.getElementById('checkout-room-id').value = booking.habitacion_id;
@@ -455,6 +463,12 @@ const ReservationsModule = {
     document.getElementById('checkout-room-number').innerText = booking.habitaciones?.numero || 'N/A';
     document.getElementById('checkout-balance-amount').innerText = formatGs(saldo);
     document.getElementById('checkout-payment-amount').value = saldo;
+
+    // Autocompletar RUC / Cédula y Razón Social desde los datos reales del huésped
+    const rucInput = document.getElementById('checkout-invoice-ruc');
+    const nameInput = document.getElementById('checkout-invoice-name');
+    if (rucInput) rucInput.value = clientDoc;
+    if (nameInput) nameInput.value = clientName;
 
     openModal('modal-checkout');
   },
@@ -467,43 +481,57 @@ const ReservationsModule = {
       const paymentMethod = document.getElementById('checkout-payment-method').value;
       const paymentAmount = Number(document.getElementById('checkout-payment-amount').value) || 0;
       const rucCi = document.getElementById('checkout-invoice-ruc').value || '44444401-7';
-      const clientName = document.getElementById('checkout-invoice-name').value || 'Huésped Final';
+      const clientName = document.getElementById('checkout-invoice-name').value || 'Consumidor Final';
 
-      // 1. Actualizar folio (si existe)
+      const booking = this.currentBookings.find(b => b.id === bookingId);
+      const folio = booking ? ((booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {}) : {};
+
+      // 1. Actualizar folio (si existe) sumando el nuevo pago al anticipo anterior
       if (folioId) {
+        const currentTotalPagos = Number(folio.total_pagos || booking?.anticipo_pagado || 0);
+        const newTotalPagos = currentTotalPagos + paymentAmount;
+
         await supabaseClient.from('folios').update({
           saldo_pendiente: 0,
-          total_pagos: paymentAmount,
+          total_pagos: newTotalPagos,
           estado: 'Cerrado'
         }).eq('id', folioId);
 
-        // Registrar pago de folio si la tabla existe
+        // Registrar pago de folio en mostrador
         try {
           await supabaseClient.from('pagos_folio').insert({
             folio_id: folioId,
             monto: paymentAmount,
             metodo_pago: paymentMethod,
-            referencia: `Cobro Check-out Reserva #${bookingId}`
+            referencia: `Cobro Saldo Check-out Mostrador`
           });
         } catch (e) {
           console.warn('pagos_folio insert skip:', e);
         }
       }
 
-      // 2. Emitir Factura
-      try {
-        const iva10 = Math.round(paymentAmount / 11);
-        await supabaseClient.from('facturas').insert({
-          reserva_id: bookingId,
-          ruc_ci: rucCi,
-          razon_social: clientName,
-          monto_total: paymentAmount,
-          monto_iva10: iva10,
-          metodo_pago: paymentMethod,
-          numero_factura: `001-001-${Math.floor(1000000 + Math.random() * 9000000)}`
-        });
-      } catch (e) {
-        console.warn('facturas insert skip:', e);
+      // 2. Emitir Factura Legal SET por el Saldo en mostrador
+      let invoiceNumber = null;
+      if (paymentAmount > 0) {
+        try {
+          const iva10 = Math.round(paymentAmount / 11);
+          const gravada10 = paymentAmount - iva10;
+          const nextSeq = Math.floor(1000000 + Math.random() * 9000000);
+          invoiceNumber = `001-001-${String(nextSeq).padStart(7, '0')}`;
+
+          await supabaseClient.from('facturas').insert({
+            folio_id: folioId || null,
+            numero_factura: invoiceNumber,
+            ruc_ci: rucCi,
+            razon_social: clientName,
+            monto_subtotal: gravada10,
+            monto_iva: iva10,
+            monto_total: paymentAmount,
+            fecha_emision: new Date().toISOString()
+          });
+        } catch (e) {
+          console.warn('facturas insert skip:', e);
+        }
       }
 
       // 3. Actualizar reserva a 'Finalizada'
@@ -522,13 +550,22 @@ const ReservationsModule = {
         .eq('id', roomId);
 
       closeModal('modal-checkout');
-      showToast('¡Check-out completado! Habitación enviada a Housekeeping (Sucia)', 'success');
-      if (typeof notifyDataChanged === 'function') notifyDataChanged('reservas', { action: 'checkout', bookingId, roomId });
+      showToast(`¡Check-out completado! Factura ${invoiceNumber || 'SET'} emitida y habitación enviada a Housekeeping (Sucia)`, 'success');
+
+      // 5. Notificar en tiempo real a la app móvil
+      if (typeof notifyDataChanged === 'function') {
+        notifyDataChanged('reservas', { action: 'checkout', bookingId, roomId });
+        notifyDataChanged('facturas', { action: 'checkout_invoice', bookingId, folioId, invoiceNumber });
+      }
 
       await this.loadReservations();
-      await DashboardModule.loadKPIs();
-      await HousekeepingModule.loadHousekeepingBoard();
-      await RoomsModule.loadRooms();
+      if (typeof DashboardModule !== 'undefined') await DashboardModule.loadKPIs();
+      if (typeof HousekeepingModule !== 'undefined') await HousekeepingModule.loadHousekeepingBoard();
+      if (typeof RoomsModule !== 'undefined') await RoomsModule.loadRooms();
+      if (typeof CashBillingModule !== 'undefined') {
+        await CashBillingModule.loadInvoices();
+        await CashBillingModule.loadPaymentsFlow();
+      }
 
     } catch (err) {
       console.error('Error al realizar check-out:', err);
