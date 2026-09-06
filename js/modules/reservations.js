@@ -284,8 +284,9 @@ const ReservationsModule = {
     if (nightsEl) nightsEl.innerText = `${diffDays} noche${diffDays > 1 ? 's' : ''}`;
 
     // 2. HUÉSPED TITULAR & ACOMPAÑANTES
-    const guestName = booking.clientes?.nombre_completo || booking.nombre_cliente || 'Huésped Titular';
-    const guestContact = booking.clientes?.telefono || booking.clientes?.email || 'Sin contacto registrado';
+    const user = booking.users || {};
+    const guestName = user.full_name || booking.clientes?.nombre_completo || booking.nombre_cliente || 'Huésped Titular';
+    const guestContact = user.phone || user.email || booking.clientes?.telefono || booking.clientes?.email || 'Sin contacto registrado';
     const guestNameEl = document.getElementById('checkin-guest-name');
     const guestContactEl = document.getElementById('checkin-guest-contact');
     if (guestNameEl) guestNameEl.innerText = guestName;
@@ -313,21 +314,31 @@ const ReservationsModule = {
       }
     }
 
-    // 3. FINANZAS (Total, Pagado, Saldo Pendiente)
+    // 3. FINANZAS (Total, Pagado / Seña Descontada, Saldo Pendiente)
+    const folio = (booking.folios && typeof booking.folios === 'object') 
+      ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) 
+      : {};
+
     const total = parseFloat(booking.monto_total || 0);
     let paid = 0;
 
-    if (booking.estado_pago === 'Pagado') {
+    if (folio.total_pagos !== undefined && Number(folio.total_pagos) > 0) {
+      paid = Number(folio.total_pagos);
+    } else if (booking.anticipo_pagado !== undefined && Number(booking.anticipo_pagado) > 0) {
+      paid = Number(booking.anticipo_pagado);
+    } else if (booking.monto_sena !== undefined && Number(booking.monto_sena) > 0) {
+      paid = Number(booking.monto_sena);
+    } else if (booking.senia_pagada !== undefined && Number(booking.senia_pagada) > 0) {
+      paid = Number(booking.senia_pagada);
+    } else if (folio.pagos_folio && Array.isArray(folio.pagos_folio) && folio.pagos_folio.length > 0) {
+      paid = folio.pagos_folio.reduce((acc, p) => acc + parseFloat(p.monto || 0), 0);
+    } else if (booking.estado_pago === 'Pagado') {
       paid = total;
-    } else if (booking.senia_pagada) {
-      paid = parseFloat(booking.senia_pagada);
-    } else if (booking.monto_seña) {
-      paid = parseFloat(booking.monto_seña);
-    } else if (booking.pagos_folio && Array.isArray(booking.pagos_folio)) {
-      paid = booking.pagos_folio.reduce((acc, p) => acc + parseFloat(p.monto || 0), 0);
     }
 
-    const pending = Math.max(0, total - paid);
+    const pending = folio.saldo_pendiente !== undefined 
+      ? Number(folio.saldo_pendiente) 
+      : Math.max(0, total - paid);
 
     const totalEl = document.getElementById('checkin-fin-total');
     const paidEl = document.getElementById('checkin-fin-paid');
@@ -338,26 +349,25 @@ const ReservationsModule = {
     if (totalEl) totalEl.innerText = formatGs(total);
     if (paidEl) paidEl.innerText = formatGs(paid);
     if (pendingEl) pendingEl.innerText = formatGs(pending);
+    if (pendingBox) {
+      pendingBox.style.background = (pending <= 0) ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)';
+    }
 
+    // Se elimina el mensaje redundante de cobro pendiente en front desk
     if (alertEl) {
-      if (pending <= 0) {
-        if (pendingBox) pendingBox.style.background = 'rgba(16, 185, 129, 0.08)';
-        alertEl.innerHTML = `<span class="badge badge-confirmada" style="background: #10B981; color: #ffffff; padding: 5px 12px; font-size: 11px;"><i class="fas fa-check-circle"></i> Totalmente Pagado • No requiere cobro en mostrador</span>`;
-      } else {
-        if (pendingBox) pendingBox.style.background = 'rgba(239, 68, 68, 0.08)';
-        alertEl.innerHTML = `<span class="badge badge-pendiente" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; padding: 5px 12px; font-size: 11px;"><i class="fas fa-exclamation-triangle"></i> Cobro pendiente en Front Desk: <strong>${formatGs(pending)}</strong></span>`;
-      }
+      alertEl.innerHTML = '';
+      alertEl.style.display = 'none';
     }
 
     // 4. DOCUMENTACIÓN LEGAL PRE-LLENADA
     const docTypeEl = document.getElementById('checkin-doc-type');
     const docNumberEl = document.getElementById('checkin-doc-number');
     if (docTypeEl) {
-      const clientDocType = booking.clientes?.tipo_documento || 'CI';
+      const clientDocType = user.document_type || booking.clientes?.tipo_documento || 'CI';
       docTypeEl.value = clientDocType.toUpperCase().includes('PASAPORTE') ? 'PASAPORTE' : (clientDocType.toUpperCase().includes('DNI') ? 'DNI' : 'CI');
     }
     if (docNumberEl) {
-      docNumberEl.value = booking.clientes?.documento || booking.clientes?.ci || '6537648';
+      docNumberEl.value = user.document_number || booking.clientes?.documento || booking.clientes?.ci || '6537648';
     }
 
     // 5. ENTREGA DE LLAVE

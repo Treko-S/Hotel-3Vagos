@@ -545,51 +545,72 @@ const HousekeepingModule = {
       }
 
       html += `
-        <div class="key-card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="key-card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between; gap: 14px;">
           <div>
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-              <div style="width: 44px; height: 44px; border-radius: 10px; background: ${statusBg}; color: ${statusColor}; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 8px;">
+              <div style="width: 44px; height: 44px; border-radius: 10px; background: ${statusBg}; color: ${statusColor}; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">
                 <i class="fas ${icon}"></i>
               </div>
-              <span class="badge" style="background: ${statusBg}; color: ${statusColor}; font-size: 11px; font-weight: 700; border: 1px solid ${statusColor}33; padding: 4px 8px;">
+              <span class="badge" style="background: ${statusBg}; color: ${statusColor}; font-size: 11px; font-weight: 700; border: 1px solid ${statusColor}33; padding: 4px 10px; text-align: right; white-space: nowrap;">
                 ${keyInfo.status}
               </span>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
-              <h4 style="font-size: 19px; color: var(--primary-navy); margin: 0; font-weight: bold;">
-                Hab. ${sanitizeInput(room.numero)}
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; flex-wrap: wrap; gap: 4px;">
+              <h4 style="font-size: 20px; color: var(--primary-navy); margin: 0; font-weight: 800; font-family: var(--font-heading);">
+                Habitación ${sanitizeInput(room.numero)}
               </h4>
-              <span style="font-family: monospace; font-size: 11.5px; color: var(--text-muted); font-weight: 600;">
+              <span style="font-family: monospace; font-size: 11px; color: var(--text-muted); font-weight: 600; background: #F1F5F9; padding: 2px 6px; border-radius: 4px; border: 1px solid #E2E8F0;">
                 <i class="fas fa-barcode"></i> ${keyInfo.rfid}
               </span>
             </div>
 
-            <p style="font-size: 11.5px; color: var(--text-muted); margin: 0 0 12px 0;">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 14px 0;">
               ${sanitizeInput(room.tipos_habitacion?.nombre || 'Habitación')} • Piso ${room.piso || 1}
             </p>
 
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px; text-align: left; display: flex; flex-direction: column; gap: 6px;">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #64748B; font-size: 11px;"><i class="fas fa-box" style="color: var(--primary-blue);"></i> Despacho:</span>
-                <span style="color: #1E293B; font-weight: 600;">${sanitizeInput(keyInfo.location || `Casillero ${num} Front Desk`)}</span>
+            <!-- Bloque de Custodia y Ubicación Limpio y Espacioso -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 14px; margin-bottom: 4px; text-align: left; display: flex; flex-direction: column; gap: 10px;">
+              <div style="border-bottom: 1px solid #EEF2F6; padding-bottom: 8px;">
+                <div style="color: #64748B; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;">
+                  <i class="fas fa-box" style="color: var(--primary-blue); margin-right: 4px;"></i> Ubicación / Despacho
+                </div>
+                <div style="color: #1E293B; font-weight: 700; font-size: 13px; line-height: 1.3;">
+                  ${sanitizeInput(keyInfo.location || `Casillero ${num} Front Desk`)}
+                </div>
               </div>
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #64748B; font-size: 11px;"><i class="fas fa-user-check" style="color: var(--accent-gold);"></i> Custodio:</span>
-                <span style="color: #1E293B; font-weight: 600;">${sanitizeInput(keyInfo.holder || 'Recepción Mostrador')}</span>
+
+              <div style="border-bottom: 1px solid #EEF2F6; padding-bottom: 8px;">
+                <div style="color: #64748B; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;">
+                  <i class="fas fa-user-check" style="color: var(--accent-gold); margin-right: 4px;"></i> Custodio Actual
+                </div>
+                <div style="color: #1E293B; font-weight: 700; font-size: 13px; line-height: 1.3;">
+                  ${sanitizeInput(keyInfo.holder || 'Recepción Mostrador')}
+                </div>
               </div>
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #64748B; font-size: 11px;"><i class="fas fa-sign-out-alt" style="color: #3B82F6;"></i> Salida Despacho:</span>
-                <span style="color: #475569;">${sanitizeInput(keyInfo.checkoutTime || '-')}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <span style="color: #64748B; font-size: 11px;"><i class="fas fa-undo-alt" style="color: #10B981;"></i> Devolución:</span>
-                <span style="color: #475569;">${sanitizeInput(keyInfo.returnTime || '-')}</span>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding-top: 2px;">
+                <div>
+                  <div style="color: #64748B; font-size: 10.5px; font-weight: 600; text-transform: uppercase; margin-bottom: 1px;">
+                    <i class="fas fa-sign-out-alt" style="color: #3B82F6; margin-right: 3px;"></i> Salida
+                  </div>
+                  <div style="color: #334155; font-weight: 600; font-size: 12px;">
+                    ${sanitizeInput(keyInfo.checkoutTime || '-')}
+                  </div>
+                </div>
+                <div>
+                  <div style="color: #64748B; font-size: 10.5px; font-weight: 600; text-transform: uppercase; margin-bottom: 1px;">
+                    <i class="fas fa-undo-alt" style="color: #10B981; margin-right: 3px;"></i> Retorno Est.
+                  </div>
+                  <div style="color: #334155; font-weight: 600; font-size: 12px;">
+                    ${sanitizeInput(keyInfo.returnTime || '-')}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <button class="btn btn-outline btn-sm" onclick="HousekeepingModule.openKeyDetailsModal('${num}')" style="width: 100%; border-color: #CBD5E1; font-weight: 600; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <button class="btn btn-outline btn-sm" onclick="HousekeepingModule.openKeyDetailsModal('${num}')" style="width: 100%; border-color: #CBD5E1; font-weight: 600; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 4px;">
             <i class="fas fa-key" style="color: var(--primary-blue);"></i> Gestionar Despacho & Custodia
           </button>
         </div>
