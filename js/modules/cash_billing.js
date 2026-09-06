@@ -494,8 +494,8 @@ const CashBillingModule = {
               .replace(/°/g, '&deg;');
           };
 
-          // Plantilla directa, limpia y 100% libre de errores de codificación
-          const emailSubject = `Hotel 3Vagos - Factura Legal SET ${invoiceNumber}`;
+          // Plantilla directa, elegante y sin sobre-especificar montos ni tablas innecesarias
+          const emailSubject = `Hotel 3Vagos - Emisión de Factura Legal N° ${invoiceNumber}`;
           const emailHtml = `
             <!DOCTYPE html>
             <html lang="es">
@@ -505,38 +505,49 @@ const CashBillingModule = {
             </head>
             <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: Arial, sans-serif;">
             <div style="max-width: 580px; margin: 20px auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-              <div style="background: #0F172A; color: #ffffff; padding: 22px 20px; text-align: center;">
-                <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #D4AF37; letter-spacing: 1px;">Hotel 3Vagos</h1>
-                <p style="margin: 4px 0 0; font-size: 11.5px; color: #94A3B8;">Facturaci&oacute;n Legal Homologada - SET Paraguay</p>
+              <div style="background: #0F172A; color: #ffffff; padding: 24px 20px; text-align: center;">
+                <h1 style="margin: 0; font-size: 22px; font-weight: 700; color: #D4AF37; letter-spacing: 1px;">Hotel 3Vagos</h1>
+                <p style="margin: 5px 0 0; font-size: 12px; color: #94A3B8;">Facturaci&oacute;n Legal Homologada - SET Paraguay</p>
               </div>
 
-              <div style="padding: 24px;">
-                <h2 style="margin: 0 0 12px; font-size: 16px; color: #0F172A; font-weight: 700;">
+              <div style="padding: 24px 22px;">
+                <h2 style="margin: 0 0 16px; font-size: 16px; color: #0F172A; font-weight: 700;">
                   Factura Legal SET N&deg; ${invoiceNumber}
                 </h2>
 
-                <p style="font-size: 14.5px; color: #1e293b; line-height: 1.6; margin: 16px 0;">
-                  Estimado/a <strong>${safeHtml(clientName)}</strong>:<br><br>
-                  Le hacemos entrega de su Factura Legal correspondiente a su estad&iacute;a / reserva <strong>${safeHtml(bookingCode)}</strong> en Hotel 3Vagos por un monto total liquidado de <strong>${formatGs(amount)}</strong>.
+                <p style="font-size: 14.5px; color: #1e293b; line-height: 1.7; margin: 0 0 14px;">
+                  Estimado/a <strong>${safeHtml(clientName)}</strong>,
                 </p>
 
-                <!-- Documento PDF directo y limpio sin tablas ni cosas de más -->
-                <div style="margin: 25px 0; padding: 18px 20px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; text-align: center;">
-                  <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto 10px auto;">
-                    <tr>
-                      <td style="width: 44px; vertical-align: middle;">
-                        <div style="background: #E11D48; color: #ffffff; font-weight: bold; font-size: 11px; padding: 7px 10px; border-radius: 5px; text-align: center;">PDF</div>
-                      </td>
-                      <td style="vertical-align: middle; padding-left: 12px; text-align: left;">
-                        <div style="font-size: 15px; font-weight: bold; color: #0f172a;">Factura_${invoiceNumber}.pdf</div>
-                        <div style="font-size: 12px; color: #64748b;">Comprobante Tributario Oficial SET (Timbrado 16789423 &bull; RUC 80092341-2)</div>
-                      </td>
-                    </tr>
-                  </table>
-                  <p style="margin: 12px 0 0 0; font-size: 12.5px; color: #475569; border-top: 1px dashed #cbd5e1; padding-top: 10px;">
-                    El archivo PDF oficial se encuentra <strong>adjunto a este correo</strong> para su descarga directa y respaldo tributario.
-                  </p>
-                </div>
+                <p style="font-size: 14px; color: #334155; line-height: 1.7; margin: 0 0 14px;">
+                  Nos comunicamos desde la administraci&oacute;n de <strong>Hotel 3Vagos</strong> para informarle que se ha generado y emitido satisfactoriamente su Factura Legal electr&oacute;nica correspondiente a los servicios de hoteler&iacute;a brindados durante su estad&iacute;a.
+                </p>
+
+                <p style="font-size: 14px; color: #334155; line-height: 1.7; margin: 0 0 22px;">
+                  El presente comprobante tributario cuenta con la debida homologaci&oacute;n y validez fiscal conforme a las normativas de la Direcci&oacute;n Nacional de Ingresos Tributarios (DNIT / SET Paraguay), sirviendo como constancia legal oficial de su operaci&oacute;n. Agradecemos enormemente su preferencia y confianza depositada en nuestro establecimiento.
+                </p>
+
+                <!-- Documento PDF directo -->
+                <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; margin: 0 0 24px;">
+                  <tr>
+                    <td style="padding: 16px 18px;">
+                      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td width="46" valign="middle" style="vertical-align: middle;">
+                            <div style="background-color: #E11D48; color: #ffffff; font-weight: 700; font-size: 11px; padding: 7px 10px; border-radius: 5px; text-align: center; display: inline-block;">PDF</div>
+                          </td>
+                          <td valign="middle" style="padding-left: 12px; vertical-align: middle;">
+                            <div style="font-size: 14.5px; font-weight: 700; color: #0f172a;">Factura_${invoiceNumber}.pdf</div>
+                            <div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">Comprobante Tributario Oficial (Timbrado 16789423 &bull; RUC 80092341-2)</div>
+                          </td>
+                        </tr>
+                      </table>
+                      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 12px; color: #475569; text-align: center;">
+                        El archivo PDF oficial se encuentra <strong>adjunto a este correo</strong> para su visualizaci&oacute;n y descarga directa.
+                      </div>
+                    </td>
+                  </tr>
+                </table>
 
                 <div style="border-top: 1px solid #E2E8F0; padding-top: 16px; text-align: center; color: #94A3B8; font-size: 11.5px;">
                   <p style="margin: 0 0 4px;">Hotel 3Vagos &bull; Asunci&oacute;n, Paraguay</p>
