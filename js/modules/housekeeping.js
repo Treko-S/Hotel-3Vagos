@@ -46,17 +46,61 @@ const HousekeepingModule = {
     } catch (e) {}
 
     return {
-      "101": { status: "En Recepción", rfid: "RFID-101-A", holder: "Recepción Mostrador", lastMoved: "Hoy 10:30" },
-      "102": { status: "Entregada a Huésped", rfid: "RFID-102-A", holder: "Huésped Titular", lastMoved: "Ayer 14:15" },
-      "103": { status: "En Servicio Mucama", rfid: "RFID-103-A", holder: "Rosa Almada (Mucama)", lastMoved: "Hoy 09:00" },
-      "104": { status: "En Mantenimiento", rfid: "RFID-104-A", holder: "Técnico Mario Gómez", lastMoved: "Hoy 08:30" },
-      "201": { status: "En Recepción", rfid: "RFID-201-A", holder: "Recepción Mostrador", lastMoved: "Hoy 07:00" },
-      "202": { status: "En Recepción", rfid: "RFID-202-A", holder: "Recepción Mostrador", lastMoved: "Hoy 07:00" },
-      "203": { status: "En Recepción", rfid: "RFID-203-A", holder: "Recepción Mostrador", lastMoved: "Hoy 07:00" },
-      "204": { status: "En Recepción", rfid: "RFID-204-A", holder: "Recepción Mostrador", lastMoved: "Hoy 07:00" },
-      "301": { status: "En Recepción", rfid: "RFID-301-A", holder: "Recepción Mostrador", lastMoved: "Hoy 07:00" },
-      "302": { status: "En Recepción", rfid: "RFID-302-A", holder: "Recepción Mostrador", lastMoved: "Hoy 07:00" },
-      "303": { status: "En Recepción", rfid: "RFID-303-A", holder: "Recepción Mostrador", lastMoved: "Hoy 07:00" }
+      "101": {
+        status: "En Recepción",
+        rfid: "RFID-101-A",
+        location: "Casillero 101 - Despacho Front Desk",
+        holder: "Recepción Mostrador",
+        checkoutTime: "-",
+        returnTime: "Hoy 10:30",
+        notes: "Llavero tallado Hotel 3 Vagos + 2 tarjetas RFID",
+        history: [
+          { time: "Hoy 10:30", status: "En Recepción", holder: "Recepción Mostrador", action: "Devolución tras Check-out" }
+        ]
+      },
+      "102": {
+        status: "Entregada a Huésped",
+        rfid: "RFID-102-A",
+        location: "En Posesión del Huésped",
+        holder: "Huésped Titular",
+        checkoutTime: "Ayer 14:15",
+        returnTime: "Mañana 11:00",
+        notes: "Llavero UTCD + 1 tarjeta RFID",
+        history: [
+          { time: "Ayer 14:15", status: "Entregada a Huésped", holder: "Huésped Titular", action: "Entrega física en Check-in" }
+        ]
+      },
+      "103": {
+        status: "En Servicio Mucama",
+        rfid: "RFID-103-A",
+        location: "En Carrito de Mucama",
+        holder: "Rosa Almada (Mucama)",
+        checkoutTime: "Hoy 09:00",
+        returnTime: "Hoy 12:00",
+        notes: "Llave física de servicio para limpieza de turno",
+        history: [
+          { time: "Hoy 09:00", status: "En Servicio Mucama", holder: "Rosa Almada (Mucama)", action: "Retiro del despacho para limpieza" }
+        ]
+      },
+      "104": {
+        status: "En Mantenimiento",
+        rfid: "RFID-104-A",
+        location: "Taller Técnico Planta Baja",
+        holder: "Técnico Mario Gómez",
+        checkoutTime: "Hoy 08:30",
+        returnTime: "Hoy 13:00",
+        notes: "Retirada para revisión de cerradura electrónica y split",
+        history: [
+          { time: "Hoy 08:30", status: "En Mantenimiento", holder: "Técnico Mario Gómez", action: "Retiro por orden técnica" }
+        ]
+      },
+      "201": { status: "En Recepción", rfid: "RFID-201-A", location: "Casillero 201 Front Desk", holder: "Recepción Mostrador", checkoutTime: "-", returnTime: "Hoy 07:00", notes: "Llavero de cortesía", history: [] },
+      "202": { status: "En Recepción", rfid: "RFID-202-A", location: "Casillero 202 Front Desk", holder: "Recepción Mostrador", checkoutTime: "-", returnTime: "Hoy 07:00", notes: "Llavero estándar", history: [] },
+      "203": { status: "En Recepción", rfid: "RFID-203-A", location: "Casillero 203 Front Desk", holder: "Recepción Mostrador", checkoutTime: "-", returnTime: "Hoy 07:00", notes: "Llavero estándar", history: [] },
+      "204": { status: "En Recepción", rfid: "RFID-204-A", location: "Casillero 204 Front Desk", holder: "Recepción Mostrador", checkoutTime: "-", returnTime: "Hoy 07:00", notes: "Llavero estándar", history: [] },
+      "301": { status: "En Recepción", rfid: "RFID-301-A", location: "Casillero 301 Front Desk", holder: "Recepción Mostrador", checkoutTime: "-", returnTime: "Hoy 07:00", notes: "Llavero suite", history: [] },
+      "302": { status: "En Recepción", rfid: "RFID-302-A", location: "Casillero 302 Front Desk", holder: "Recepción Mostrador", checkoutTime: "-", returnTime: "Hoy 07:00", notes: "Llavero suite", history: [] },
+      "303": { status: "En Recepción", rfid: "RFID-303-A", location: "Casillero 303 Front Desk", holder: "Recepción Mostrador", checkoutTime: "-", returnTime: "Hoy 07:00", notes: "Llavero suite", history: [] }
     };
   },
 
@@ -117,6 +161,35 @@ const HousekeepingModule = {
       if (error) throw error;
       this.currentRooms = data || [];
 
+      // 1. Normalización y Consistencia Estricta de Estados (Flechas Verdes):
+      // Una habitación NO puede estar 'Disponible' si tiene orden activa de limpieza o repaso.
+      const orders = this.getOrders();
+      const stateUpdates = [];
+
+      this.currentRooms.forEach(room => {
+        const ord = orders[room.id];
+        if (ord) {
+          if (ord.priority === 1 || ord.priority === 2) {
+            if (room.estado === 'Disponible') {
+              room.estado = (ord.status === 'En limpieza') ? 'En limpieza' : 'Sucia';
+              stateUpdates.push(
+                supabaseClient.from('habitaciones').update({ estado: room.estado }).eq('id', room.id)
+              );
+            }
+          } else if (ord.priority === 3) {
+            if (room.estado === 'Disponible') {
+              room.estado = 'Ocupada';
+              stateUpdates.push(
+                supabaseClient.from('habitaciones').update({ estado: 'Ocupada' }).eq('id', room.id)
+              );
+            }
+          }
+        }
+      });
+      if (stateUpdates.length > 0) {
+        Promise.all(stateUpdates).catch(e => console.warn('Sync room states background:', e));
+      }
+
       // Poblar selector de incidencias
       const incidentSelect = document.getElementById('incident-room-select');
       if (incidentSelect) {
@@ -133,6 +206,12 @@ const HousekeepingModule = {
       const tabsNav = document.getElementById('hk-tabs-nav');
       const dispatchBtn = document.getElementById('btn-hk-dispatch-order');
       const filterCont = document.getElementById('hk-mucama-filter-container');
+      const tabIncidents = document.getElementById('hk-tab-incidents');
+
+      // Restricción Estricta de la Bitácora de Incidencias: SOLO para Administrador
+      if (tabIncidents) {
+        tabIncidents.style.display = (currentRole === 'administrador') ? 'inline-flex' : 'none';
+      }
 
       if (isMucama) {
         // La mucama SOLO debe ver el Panel de mucamas
@@ -164,9 +243,16 @@ const HousekeepingModule = {
 
   switchTab(tabName) {
     const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
+    
     // Si el usuario es mucama, queda bloqueada en 'mucama'
     if (currentRole === 'mucama') {
       tabName = 'mucama';
+    }
+
+    // Si intenta acceder a incidencias y no es admin, se bloquea y redirige
+    if (tabName === 'incidents' && currentRole !== 'administrador') {
+      showToast('Acceso denegado: La bitácora de incidencias es de auditoría exclusiva del Administrador General.', 'warning');
+      tabName = (currentRole === 'mucama') ? 'mucama' : 'jefa';
     }
 
     this.activeTab = tabName;
@@ -218,7 +304,15 @@ const HousekeepingModule = {
     sortedRooms.forEach(room => {
       const tipo = room.tipos_habitacion || {};
       const order = orders[room.id] || null;
-      const statusClass = (room.estado || '').toLowerCase().replace(/\s+/g, '-');
+
+      // Cálculo de Estado Efectivo para garantizar consistencia visual absoluta
+      let effectiveStatus = room.estado;
+      if (order && (order.priority === 1 || order.priority === 2) && room.estado === 'Disponible') {
+        effectiveStatus = (order.status === 'En limpieza') ? 'En limpieza' : 'Sucia';
+      } else if (order && order.priority === 3 && room.estado === 'Disponible') {
+        effectiveStatus = 'Ocupada';
+      }
+      const statusClass = (effectiveStatus || '').toLowerCase().replace(/\s+/g, '-');
 
       // Definición de Prioridad
       let priorityBadge = '';
@@ -248,7 +342,7 @@ const HousekeepingModule = {
             <small style="color: var(--text-muted);">Piso ${room.piso || 1}</small>
           </td>
           <td>
-            <span class="badge badge-${statusClass}">${sanitizeInput(room.estado)}</span>
+            <span class="badge badge-${statusClass}">${sanitizeInput(effectiveStatus)}</span>
           </td>
           <td>
             <div style="font-weight: 600; color: #1E293B; display: flex; align-items: center; gap: 6px;">
@@ -341,7 +435,15 @@ const HousekeepingModule = {
     assignedList.forEach(room => {
       const tipo = room.tipos_habitacion || {};
       const ord = orders[room.id] || { priority: 2, maid: 'Rosa Almada', notes: 'Limpieza de rutina' };
-      const statusClass = (room.estado || '').toLowerCase().replace(/\s+/g, '-');
+      
+      // Cálculo de Estado Efectivo: Una habitación no puede estar 'Disponible' si requiere limpieza
+      let effectiveStatus = room.estado;
+      if (ord && (ord.priority === 1 || ord.priority === 2) && room.estado === 'Disponible') {
+        effectiveStatus = (ord.status === 'En limpieza') ? 'En limpieza' : 'Sucia';
+      } else if (ord && ord.priority === 3 && room.estado === 'Disponible') {
+        effectiveStatus = 'Ocupada';
+      }
+      const statusClass = (effectiveStatus || '').toLowerCase().replace(/\s+/g, '-');
 
       let priorityClass = 'badge-priority-2';
       let priorityText = 'Prioridad 2: Check-out';
@@ -369,7 +471,7 @@ const HousekeepingModule = {
               </h4>
               <p style="font-size: 12px; color: var(--text-muted); margin: 0;">${sanitizeInput(tipo.nombre || 'Habitación')}</p>
             </div>
-            <span class="badge badge-${statusClass}">${sanitizeInput(room.estado)}</span>
+            <span class="badge badge-${statusClass}">${sanitizeInput(effectiveStatus)}</span>
           </div>
 
           <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 12.5px;">
@@ -398,6 +500,7 @@ const HousekeepingModule = {
 
   /**
    * TAB 3: MATRIZ DE CONTROL DE LLAVES FÍSICAS & TARJETAS RFID
+   * - Control detallado de despacho, horarios de salida, poseedor actual y bitácora de custodia
    */
   renderKeysMatrix() {
     const container = document.getElementById('hk-keys-grid');
@@ -411,8 +514,12 @@ const HousekeepingModule = {
       const keyInfo = keys[num] || {
         status: (room.estado === 'Ocupada' ? 'Entregada a Huésped' : (room.estado === 'En limpieza' ? 'En Servicio Mucama' : 'En Recepción')),
         rfid: `RFID-${num}-A`,
+        location: `Casillero ${num} Front Desk`,
         holder: (room.estado === 'Ocupada' ? 'Huésped Titular' : 'Recepción Mostrador'),
-        lastMoved: 'Hoy 08:00'
+        checkoutTime: '-',
+        returnTime: 'Hoy 10:30',
+        notes: 'Llavero oficial UTCD',
+        history: []
       };
 
       let statusColor = '#10B981';
@@ -438,38 +545,53 @@ const HousekeepingModule = {
       }
 
       html += `
-        <div class="key-card">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-            <div style="width: 44px; height: 44px; border-radius: 10px; background: ${statusBg}; color: ${statusColor}; display: flex; align-items: center; justify-content: center; font-size: 20px;">
-              <i class="fas ${icon}"></i>
+        <div class="key-card" style="background: #ffffff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+              <div style="width: 44px; height: 44px; border-radius: 10px; background: ${statusBg}; color: ${statusColor}; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                <i class="fas ${icon}"></i>
+              </div>
+              <span class="badge" style="background: ${statusBg}; color: ${statusColor}; font-size: 11px; font-weight: 700; border: 1px solid ${statusColor}33; padding: 4px 8px;">
+                ${keyInfo.status}
+              </span>
             </div>
-            <span class="badge" style="background: ${statusBg}; color: ${statusColor}; font-size: 10.5px; font-weight: 700; border: 1px solid ${statusColor}33;">
-              ${keyInfo.status}
-            </span>
+
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
+              <h4 style="font-size: 19px; color: var(--primary-navy); margin: 0; font-weight: bold;">
+                Hab. ${sanitizeInput(room.numero)}
+              </h4>
+              <span style="font-family: monospace; font-size: 11.5px; color: var(--text-muted); font-weight: 600;">
+                <i class="fas fa-barcode"></i> ${keyInfo.rfid}
+              </span>
+            </div>
+
+            <p style="font-size: 11.5px; color: var(--text-muted); margin: 0 0 12px 0;">
+              ${sanitizeInput(room.tipos_habitacion?.nombre || 'Habitación')} • Piso ${room.piso || 1}
+            </p>
+
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px; text-align: left; display: flex; flex-direction: column; gap: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #64748B; font-size: 11px;"><i class="fas fa-box" style="color: var(--primary-blue);"></i> Despacho:</span>
+                <span style="color: #1E293B; font-weight: 600;">${sanitizeInput(keyInfo.location || `Casillero ${num} Front Desk`)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #64748B; font-size: 11px;"><i class="fas fa-user-check" style="color: var(--accent-gold);"></i> Custodio:</span>
+                <span style="color: #1E293B; font-weight: 600;">${sanitizeInput(keyInfo.holder || 'Recepción Mostrador')}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #64748B; font-size: 11px;"><i class="fas fa-sign-out-alt" style="color: #3B82F6;"></i> Salida Despacho:</span>
+                <span style="color: #475569;">${sanitizeInput(keyInfo.checkoutTime || '-')}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #64748B; font-size: 11px;"><i class="fas fa-undo-alt" style="color: #10B981;"></i> Devolución:</span>
+                <span style="color: #475569;">${sanitizeInput(keyInfo.returnTime || '-')}</span>
+              </div>
+            </div>
           </div>
 
-          <h4 style="font-size: 18px; color: var(--primary-navy); margin: 0 0 4px 0; font-weight: bold;">
-            Hab. ${sanitizeInput(room.numero)}
-          </h4>
-          <div style="font-family: monospace; font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px;">
-            <i class="fas fa-barcode"></i> ${keyInfo.rfid}
-          </div>
-
-          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px; font-size: 11.5px; margin-bottom: 12px; text-align: left;">
-            <div style="color: #334155; font-weight: 600;">Custodia actual:</div>
-            <div style="color: #64748B;">${sanitizeInput(keyInfo.holder)}</div>
-            <div style="font-size: 10px; color: #94A3B8; margin-top: 2px;">Último cambio: ${keyInfo.lastMoved}</div>
-          </div>
-
-          <div style="display: flex; gap: 4px;">
-            <select class="form-control" style="font-size: 11px; padding: 4px 6px; height: 32px;" onchange="HousekeepingModule.changeKeyStatus('${num}', this.value)">
-              <option value="En Recepción" ${keyInfo.status === 'En Recepción' ? 'selected' : ''}>🟢 En Recepción</option>
-              <option value="Entregada a Huésped" ${keyInfo.status === 'Entregada a Huésped' ? 'selected' : ''}>🔵 Huésped</option>
-              <option value="En Servicio Mucama" ${keyInfo.status === 'En Servicio Mucama' ? 'selected' : ''}>🟡 Mucama</option>
-              <option value="En Mantenimiento" ${keyInfo.status === 'En Mantenimiento' ? 'selected' : ''}>🔴 Mantenimiento</option>
-              <option value="Extraviada" ${keyInfo.status === 'Extraviada' ? 'selected' : ''}>⚫ Extraviada</option>
-            </select>
-          </div>
+          <button class="btn btn-outline btn-sm" onclick="HousekeepingModule.openKeyDetailsModal('${num}')" style="width: 100%; border-color: #CBD5E1; font-weight: 600; min-height: 38px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <i class="fas fa-key" style="color: var(--primary-blue);"></i> Gestionar Despacho & Custodia
+          </button>
         </div>
       `;
     });
@@ -477,24 +599,169 @@ const HousekeepingModule = {
     container.innerHTML = html;
   },
 
-  changeKeyStatus(roomNum, newStatus) {
+  openKeyDetailsModal(roomNum) {
     const keys = this.getKeys();
-    let holder = "Recepción Mostrador";
+    const room = this.currentRooms.find(r => String(r.numero) === String(roomNum));
+    const keyInfo = keys[String(roomNum)] || {
+      status: 'En Recepción',
+      rfid: `RFID-${roomNum}-A`,
+      location: `Casillero ${roomNum} Front Desk`,
+      holder: 'Recepción Mostrador',
+      checkoutTime: '-',
+      returnTime: 'Hoy 10:30',
+      notes: 'Llavero oficial UTCD',
+      history: []
+    };
 
-    if (newStatus === "Entregada a Huésped") holder = "Huésped Titular";
-    else if (newStatus === "En Servicio Mucama") holder = "Mucama de Turno";
-    else if (newStatus === "En Mantenimiento") holder = "Técnico Especialista";
-    else if (newStatus === "Extraviada") holder = "Bloqueada por Seguridad";
+    document.getElementById('key-modal-room-number').value = roomNum;
+    document.getElementById('key-modal-room-id').value = room ? room.id : '';
+    document.getElementById('key-modal-room-display').innerText = roomNum;
+    document.getElementById('key-modal-rfid-display').innerHTML = `<i class="fas fa-barcode"></i> ${keyInfo.rfid}`;
+    document.getElementById('key-modal-locker-display').innerText = keyInfo.location || `Casillero ${roomNum}`;
+
+    document.getElementById('key-modal-status').value = keyInfo.status;
+    document.getElementById('key-modal-holder').value = keyInfo.holder;
+    document.getElementById('key-modal-location').value = keyInfo.location || `Casillero ${roomNum} Front Desk`;
+    document.getElementById('key-modal-checkout-time').value = keyInfo.checkoutTime || '-';
+    document.getElementById('key-modal-return-time').value = keyInfo.returnTime || '-';
+    document.getElementById('key-modal-notes').value = keyInfo.notes || '';
+
+    // Historial
+    const historyList = document.getElementById('key-modal-history-list');
+    if (historyList) {
+      const hist = keyInfo.history || [];
+      if (hist.length > 0) {
+        historyList.innerHTML = hist.map(h => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #E2E8F0;">
+            <div>
+              <strong>${sanitizeInput(h.status)}</strong> (${sanitizeInput(h.holder || 'Recepción')})
+              <small style="color: var(--text-muted); display: block;">${sanitizeInput(h.action || 'Cambio de custodia')}</small>
+            </div>
+            <span style="font-size: 10.5px; color: #64748B;">${sanitizeInput(h.time)}</span>
+          </div>
+        `).join('');
+      } else {
+        historyList.innerHTML = '<span style="color: var(--text-muted); font-style: italic;">Sin movimientos previos registrados en bitácora.</span>';
+      }
+    }
+
+    openModal('modal-key-dispatch');
+  },
+
+  onKeyStatusChange(newStatus) {
+    const holderInput = document.getElementById('key-modal-holder');
+    const timeInput = document.getElementById('key-modal-checkout-time');
+    const nowStr = 'Hoy ' + new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+
+    if (newStatus === 'En Recepción') {
+      if (holderInput) holderInput.value = 'Recepción Mostrador';
+    } else if (newStatus === 'Entregada a Huésped') {
+      if (holderInput && holderInput.value === 'Recepción Mostrador') holderInput.value = 'Huésped Titular';
+      if (timeInput) timeInput.value = nowStr;
+    } else if (newStatus === 'En Servicio Mucama') {
+      if (holderInput) holderInput.value = 'Rosa Almada (Mucama)';
+      if (timeInput) timeInput.value = nowStr;
+    } else if (newStatus === 'En Mantenimiento') {
+      if (holderInput) holderInput.value = 'Técnico Mario Gómez';
+      if (timeInput) timeInput.value = nowStr;
+    } else if (newStatus === 'Extraviada') {
+      if (holderInput) holderInput.value = 'Bloqueada por Seguridad';
+    }
+  },
+
+  setKeyTimeNow(inputId) {
+    const el = document.getElementById(inputId);
+    if (el) {
+      el.value = 'Hoy ' + new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+    }
+  },
+
+  saveKeyDispatchDetails() {
+    const roomNum = document.getElementById('key-modal-room-number').value;
+    if (!roomNum) return;
+
+    const status = document.getElementById('key-modal-status').value;
+    const holder = document.getElementById('key-modal-holder').value || 'Recepción Mostrador';
+    const location = document.getElementById('key-modal-location').value || `Casillero ${roomNum} Front Desk`;
+    const checkoutTime = document.getElementById('key-modal-checkout-time').value || '-';
+    const returnTime = document.getElementById('key-modal-return-time').value || '-';
+    const notes = document.getElementById('key-modal-notes').value || '';
+
+    const keys = this.getKeys();
+    const prevKey = keys[roomNum] || {};
+    const prevHistory = prevKey.history || [];
+
+    const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
+    const recordedBy = currentUser ? currentUser.name : 'Personal Front Desk';
+    const nowTimestamp = 'Hoy ' + new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+
+    const newHistory = [
+      {
+        time: nowTimestamp,
+        status: status,
+        holder: holder,
+        action: `Actualización despacho: ${location} por ${recordedBy}`
+      },
+      ...prevHistory
+    ].slice(0, 10);
 
     keys[roomNum] = {
-      ...(keys[roomNum] || { rfid: `RFID-${roomNum}-A` }),
-      status: newStatus,
+      ...prevKey,
+      rfid: prevKey.rfid || `RFID-${roomNum}-A`,
+      status: status,
       holder: holder,
-      lastMoved: "Hoy " + new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })
+      location: location,
+      checkoutTime: checkoutTime,
+      returnTime: returnTime,
+      notes: notes,
+      history: newHistory,
+      lastMoved: nowTimestamp
     };
 
     this.saveKeys(keys);
-    showToast(`Custodia de llave Habitación ${roomNum} actualizada a: ${newStatus}`, 'info');
+    closeModal('modal-key-dispatch');
+    showToast(`Custodia de llave Habitación ${roomNum} actualizada con éxito (${status})`, 'success');
+    this.renderKeysMatrix();
+  },
+
+  changeKeyStatus(roomNum, newStatus, customHolder, actionNote) {
+    const keys = this.getKeys();
+    const prevKey = keys[roomNum] || {};
+    const prevHistory = prevKey.history || [];
+    let holder = customHolder || "Recepción Mostrador";
+
+    if (!customHolder) {
+      if (newStatus === "Entregada a Huésped") holder = "Huésped Titular";
+      else if (newStatus === "En Servicio Mucama") holder = "Mucama de Turno";
+      else if (newStatus === "En Mantenimiento") holder = "Técnico Especialista";
+      else if (newStatus === "Extraviada") holder = "Bloqueada por Seguridad";
+    }
+
+    const nowTimestamp = "Hoy " + new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+
+    const newHistory = [
+      {
+        time: nowTimestamp,
+        status: newStatus,
+        holder: holder,
+        action: actionNote || `Cambio automático de custodia a ${newStatus}`
+      },
+      ...prevHistory
+    ].slice(0, 10);
+
+    keys[roomNum] = {
+      ...prevKey,
+      rfid: prevKey.rfid || `RFID-${roomNum}-A`,
+      status: newStatus,
+      holder: holder,
+      location: newStatus === 'En Recepción' ? `Casillero ${roomNum} Front Desk` : (newStatus === 'Entregada a Huésped' ? 'En Posesión del Huésped' : (prevKey.location || 'Despacho')),
+      checkoutTime: newStatus === 'Entregada a Huésped' ? nowTimestamp : (prevKey.checkoutTime || '-'),
+      returnTime: newStatus === 'En Recepción' ? nowTimestamp : (prevKey.returnTime || '-'),
+      history: newHistory,
+      lastMoved: nowTimestamp
+    };
+
+    this.saveKeys(keys);
     this.renderKeysMatrix();
   },
 

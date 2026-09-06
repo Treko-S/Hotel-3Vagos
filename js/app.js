@@ -50,6 +50,19 @@ const RolePermissions = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // 0. Sincronización Inmediata Anti-FOUC (Aplica RBAC al instante en el frame 0)
+  try {
+    const sessionStr = localStorage.getItem('hotel_admin_session');
+    if (sessionStr) {
+      const s = JSON.parse(sessionStr);
+      if (s && s.user && s.user.role) {
+        AppState.currentUser = s.user;
+        AppState.currentRole = s.user.role;
+        applyRoleBasedAccess(s.user.role);
+      }
+    }
+  } catch (e) {}
+
   initNavigation();
 
   // 1. Inicializar Módulo de Seguridad y Autenticación por Dispositivo
@@ -58,6 +71,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 2. Suscribirse a cambios en tiempo real en Supabase para habitaciones y reservas
   initRealtimeSubscriptions();
 });
+
+/**
+ * Control del menú lateral en móviles y tablets (Drawer)
+ */
+function toggleMobileSidebar(forceOpen) {
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  if (!sidebar) return;
+
+  const shouldOpen = (typeof forceOpen === 'boolean') ? forceOpen : !sidebar.classList.contains('open');
+  if (shouldOpen) {
+    sidebar.classList.add('open');
+    if (backdrop) backdrop.classList.add('open');
+  } else {
+    sidebar.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+  }
+}
 
 /**
  * Inicializar navegación por pestañas de la SPA
@@ -69,6 +100,8 @@ function initNavigation() {
       e.preventDefault();
       const viewId = item.getAttribute('data-view');
       switchView(viewId);
+      // Cerrar menú lateral en móvil al hacer clic
+      toggleMobileSidebar(false);
     });
   });
 }

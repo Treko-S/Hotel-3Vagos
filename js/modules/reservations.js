@@ -263,14 +263,35 @@ const ReservationsModule = {
     const booking = this.currentBookings.find(b => b.id === bookingId);
     if (!booking) return;
 
+    this.activeCheckInBooking = booking;
+
+    const roomNum = booking.habitaciones?.numero || 'N/A';
+    const roomType = booking.habitaciones?.tipos_habitacion?.nombre || 'Habitación';
+    const roomFloor = booking.habitaciones?.piso || 1;
+
+    // 1. CABECERA OPERATIVA (ID Reserva, Habitación, Fechas)
     document.getElementById('checkin-booking-id').value = booking.id;
     document.getElementById('checkin-room-id').value = booking.habitacion_id;
-    document.getElementById('checkin-res-code').innerText = booking.codigo_reserva;
-    document.getElementById('checkin-room-number').innerText = booking.habitaciones?.numero || 'N/A';
+    document.getElementById('checkin-res-code').innerText = booking.codigo_reserva || `RES-${booking.id}`;
+    document.getElementById('checkin-room-number').innerText = `${roomNum} (${roomType}, Piso ${roomFloor})`;
     document.getElementById('checkin-dates').innerText = `${formatDate(booking.check_in_previsto)} al ${formatDate(booking.check_out_previsto)}`;
-    document.getElementById('checkin-total').innerText = formatGs(booking.monto_total);
+    
+    // Cálculo exacto de noches
+    const d1 = new Date(booking.check_in_previsto);
+    const d2 = new Date(booking.check_out_previsto);
+    const diffDays = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
+    const nightsEl = document.getElementById('checkin-nights-badge');
+    if (nightsEl) nightsEl.innerText = `${diffDays} noche${diffDays > 1 ? 's' : ''}`;
 
-    // Mostrar acompañantes registrados legalmente si existen
+    // 2. HUÉSPED TITULAR & ACOMPAÑANTES
+    const guestName = booking.clientes?.nombre_completo || booking.nombre_cliente || 'Huésped Titular';
+    const guestContact = booking.clientes?.telefono || booking.clientes?.email || 'Sin contacto registrado';
+    const guestNameEl = document.getElementById('checkin-guest-name');
+    const guestContactEl = document.getElementById('checkin-guest-contact');
+    if (guestNameEl) guestNameEl.innerText = guestName;
+    if (guestContactEl) guestContactEl.innerText = guestContact;
+
+    // Acompañantes registrados legalmente
     const compContainer = document.getElementById('checkin-companions-container');
     const compList = document.getElementById('checkin-companions-list');
     if (compContainer && compList) {
@@ -287,10 +308,61 @@ const ReservationsModule = {
           </div>
         `).join('');
       } else {
-        compContainer.style.display = 'none';
-        compList.innerHTML = '';
+        compContainer.style.display = 'block';
+        compList.innerHTML = '<span style="color: #64748B; font-size: 11.5px; font-style: italic;">Huésped individual (sin acompañantes adicionales registrados).</span>';
       }
     }
+
+    // 3. FINANZAS (Total, Pagado, Saldo Pendiente)
+    const total = parseFloat(booking.monto_total || 0);
+    let paid = 0;
+
+    if (booking.estado_pago === 'Pagado') {
+      paid = total;
+    } else if (booking.senia_pagada) {
+      paid = parseFloat(booking.senia_pagada);
+    } else if (booking.monto_seña) {
+      paid = parseFloat(booking.monto_seña);
+    } else if (booking.pagos_folio && Array.isArray(booking.pagos_folio)) {
+      paid = booking.pagos_folio.reduce((acc, p) => acc + parseFloat(p.monto || 0), 0);
+    }
+
+    const pending = Math.max(0, total - paid);
+
+    const totalEl = document.getElementById('checkin-fin-total');
+    const paidEl = document.getElementById('checkin-fin-paid');
+    const pendingEl = document.getElementById('checkin-fin-pending');
+    const pendingBox = document.getElementById('checkin-fin-pending-box');
+    const alertEl = document.getElementById('checkin-fin-status-alert');
+
+    if (totalEl) totalEl.innerText = formatGs(total);
+    if (paidEl) paidEl.innerText = formatGs(paid);
+    if (pendingEl) pendingEl.innerText = formatGs(pending);
+
+    if (alertEl) {
+      if (pending <= 0) {
+        if (pendingBox) pendingBox.style.background = 'rgba(16, 185, 129, 0.08)';
+        alertEl.innerHTML = `<span class="badge badge-confirmada" style="background: #10B981; color: #ffffff; padding: 5px 12px; font-size: 11px;"><i class="fas fa-check-circle"></i> Totalmente Pagado • No requiere cobro en mostrador</span>`;
+      } else {
+        if (pendingBox) pendingBox.style.background = 'rgba(239, 68, 68, 0.08)';
+        alertEl.innerHTML = `<span class="badge badge-pendiente" style="background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; padding: 5px 12px; font-size: 11px;"><i class="fas fa-exclamation-triangle"></i> Cobro pendiente en Front Desk: <strong>${formatGs(pending)}</strong></span>`;
+      }
+    }
+
+    // 4. DOCUMENTACIÓN LEGAL PRE-LLENADA
+    const docTypeEl = document.getElementById('checkin-doc-type');
+    const docNumberEl = document.getElementById('checkin-doc-number');
+    if (docTypeEl) {
+      const clientDocType = booking.clientes?.tipo_documento || 'CI';
+      docTypeEl.value = clientDocType.toUpperCase().includes('PASAPORTE') ? 'PASAPORTE' : (clientDocType.toUpperCase().includes('DNI') ? 'DNI' : 'CI');
+    }
+    if (docNumberEl) {
+      docNumberEl.value = booking.clientes?.documento || booking.clientes?.ci || '6537648';
+    }
+
+    // 5. ENTREGA DE LLAVE
+    const keyChk = document.getElementById('checkin-key-checkbox');
+    if (keyChk) keyChk.checked = true;
 
     openModal('modal-checkin');
   },
@@ -302,6 +374,7 @@ const ReservationsModule = {
       const docType = document.getElementById('checkin-doc-type').value;
       const docNumber = document.getElementById('checkin-doc-number').value;
       const keyDelivered = document.getElementById('checkin-key-checkbox').checked;
+      const booking = this.activeCheckInBooking || this.currentBookings.find(b => b.id == bookingId);
 
       if (!keyDelivered) {
         showToast('Debe confirmar la entrega de la llave/tarjeta', 'warning');
@@ -324,7 +397,7 @@ const ReservationsModule = {
 
       if (roomErr) throw roomErr;
 
-      // 3. Registrar registro de check-in en tabla checkins si existe
+      // 3. Registrar auditoría de check-in
       try {
         await supabaseClient.from('checkins').insert({
           reserva_id: bookingId,
@@ -335,13 +408,22 @@ const ReservationsModule = {
         console.warn('Checkin log table skip:', e);
       }
 
+      // 4. Sincronizar Matriz de Custodia de Llaves automáticamente
+      if (typeof HousekeepingModule !== 'undefined') {
+        const roomNum = booking?.habitaciones?.numero || document.getElementById('checkin-room-number')?.innerText?.split(' ')[0] || '';
+        const clientName = booking?.clientes?.nombre_completo || booking?.nombre_cliente || 'Huésped Titular';
+        if (roomNum) {
+          HousekeepingModule.changeKeyStatus(String(roomNum), 'Entregada a Huésped', clientName, 'Entrega de llave en Check-in Front Desk');
+        }
+      }
+
       closeModal('modal-checkin');
-      showToast('¡Check-in realizado con éxito! Habitación marcada como Ocupada', 'success');
+      showToast('¡Check-in realizado con éxito! Habitación marcada como Ocupada y llave asignada al huésped.', 'success');
       if (typeof notifyDataChanged === 'function') notifyDataChanged('reservas', { action: 'checkin', bookingId, roomId });
 
       await this.loadReservations();
-      await DashboardModule.loadKPIs();
-      await RoomsModule.loadRooms();
+      if (typeof DashboardModule !== 'undefined') await DashboardModule.loadKPIs();
+      if (typeof RoomsModule !== 'undefined') await RoomsModule.loadRooms();
 
     } catch (err) {
       console.error('Error al realizar Check-in:', err);

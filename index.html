@@ -22,6 +22,9 @@
           window.location.replace('login.html');
           return;
         }
+        if (s.user.role) {
+          document.documentElement.setAttribute('data-user-role', s.user.role);
+        }
       } catch (e) {
         localStorage.removeItem('hotel_admin_session');
         window.location.replace('login.html');
@@ -119,15 +122,23 @@
     </div>
   </aside>
 
+  <!-- Telón de fondo (backdrop) para cierre del menú lateral en móviles y tablets -->
+  <div id="sidebar-backdrop" class="sidebar-backdrop" onclick="toggleMobileSidebar(false)"></div>
+
   <!-- =========================================================
        MAIN CONTENT WRAPPER
        ========================================================= -->
   <div class="main-wrapper">
-    <!-- Top Header Bar -->
+    <!-- Top Header Bar con soporte táctil y móvil -->
     <header class="top-header">
-      <div class="header-title">
-        <h2 id="page-title">Dashboard Ejecutivo & KPIs</h2>
-        <p id="page-subtitle">Métricas operativas y financieras en tiempo real</p>
+      <div style="display: flex; align-items: center; gap: 14px;">
+        <button id="btn-sidebar-toggle" class="sidebar-toggle-btn" aria-label="Abrir Menú de Navegación" onclick="toggleMobileSidebar()">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="header-title">
+          <h2 id="page-title">Dashboard Ejecutivo & KPIs</h2>
+          <p id="page-subtitle">Métricas operativas y financieras en tiempo real</p>
+        </div>
       </div>
     </header>
 
@@ -425,9 +436,6 @@
                   <span class="badge-priority badge-priority-2"><i class="fas fa-sign-out-alt"></i> Prioridad 2: Check-out Normal</span>
                   <span class="badge-priority badge-priority-3"><i class="fas fa-bed"></i> Prioridad 3: Repaso Ocupada</span>
                 </div>
-                <button class="btn btn-sm btn-primary" onclick="HousekeepingModule.openDispatchModal()">
-                  <i class="fas fa-plus"></i> Asignar Limpieza a Mucama
-                </button>
               </div>
 
               <div style="overflow-x: auto;">
@@ -1003,56 +1011,131 @@
     </div>
   </div>
 
-  <!-- Modal Check-in -->
+  <!-- Modal Check-in Renovado (5 Bloques Operativos: Cabecera, Huésped, Finanzas, Documentación, Entrega de Llave) -->
   <div id="modal-checkin" class="modal-backdrop">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3><i class="fas fa-sign-in-alt" style="color: var(--primary-navy);"></i> Check-in de Huésped</h3>
+    <div class="modal-box" style="max-width: 580px; max-height: 92vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; border-radius: var(--radius-xl); padding: 24px;">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(30, 58, 138, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary-navy); font-size: 20px;">
+            <i class="fas fa-concierge-bell"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 18px; color: var(--primary-navy);">Panel de Check-in Front Desk</h3>
+            <p style="margin: 0; font-size: 11.5px; color: var(--text-muted);">Validación de identidad, balance de cobro y entrega de llave</p>
+          </div>
+        </div>
         <button class="modal-close" onclick="closeModal('modal-checkin')">&times;</button>
       </div>
-      <div class="modal-body">
+
+      <div class="modal-body" style="padding: 0;">
         <input type="hidden" id="checkin-booking-id">
         <input type="hidden" id="checkin-room-id">
-        <div style="background: var(--bg-main); padding: 14px; border-radius: var(--radius-md); margin-bottom: 16px;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-            <span>Reserva: <strong id="checkin-res-code"></strong></span>
-            <span>Habitación: <strong id="checkin-room-number" style="color: var(--primary-navy);"></strong></span>
+
+        <!-- BLOQUE 1: CABECERA OPERATIVA (ID Reserva, Habitación, Fechas) -->
+        <div style="background: linear-gradient(135deg, #0A192F 0%, #1E3A8A 100%); color: #ffffff; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(10, 25, 47, 0.15);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <span style="font-size: 12px; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px;">Reserva: <strong id="checkin-res-code" style="color: #ffffff; font-size: 13.5px;">RES-XXXXX</strong></span>
+            <span class="badge" style="background: rgba(217, 119, 6, 0.25); color: #FDE68A; border: 1px solid rgba(253, 230, 138, 0.4); font-size: 11px;">
+              <i class="fas fa-door-open"></i> Habitación <strong id="checkin-room-number" style="font-size: 13px;">101</strong>
+            </span>
           </div>
-          <div style="font-size: 12px; color: var(--text-muted);">
-            Fechas: <span id="checkin-dates"></span> | Total: <strong id="checkin-total" style="color: var(--accent-gold);"></strong>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #CBD5E1; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 8px; flex-wrap: wrap; gap: 6px;">
+            <div>
+              <i class="fas fa-calendar-alt" style="color: var(--accent-gold); margin-right: 4px;"></i>
+              <span id="checkin-dates">00/00/00 al 00/00/00</span>
+            </div>
+            <span id="checkin-nights-badge" class="badge badge-confirmada" style="font-size: 10.5px; background: rgba(255, 255, 255, 0.15); color: #fff;">1 noche</span>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Tipo de Documento</label>
-          <select id="checkin-doc-type" class="form-control">
-            <option value="CI">Cédula de Identidad (CI)</option>
-            <option value="PASAPORTE">Pasaporte</option>
-            <option value="DNI">DNI Extranjero</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Número de Documento</label>
-          <input type="text" id="checkin-doc-number" class="form-control" placeholder="Ej: 6537648" value="6537648">
+        <!-- BLOQUE 2: HUÉSPED TITULAR & ACOMPAÑANTES -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px;">
+            <div>
+              <label style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; margin: 0; display: block;">Huésped Titular</label>
+              <h4 id="checkin-guest-name" style="margin: 2px 0 0 0; font-size: 15px; color: var(--primary-navy); font-weight: 700;">Nombre del Huésped</h4>
+            </div>
+            <span id="checkin-guest-contact" style="font-size: 11.5px; color: #475569; text-align: right;">+595 981 000000</span>
+          </div>
+
+          <!-- Acompañantes Registrados Legalmente -->
+          <div id="checkin-companions-container" style="margin-top: 10px; border-top: 1px dashed #CBD5E1; padding-top: 8px;">
+            <label style="font-weight: 600; font-size: 11.5px; color: #334155; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+              <i class="fas fa-users" style="color: var(--accent-gold);"></i> Pasajeros Acompañantes:
+            </label>
+            <div id="checkin-companions-list" style="max-height: 100px; overflow-y: auto;">
+              <!-- Se puebla dinámicamente -->
+            </div>
+          </div>
         </div>
 
-        <!-- Acompañantes Registrados Legalmente -->
-        <div id="checkin-companions-container" style="margin-top: 14px; display: none;">
-          <label style="font-weight: 600; font-size: 12.5px; color: var(--primary-navy); display: flex; align-items: center; gap: 6px;">
-            <i class="fas fa-users" style="color: var(--accent-gold);"></i> Acompañantes Registrados (Legal):
+        <!-- BLOQUE 3: FINANZAS (Total, Pagado, Saldo Pendiente) -->
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px; margin-bottom: 14px;">
+          <label style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px; display: block;">
+            <i class="fas fa-file-invoice-dollar" style="color: var(--primary-blue);"></i> Estado de Cuenta & Finanzas
           </label>
-          <div id="checkin-companions-list" style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 12px; margin-top: 6px; max-height: 120px; overflow-y: auto;">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 4px;">
+              <span style="font-size: 10.5px; color: #64748B; display: block;">Monto Total</span>
+              <strong id="checkin-fin-total" style="font-size: 13.5px; color: var(--primary-navy); display: block; margin-top: 2px;">0 Gs.</strong>
+            </div>
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 8px 4px;">
+              <span style="font-size: 10.5px; color: #047857; display: block;">Abonado / Seña</span>
+              <strong id="checkin-fin-paid" style="font-size: 13.5px; color: #059669; display: block; margin-top: 2px;">0 Gs.</strong>
+            </div>
+            <div id="checkin-fin-pending-box" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 8px 4px;">
+              <span style="font-size: 10.5px; color: #B91C1C; display: block;">Saldo Pendiente</span>
+              <strong id="checkin-fin-pending" style="font-size: 13.5px; color: #DC2626; display: block; margin-top: 2px;">0 Gs.</strong>
+            </div>
+          </div>
+          <div id="checkin-fin-status-alert" style="margin-top: 8px; font-size: 11.5px; text-align: center;">
+            <!-- Badge o texto de estado financiero -->
           </div>
         </div>
 
-        <div class="checklist-item" style="margin-top: 14px; padding: 10px; background: #f8fafc; border-radius: var(--radius-sm);">
-          <input type="checkbox" id="checkin-key-checkbox" checked>
-          <label for="checkin-key-checkbox" style="font-weight: 600; cursor: pointer;">Entrega de Llave / Tarjeta Magnética de Habitación</label>
+        <!-- BLOQUE 4: DOCUMENTACIÓN LEGAL (Pre-llenado para solo validar) -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+          <label style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 8px; display: block;">
+            <i class="fas fa-id-card" style="color: var(--primary-blue);"></i> Documentación de Identidad
+          </label>
+          <div style="display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px;">
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 11.5px; font-weight: 600; color: #334155;">Tipo Doc.</label>
+              <select id="checkin-doc-type" class="form-control" style="font-size: 12.5px;">
+                <option value="CI">Cédula de Identidad (CI)</option>
+                <option value="PASAPORTE">Pasaporte</option>
+                <option value="DNI">DNI Extranjero</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 11.5px; font-weight: 600; color: #334155;">Número de Documento</label>
+              <input type="text" id="checkin-doc-number" class="form-control" placeholder="Ej: 6537648" style="font-size: 13px; font-weight: 600; color: var(--primary-navy);">
+            </div>
+          </div>
+        </div>
+
+        <!-- BLOQUE 5: ENTREGA DE LLAVE & CONFIRMACIÓN FINAL -->
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 14px; margin-bottom: 6px;">
+          <label style="font-size: 11px; font-weight: 700; color: #1E40AF; text-transform: uppercase; margin-bottom: 8px; display: block;">
+            <i class="fas fa-key"></i> Asignación de Llave / Tarjeta RFID
+          </label>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="checkin-key-checkbox" checked style="width: 18px; height: 18px; accent-color: var(--primary-blue); cursor: pointer;">
+            <label for="checkin-key-checkbox" style="font-size: 12.5px; font-weight: 600; color: #1E293B; cursor: pointer; margin: 0;">
+              Confirmar entrega física de Llave / Tarjeta Magnética de Habitación al Huésped
+            </label>
+          </div>
+          <small style="color: #64748B; font-size: 11px; margin-top: 4px; display: block; margin-left: 28px;">
+            La custodia en la Matriz de Llaves se actualizará automáticamente a <strong>"Entregada a Huésped"</strong>.
+          </small>
         </div>
       </div>
-      <div class="modal-footer">
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
         <button class="btn btn-outline" onclick="closeModal('modal-checkin')">Cancelar</button>
-        <button class="btn btn-primary" onclick="ReservationsModule.confirmCheckIn()">Confirmar Check-in</button>
+        <button class="btn btn-primary" onclick="ReservationsModule.confirmCheckIn()" style="background: linear-gradient(135deg, #0A192F 0%, #1E3A8A 100%);">
+          <i class="fas fa-check-circle"></i> Confirmar Check-in & Entrega
+        </button>
       </div>
     </div>
   </div>
@@ -1172,6 +1255,127 @@
           <button type="button" class="btn btn-outline" onclick="closeModal('modal-dispatch-cleaning')">Cancelar</button>
           <button type="submit" id="btn-confirm-dispatch-order" class="btn btn-primary">
             <i class="fas fa-paper-plane"></i> Emitir Orden a Mucama
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Gestión de Despacho & Custodia de Llaves (Auditoría Integral) -->
+  <div id="modal-key-dispatch" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 560px; max-height: 92vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; border-radius: var(--radius-xl); padding: 24px;">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 42px; height: 42px; border-radius: 10px; background: rgba(16, 185, 129, 0.12); display: flex; align-items: center; justify-content: center; color: #059669; font-size: 20px;">
+            <i class="fas fa-key"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 18px; color: var(--primary-navy);">
+              Custodia & Despacho de Llave - Hab. <span id="key-modal-room-display">---</span>
+            </h3>
+            <p style="margin: 0; font-size: 11.5px; color: var(--text-muted);">
+              Trazabilidad física, control de salida del casillero y registro de poseedor
+            </p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-key-dispatch')">&times;</button>
+      </div>
+
+      <form id="form-key-dispatch" onsubmit="event.preventDefault(); HousekeepingModule.saveKeyDispatchDetails();">
+        <input type="hidden" id="key-modal-room-id" value="">
+        <input type="hidden" id="key-modal-room-number" value="">
+
+        <div class="modal-body" style="padding: 0;">
+          <!-- Tarjeta de Identificación RFID y Casillero -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Código RFID Oficial</span>
+              <div id="key-modal-rfid-display" style="font-family: monospace; font-size: 14px; font-weight: bold; color: var(--primary-navy); margin-top: 2px;">
+                <i class="fas fa-barcode"></i> RFID-XXX-A
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Ubicación en Despacho</span>
+              <div id="key-modal-locker-display" style="font-size: 13px; font-weight: 600; color: #1E293B; margin-top: 2px;">
+                Casillero Central
+              </div>
+            </div>
+          </div>
+
+          <!-- Estado de Custodia -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-size: 12px; font-weight: 600; color: #1E293B; margin-bottom: 6px; display: block;">
+              Estado de Custodia & Ubicación *
+            </label>
+            <select id="key-modal-status" class="form-control" style="font-weight: 600; font-size: 13px;" onchange="HousekeepingModule.onKeyStatusChange(this.value)">
+              <option value="En Recepción">🟢 En Recepción (Guardada en Despacho / Casillero)</option>
+              <option value="Entregada a Huésped">🔵 Entregada a Huésped (En posesión del Cliente)</option>
+              <option value="En Servicio Mucama">🟡 En Custodia de Mucama (Limpieza de Habitación)</option>
+              <option value="En Mantenimiento">🔴 En Servicio Técnico (Mantenimiento / Reparación)</option>
+              <option value="Extraviada">⚫ Extraviada / Bloqueada por Seguridad</option>
+            </select>
+          </div>
+
+          <!-- Poseedor Actual & Ubicación de Despacho -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 12px; font-weight: 600; color: #1E293B; margin-bottom: 4px; display: block;">
+                Poseedor / Responsable Actual *
+              </label>
+              <input type="text" id="key-modal-holder" class="form-control" placeholder="Ej: Juan Pérez (Huésped) o Rosa Almada" required style="font-size: 12.5px;">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 12px; font-weight: 600; color: #1E293B; margin-bottom: 4px; display: block;">
+                Casillero de Despacho
+              </label>
+              <input type="text" id="key-modal-location" class="form-control" placeholder="Ej: Casillero 101 Front Desk" style="font-size: 12.5px;">
+            </div>
+          </div>
+
+          <!-- Tiempos de Retiro y Devolución -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+            <div class="form-group" style="margin: 0;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="font-size: 12px; font-weight: 600; color: #1E293B; margin: 0;">
+                  Retirado del Despacho
+                </label>
+                <button type="button" onclick="HousekeepingModule.setKeyTimeNow('key-modal-checkout-time')" style="background: none; border: none; color: var(--primary-blue); font-size: 11px; cursor: pointer; padding: 0; font-weight: 600;">
+                  Poner Ahora
+                </button>
+              </div>
+              <input type="text" id="key-modal-checkout-time" class="form-control" placeholder="Ej: Hoy 10:30" style="font-size: 12.5px;">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 12px; font-weight: 600; color: #1E293B; margin-bottom: 4px; display: block;">
+                Devolución Estimada
+              </label>
+              <input type="text" id="key-modal-return-time" class="form-control" placeholder="Ej: Check-out 11:00" style="font-size: 12.5px;">
+            </div>
+          </div>
+
+          <!-- Observaciones / Accesorios -->
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label style="font-size: 12px; font-weight: 600; color: #1E293B; margin-bottom: 4px; display: block;">
+              Accesorios / Observaciones del Llavero
+            </label>
+            <input type="text" id="key-modal-notes" class="form-control" placeholder="Ej: Llavero de madera UTCD + 2 tarjetas RFID activas" style="font-size: 12.5px;">
+          </div>
+
+          <!-- Historial de Movimientos de la Llave -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 12px;">
+            <label style="font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-history" style="color: var(--accent-gold);"></i> Últimos Movimientos Registrados
+            </label>
+            <div id="key-modal-history-list" style="max-height: 90px; overflow-y: auto; font-size: 11.5px; color: #475569;">
+              <!-- Se puebla dinámicamente -->
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-key-dispatch')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, #0A192F 0%, #1E3A8A 100%);">
+            <i class="fas fa-save"></i> Guardar Registro de Custodia
           </button>
         </div>
       </form>
