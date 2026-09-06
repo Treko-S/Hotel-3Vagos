@@ -1,17 +1,62 @@
 /**
  * Cash Register & Invoicing Module (Paraguay Legal Tax Compliant)
- * Caja Sesiones, Arqueo, Conciliación Bancaria 24/7, IVA & Facturación
+ * Caja Sesiones, Arqueo con Conteo Físico, Egresos/Vales, Tarjetas POS vs App, IVA & Facturación
  */
 
 const CashBillingModule = {
   currentSession: null,
   invoices: [],
   payments: [],
+  egresos: [],
 
   async init() {
+    await this.loadInvoices();
     await this.loadActiveSession();
     await this.loadPaymentsFlow();
-    await this.loadInvoices();
+  },
+
+  loadEgresos() {
+    if (!this.currentSession) {
+      this.egresos = [];
+      return;
+    }
+    try {
+      const key = `hotel_caja_egresos_${this.currentSession.id}`;
+      const saved = localStorage.getItem(key);
+      this.egresos = saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      this.egresos = [];
+    }
+  },
+
+  saveEgresos() {
+    if (!this.currentSession) return;
+    try {
+      const key = `hotel_caja_egresos_${this.currentSession.id}`;
+      localStorage.setItem(key, JSON.stringify(this.egresos));
+    } catch (e) {}
+  },
+
+  getTotalEgresos() {
+    return this.egresos.reduce((sum, eg) => sum + (Number(eg.monto) || 0), 0);
+  },
+
+  getTotalEfectivoCobrado() {
+    let efec = 0;
+    this.payments.forEach(p => {
+      const m = (p.metodo_pago || '').toLowerCase();
+      if (m.includes('efectivo')) {
+        efec += (Number(p.monto) || 0);
+      }
+    });
+    return efec;
+  },
+
+  getEsperadoEfectivo() {
+    const apertura = Number(this.currentSession?.monto_apertura) || 0;
+    const ingresos = this.getTotalEfectivoCobrado();
+    const egresos = this.getTotalEgresos();
+    return apertura + ingresos - egresos;
   },
 
   async loadActiveSession() {
@@ -27,43 +72,63 @@ const CashBillingModule = {
 
       if (data && data.length > 0) {
         this.currentSession = data[0];
+        this.loadEgresos();
         this.renderActiveSessionUI(this.currentSession);
       } else {
         this.currentSession = null;
+        this.egresos = [];
         this.renderNoSessionUI();
       }
     } catch (err) {
       console.warn('loadActiveSession error or table empty:', err);
+      this.currentSession = null;
       this.renderNoSessionUI();
     }
   },
 
   renderActiveSessionUI(session) {
+    this.loadEgresos();
     const box = document.getElementById('cash-status-box');
     if (!box) return;
 
+    const apertura = Number(session.monto_apertura) || 0;
+    const totalEfec = this.getTotalEfectivoCobrado();
+    const totalEg = this.getTotalEgresos();
+    const efectivoEnCajon = apertura + totalEfec - totalEg;
+
     box.innerHTML = `
-      <div style="background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 24px; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div style="background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 22px; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="status-dot"></span>
             <strong style="color: var(--success); font-size: 16px;">Caja Principal de Recepción Abierta (#${session.id})</strong>
+            <span class="badge badge-confirmada" style="font-size: 11px;">Turno Activo</span>
           </div>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-            Responsable: <strong>${sanitizeInput(session.responsable || 'Recepcionista Turno')}</strong> • Fondo Fijo de Apertura: <strong>${formatGs(session.monto_apertura || 0)}</strong>
+          <p style="font-size: 12.5px; color: var(--text-muted); margin: 6px 0 4px;">
+            Responsable: <strong style="color: var(--primary-navy);">${sanitizeInput(session.responsable || 'Recepcionista')}</strong> • Fondo Fijo Apertura: <strong>${formatGs(apertura)}</strong>
           </p>
+          <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 12px;">
+            <span style="color: #166534;"><i class="fas fa-arrow-down"></i> Cobros Efectivo: <strong>+${formatGs(totalEfec)}</strong></span>
+            <span style="color: #991B1B;"><i class="fas fa-arrow-up"></i> Egresos / Vales: <strong>-${formatGs(totalEg)}</strong></span>
+            <span style="color: var(--primary-navy); font-weight: 700; background: #F8FAFC; padding: 2px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">
+              <i class="fas fa-cash-register"></i> Efectivo Teórico en Cajón: <strong>${formatGs(efectivoEnCajon)}</strong>
+            </span>
+          </div>
           <div style="margin-top: 6px;">
             <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-size: 11px; padding: 2px 8px;">
               <i class="fas fa-bolt"></i> Cobros de la App Móvil se concilian automáticamente en Cuenta Bancaria 24/7
             </span>
           </div>
         </div>
-        <div style="display: flex; gap: 12px;">
-          <button class="btn btn-outline" onclick="CashBillingModule.openArqueoModal()">
-            <i class="fas fa-calculator"></i> Realizar Arqueo de Turno
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-weight: 600;" onclick="CashBillingModule.openEgresoModal()" title="Registrar un retiro de dinero para pago a proveedores, hielo o urgencias">
+            <i class="fas fa-receipt"></i> Registrar Egreso / Vale de Caja
           </button>
-          <button class="btn btn-danger" onclick="CashBillingModule.closeSession()">
-            <i class="fas fa-lock"></i> Cierre de Caja
+          <button class="btn btn-outline" onclick="CashBillingModule.openArqueoModal()" title="Ver auditoría preliminar del turno">
+            <i class="fas fa-calculator"></i> Arqueo Rápido
+          </button>
+          <button class="btn btn-danger" onclick="CashBillingModule.openCierreModal()" title="Realizar el recuento de efectivo y cerrar el turno">
+            <i class="fas fa-lock"></i> Cierre de Turno / Arqueo
           </button>
         </div>
       </div>
@@ -106,7 +171,8 @@ const CashBillingModule = {
       this.payments = rawPayments || [];
 
       let totalEfectivo = 0;
-      let totalTarjetas = 0;
+      let totalTarjetasPOS = 0;
+      let totalAppPasarela = 0;
       let totalDigital = 0;
       let totalConsolidado = 0;
 
@@ -114,11 +180,19 @@ const CashBillingModule = {
         const monto = Number(p.monto) || 0;
         totalConsolidado += monto;
         const metodo = (p.metodo_pago || '').toLowerCase();
+        const folio = p.folios || {};
+        const reserva = folio.reservas || {};
+        const canal = reserva.canal_venta || 'App Móvil';
+        const isApp = canal === 'App Móvil';
 
         if (metodo.includes('efectivo')) {
           totalEfectivo += monto;
         } else if (metodo.includes('tarjeta') || metodo.includes('credito') || metodo.includes('debito')) {
-          totalTarjetas += monto;
+          if (isApp) {
+            totalAppPasarela += monto; // Pago de tarjeta online desde la App Móvil
+          } else {
+            totalTarjetasPOS += monto; // POS físico en mostrador de recepción
+          }
         } else {
           totalDigital += monto;
         }
@@ -143,9 +217,9 @@ const CashBillingModule = {
           <div class="kpi-card" style="border-left: 4px solid #2563EB;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Tarjetas Débito / Crédito</p>
-                <h3 style="font-size: 20px; font-weight: 800; color: #1D4ED8; margin: 6px 0 2px;">${formatGs(totalTarjetas)}</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">POS y pasarela online App Móvil</p>
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Tarjetas (POS Mostrador)</p>
+                <h3 style="font-size: 20px; font-weight: 800; color: #1D4ED8; margin: 6px 0 2px;">${formatGs(totalTarjetasPOS)}</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Comprobantes físicos / vouchers POS</p>
               </div>
               <div style="width: 38px; height: 38px; border-radius: 10px; background: #EFF6FF; color: #2563EB; display: flex; align-items: center; justify-content: center; font-size: 16px;">
                 <i class="fas fa-credit-card"></i>
@@ -171,7 +245,7 @@ const CashBillingModule = {
               <div>
                 <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ganancia Total Consolidada</p>
                 <h3 style="font-size: 20px; font-weight: 800; color: var(--primary-dark); margin: 6px 0 2px;">${formatGs(totalConsolidado)}</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Ingresos reales totales del Hotel</p>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Ingresos reales (Incluye ${formatGs(totalAppPasarela)} App Móvil)</p>
               </div>
               <div style="width: 38px; height: 38px; border-radius: 10px; background: #FEF3C7; color: #B45309; display: flex; align-items: center; justify-content: center; font-size: 16px;">
                 <i class="fas fa-vault"></i>
@@ -184,7 +258,7 @@ const CashBillingModule = {
       // Render Tabla Detallada de Ingresos
       if (tbody) {
         if (this.payments.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 28px; color: var(--text-muted);">Aún no se registran pagos en el sistema.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 28px; color: var(--text-muted);">Aún no se registran pagos en el sistema.</td></tr>`;
           return;
         }
 
@@ -200,6 +274,13 @@ const CashBillingModule = {
           const destinoFinanciero = (p.metodo_pago || '').toLowerCase().includes('efectivo')
             ? `<span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-size: 10.5px;"><i class="fas fa-cash-register"></i> Caja Mostrador</span>`
             : `<span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 10.5px;"><i class="fas fa-landmark"></i> Cuenta Bancaria (24/7)</span>`;
+
+          // Estado de Facturación Legal (SET Paraguay)
+          const matchedInv = this.invoices.find(inv => inv.folio_id === p.folio_id || (inv.ruc_ci && inv.monto_total == p.monto));
+          const isFacturado = Boolean(matchedInv || p.facturado || p.factura_id);
+          const estadoFacturaBadge = isFacturado
+            ? `<span class="badge badge-confirmada" style="background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; font-size: 11px;"><i class="fas fa-file-invoice"></i> Facturado ${matchedInv ? '(' + (matchedInv.numero_factura || 'SET') + ')' : ''}</span>`
+            : `<span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-size: 11px;"><i class="fas fa-clock"></i> Pendiente Factura</span>`;
 
           html += `
             <tr>
@@ -230,6 +311,9 @@ const CashBillingModule = {
               </td>
               <td>
                 ${destinoFinanciero}
+              </td>
+              <td>
+                ${estadoFacturaBadge}
               </td>
             </tr>
           `;
@@ -324,28 +408,73 @@ const CashBillingModule = {
     }
   },
 
-  async closeSession() {
-    if (!this.currentSession) return;
-    const ok = await CustomDialog.confirm({
-      title: 'Cierre de Caja de Turno',
-      message: '¿Está seguro de realizar el Cierre de Caja del turno actual? Esta acción consolidará las operaciones físicas del turno. Los pagos de la app continuarán ingresando a banco de forma automática.',
-      icon: 'fa-cash-register',
-      confirmText: 'Sí, Cerrar Turno de Caja'
-    });
-    if (!ok) return;
+  /* =========================================================
+     REGISTRO DE EGRESOS / RETIROS (VALES DE CAJA)
+     ========================================================= */
+  openEgresoModal() {
+    if (!this.currentSession) {
+      showToast('Debe haber una caja abierta para registrar egresos', 'warning');
+      return;
+    }
+    const montoEl = document.getElementById('egreso-monto');
+    const detalleEl = document.getElementById('egreso-detalle');
+    const compEl = document.getElementById('egreso-comprobante');
+    const motivoSelect = document.getElementById('egreso-motivo-select');
+    const containerDetalle = document.getElementById('egreso-detalle-container');
 
-    try {
-      await supabaseClient.from('sesiones_caja').update({
-        estado: 'Cerrada'
-      }).eq('id', this.currentSession.id);
+    if (montoEl) montoEl.value = '';
+    if (detalleEl) detalleEl.value = '';
+    if (compEl) compEl.value = '';
+    if (motivoSelect) motivoSelect.value = 'Proveedor de Agua / Bebidas';
+    if (containerDetalle) containerDetalle.style.display = 'none';
 
-      showToast('Caja cerrada con éxito. Turno de mostrador finalizado.', 'info');
-      await this.loadActiveSession();
-    } catch (err) {
-      showToast('Error al cerrar caja: ' + err.message, 'error');
+    openModal('modal-cash-egreso');
+  },
+
+  onEgresoMotivoChange() {
+    const sel = document.getElementById('egreso-motivo-select');
+    const container = document.getElementById('egreso-detalle-container');
+    if (sel && container) {
+      container.style.display = sel.value === 'Otro' ? 'block' : 'none';
     }
   },
 
+  confirmEgreso() {
+    const monto = Number(document.getElementById('egreso-monto').value) || 0;
+    const select = document.getElementById('egreso-motivo-select').value;
+    const detalleInput = document.getElementById('egreso-detalle').value.trim();
+    const motivo = (select === 'Otro' && detalleInput) ? detalleInput : (detalleInput ? `${select} - ${detalleInput}` : select);
+    const resp = document.getElementById('egreso-responsable').value.trim() || 'Recepcionista Turno';
+    const comp = document.getElementById('egreso-comprobante').value.trim() || `VAL-${Date.now().toString().slice(-4)}`;
+
+    if (monto <= 0) {
+      showToast('Debe ingresar un monto válido a retirar mayor a 0 Gs.', 'warning');
+      return;
+    }
+
+    const egreso = {
+      id: Date.now(),
+      monto,
+      motivo,
+      responsable: resp,
+      comprobante: comp,
+      fecha: new Date().toLocaleString()
+    };
+
+    this.egresos.push(egreso);
+    this.saveEgresos();
+
+    closeModal('modal-cash-egreso');
+    showToast(`Egreso de ${formatGs(monto)} registrado con éxito (Vale #${comp}).`, 'success');
+
+    // Re-render UI
+    this.renderActiveSessionUI(this.currentSession);
+    this.loadPaymentsFlow();
+  },
+
+  /* =========================================================
+     ARQUEO PRELIMINAR Y CIERRE DE TURNO
+     ========================================================= */
   openArqueoModal() {
     let efec = 0;
     let dig = 0;
@@ -357,18 +486,20 @@ const CashBillingModule = {
     });
 
     const apertura = Number(this.currentSession?.monto_apertura) || 0;
-    const efectivoEnCajon = apertura + efec;
+    const egresos = this.getTotalEgresos();
+    const efectivoEnCajon = apertura + efec - egresos;
 
     CustomDialog.alert({
-      title: 'Arqueo & Conciliación de Turno',
+      title: 'Arqueo & Conciliación Preliminar de Turno',
       message: `
         <div style="text-align: left; font-size: 13px; line-height: 1.6;">
           <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 12px;">
             <div style="color: var(--text-muted); font-size: 11px; text-transform: uppercase; font-weight: 700;">1. Caja Física de Recepción (Mostrador)</div>
             <div style="display: flex; justify-content: space-between; margin-top: 4px;"><span>Fondo Inicial de Turno:</span> <strong>${formatGs(apertura)}</strong></div>
             <div style="display: flex; justify-content: space-between;"><span>Cobros en Efectivo de Turno:</span> <strong style="color: #166534;">+${formatGs(efec)}</strong></div>
+            <div style="display: flex; justify-content: space-between;"><span>Egresos / Vales de Turno:</span> <strong style="color: #991B1B;">-${formatGs(egresos)}</strong></div>
             <div style="border-top: 1px dashed #CBD5E1; margin-top: 6px; padding-top: 6px; display: flex; justify-content: space-between; font-weight: bold; color: #166534; font-size: 14px;">
-              <span>Total Billetes en Mano a Entregar:</span> <span>${formatGs(efectivoEnCajon)}</span>
+              <span>Total Efectivo Teórico en Mano:</span> <span>${formatGs(efectivoEnCajon)}</span>
             </div>
           </div>
           <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px;">
@@ -380,5 +511,128 @@ const CashBillingModule = {
       `,
       icon: 'fa-calculator'
     });
+  },
+
+  openCierreModal() {
+    if (!this.currentSession) return;
+
+    this.loadEgresos();
+    const apertura = Number(this.currentSession.monto_apertura) || 0;
+    const ingresosEfec = this.getTotalEfectivoCobrado();
+    const egresosEfec = this.getTotalEgresos();
+    const esperado = apertura + ingresosEfec - egresosEfec;
+
+    const elFondo = document.getElementById('cierre-fondo-inicial');
+    const elIngresos = document.getElementById('cierre-ingresos-efectivo');
+    const elEgresos = document.getElementById('cierre-egresos-total');
+    const elEsperado = document.getElementById('cierre-efectivo-esperado');
+    const elReal = document.getElementById('cierre-efectivo-real');
+    const elResult = document.getElementById('cierre-resultado-arqueo');
+    const elObs = document.getElementById('cierre-observaciones');
+
+    if (elFondo) elFondo.innerText = formatGs(apertura);
+    if (elIngresos) elIngresos.innerText = `+${formatGs(ingresosEfec)}`;
+    if (elEgresos) elEgresos.innerText = `-${formatGs(egresosEfec)}`;
+    if (elEsperado) elEsperado.innerText = formatGs(esperado);
+    if (elReal) elReal.value = '';
+    if (elResult) {
+      elResult.style.display = 'none';
+      elResult.innerHTML = '';
+    }
+    if (elObs) elObs.value = '';
+
+    openModal('modal-cash-cierre');
+  },
+
+  calculateArqueoDiff() {
+    const esperado = this.getEsperadoEfectivo();
+    const realInput = document.getElementById('cierre-efectivo-real');
+    const resultBox = document.getElementById('cierre-resultado-arqueo');
+    if (!realInput || !resultBox) return;
+
+    const valStr = realInput.value.trim();
+    if (valStr === '') {
+      resultBox.style.display = 'none';
+      return;
+    }
+
+    const real = Number(valStr);
+    const diff = real - esperado;
+    resultBox.style.display = 'block';
+
+    if (diff === 0) {
+      resultBox.style.background = '#DCFCE7';
+      resultBox.style.border = '1px solid #86EFAC';
+      resultBox.style.color = '#166534';
+      resultBox.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-check-circle" style="font-size: 22px; color: #16A34A;"></i>
+          <div>
+            <strong style="font-size: 14px; display: block;">¡Caja Cuadrada Perfecta! (Diferencia: 0 Gs.)</strong>
+            <span style="font-size: 12px;">El dinero físico en el cajón coincide exactamente con lo registrado en sistema.</span>
+          </div>
+        </div>
+      `;
+    } else if (diff > 0) {
+      resultBox.style.background = '#EFF6FF';
+      resultBox.style.border = '1px solid #93C5FD';
+      resultBox.style.color = '#1E40AF';
+      resultBox.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-info-circle" style="font-size: 22px; color: #2563EB;"></i>
+          <div>
+            <strong style="font-size: 14px; display: block;">Sobrante de Caja: +${formatGs(diff)}</strong>
+            <span style="font-size: 12px;">Hay más dinero físico en el cajón de lo registrado. Se registrará como sobrante de turno.</span>
+          </div>
+        </div>
+      `;
+    } else {
+      resultBox.style.background = '#FEF2F2';
+      resultBox.style.border = '1px solid #FCA5A5';
+      resultBox.style.color = '#991B1B';
+      resultBox.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-exclamation-triangle" style="font-size: 22px; color: #DC2626;"></i>
+          <div>
+            <strong style="font-size: 14px; display: block;">FALTANTE DE CAJA / POSIBLE FUGA DE CAPITAL: -${formatGs(Math.abs(diff))}</strong>
+            <span style="font-size: 12px;">Falta dinero físico en el cajón según los comprobantes. Quedará registrado en la auditoría legal.</span>
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  async confirmCloseSession() {
+    if (!this.currentSession) return;
+    const realInput = document.getElementById('cierre-efectivo-real');
+    if (!realInput || realInput.value.trim() === '') {
+      showToast('Debe ingresar el monto físico real contado en el cajón', 'warning');
+      return;
+    }
+
+    const real = Number(realInput.value);
+    const esperado = this.getEsperadoEfectivo();
+    const diff = real - esperado;
+    const obs = (document.getElementById('cierre-observaciones')?.value || '').trim();
+
+    try {
+      const updateData = {
+        estado: 'Cerrada',
+        monto_cierre: real,
+        diferencia_arqueo: diff,
+        observaciones: obs
+      };
+
+      await supabaseClient.from('sesiones_caja').update(updateData).eq('id', this.currentSession.id);
+
+      closeModal('modal-cash-cierre');
+      showToast(`Turno de caja cerrado. Arqueo completado (${diff === 0 ? 'Caja Cuadrada' : (diff > 0 ? 'Sobrante ' + formatGs(diff) : 'Faltante ' + formatGs(Math.abs(diff)))}).`, 'success');
+
+      await this.loadActiveSession();
+      await this.loadPaymentsFlow();
+    } catch (err) {
+      console.error('Error al cerrar caja:', err);
+      showToast('Error al cerrar caja: ' + err.message, 'error');
+    }
   }
 };

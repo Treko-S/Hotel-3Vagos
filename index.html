@@ -80,6 +80,10 @@
       </a>
 
       <div class="nav-category">Servicios & Limpieza</div>
+      <a class="nav-item" data-view="inventory">
+        <i class="fas fa-boxes-stacked"></i>
+        <span>Catálogo e Inventario</span>
+      </a>
       <a class="nav-item" data-view="housekeeping">
         <i class="fas fa-broom"></i>
         <span>Housekeeping</span>
@@ -570,6 +574,126 @@
       </section>
 
       <!-- =====================================================
+           VIEW: CATÁLOGO & CONTROL DE INVENTARIO (VENTA Y PAÑOL)
+           ===================================================== -->
+      <section id="view-inventory" class="view-section">
+        <div class="card-panel" style="margin-bottom: 24px;">
+          <!-- Barra de Pestañas (Tabs) de Inventario -->
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; gap: 8px;">
+              <button id="inv-tab-sales" class="inv-tab-btn active" onclick="InventoryModule.switchTab('sales')">
+                <i class="fas fa-shopping-bag"></i> Para la Venta (App & Room Service)
+              </button>
+              <button id="inv-tab-internal" class="inv-tab-btn" onclick="InventoryModule.switchTab('internal')">
+                <i class="fas fa-boxes"></i> Uso Interno (Insumos & Pañol)
+              </button>
+            </div>
+            <div>
+              <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 11.5px; padding: 4px 10px;">
+                <i class="fas fa-sync-alt"></i> Sincronizado en tiempo real con App Móvil
+              </span>
+            </div>
+          </div>
+
+          <!-- CONTENIDO PESTAÑA 1: PARA LA VENTA -->
+          <div id="inv-content-sales">
+            <!-- KPIs Catálogo Venta -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+              <div class="kpi-card" style="border-left: 4px solid var(--primary-gold);">
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Total Productos / Servicios</p>
+                <h3 id="inv-sales-kpi-total" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">6</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Catálogo activo del hotel</p>
+              </div>
+              <div class="kpi-card" style="border-left: 4px solid #10B981;">
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Disponibles en App Móvil</p>
+                <h3 id="inv-sales-kpi-app" style="font-size: 22px; font-weight: 800; color: #059669; margin: 6px 0 2px;">5</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Visibles para pedir desde celular</p>
+              </div>
+              <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ítems de Minibar</p>
+                <h3 id="inv-sales-kpi-minibar" style="font-size: 22px; font-weight: 800; color: #2563EB; margin: 6px 0 2px;">2</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Bebidas y snacks en habitación</p>
+              </div>
+            </div>
+
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <h3 class="panel-title"><i class="fas fa-tag" style="color: var(--primary-gold);"></i> Catálogo Oficial de Productos y Servicios</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Precios en Guaraníes y switch en tiempo real para pausar o habilitar pedidos desde la App Móvil</p>
+              </div>
+              <button class="btn btn-primary" onclick="InventoryModule.openSalesItemModal()">
+                <i class="fas fa-plus"></i> Nuevo Ítem para Venta
+              </button>
+            </div>
+
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Producto / Servicio</th>
+                    <th>Categoría</th>
+                    <th>Precio Oficial</th>
+                    <th>Stock Venta</th>
+                    <th>Disponibilidad en App Móvil</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="inv-sales-table-body">
+                  <!-- Dinámico -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- CONTENIDO PESTAÑA 2: USO INTERNO (PAÑOL & CONTROL DE FUGAS) -->
+          <div id="inv-content-internal" style="display: none;">
+            <!-- KPIs Uso Interno -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+              <div class="kpi-card" style="border-left: 4px solid #6366F1;">
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Total Insumos en Pañol</p>
+                <h3 id="inv-internal-kpi-total" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">6</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Artículos controlados contra fugas</p>
+              </div>
+              <div class="kpi-card" style="border-left: 4px solid #EF4444;">
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Alertas de Stock Crítico</p>
+                <h3 id="inv-internal-kpi-critical" style="font-size: 22px; font-weight: 800; color: #DC2626; margin: 6px 0 2px;">2</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Por debajo del mínimo de seguridad</p>
+              </div>
+            </div>
+
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+              <div>
+                <h3 class="panel-title"><i class="fas fa-warehouse" style="color: #6366F1;"></i> Insumos Operativos, Limpieza y Pañol</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Control exhaustivo de stock para Housekeeping y Mantenimiento, reposición y prevención de pérdidas</p>
+              </div>
+              <button class="btn btn-primary" onclick="InventoryModule.openInternalItemModal()">
+                <i class="fas fa-plus"></i> Registrar Nuevo Insumo
+              </button>
+            </div>
+
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Insumo / Descripción</th>
+                    <th>Categoría</th>
+                    <th>Stock Actual</th>
+                    <th>Mínimo Seguro</th>
+                    <th>Estado</th>
+                    <th>Último Movimiento</th>
+                    <th>Operaciones de Pañol</th>
+                  </tr>
+                </thead>
+                <tbody id="inv-internal-table-body">
+                  <!-- Dinámico -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =====================================================
            VIEW 6: CAJA & FACTURACIÓN
            ===================================================== -->
       <section id="view-cash" class="view-section">
@@ -580,7 +704,7 @@
 
         <!-- Tarjetas Resumen de Ingresos por Medio de Pago -->
         <div id="cash-methods-kpis" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
-          <!-- Dinámico: Efectivo, Tarjetas, QR / Billetera, Consolidado -->
+          <!-- Dinámico: Efectivo, Tarjetas (POS Mostrador), QR / Billetera, Consolidado -->
         </div>
 
         <!-- Auditoría de Ingresos & Cobros (Folios y Señas) -->
@@ -606,10 +730,11 @@
                   <th>Referencia / Comprobante</th>
                   <th style="text-align: right;">Monto Ingresado</th>
                   <th>Destino Financiero</th>
+                  <th>Estado Factura</th>
                 </tr>
               </thead>
               <tbody id="cash-payments-table-body">
-                <tr><td colspan="8" style="text-align: center; padding: 24px; color: var(--text-muted);">Cargando registros de ingresos...</td></tr>
+                <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">Cargando registros de ingresos...</td></tr>
               </tbody>
             </table>
           </div>
@@ -1873,6 +1998,345 @@
     </div>
   </div>
 
+  <!-- Modal Registro de Egreso / Vale de Caja -->
+  <div id="modal-cash-egreso" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 500px; padding: 26px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(239, 68, 68, 0.12); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #DC2626;">
+            <i class="fas fa-hand-holding-usd"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 19px; color: var(--primary-navy); font-family: var(--font-heading);">Registrar Egreso / Vale de Caja</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Salida justificada de efectivo físico del cajón</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-cash-egreso')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+          <label style="font-size: 11.5px; font-weight: 700; color: #991B1B; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: block;">
+            Monto a Retirar en Efectivo (Gs.) *
+          </label>
+          <div style="position: relative; margin-bottom: 8px;">
+            <input type="number" id="egreso-monto" class="form-control" placeholder="Ej: 50000" step="5000" style="font-size: 20px; font-weight: 700; color: #991B1B; padding: 10px 52px 10px 14px; border-radius: 8px;">
+            <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-weight: 700; color: #991B1B; font-size: 14px;">Gs.</span>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-xs" onclick="document.getElementById('egreso-monto').value = 25000">25.000 Gs.</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="document.getElementById('egreso-monto').value = 50000">50.000 Gs.</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="document.getElementById('egreso-monto').value = 100000">100.000 Gs.</button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="document.getElementById('egreso-monto').value = 200000">200.000 Gs.</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="font-size: 12.5px; font-weight: 600;">Concepto / Motivo de Salida *</label>
+          <select id="egreso-motivo-select" class="form-control" onchange="CashBillingModule.onEgresoMotivoChange()">
+            <option value="Proveedor de Agua / Bebidas">Proveedor de Agua / Bebidas</option>
+            <option value="Compra Urgente de Hielo">Compra Urgente de Hielo</option>
+            <option value="Taxi / Traslado de Huésped">Taxi / Traslado de Huésped</option>
+            <option value="Artículos de Limpieza Urgentes">Artículos de Limpieza Urgentes</option>
+            <option value="Farmacia / Primeros Auxilios">Farmacia / Primeros Auxilios</option>
+            <option value="Otro">Otro gasto de mostrador...</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="egreso-detalle-container" style="display: none;">
+          <label style="font-size: 12.5px; font-weight: 600;">Detalle o Justificación del Gasto</label>
+          <input type="text" id="egreso-detalle" class="form-control" placeholder="Describa el motivo del retiro de dinero">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-size: 12.5px; font-weight: 600;">Retirado Por / Responsable *</label>
+            <input type="text" id="egreso-responsable" class="form-control" value="Recepcionista Turno">
+          </div>
+          <div class="form-group">
+            <label style="font-size: 12.5px; font-weight: 600;">N° Vale o Factura Proveedor</label>
+            <input type="text" id="egreso-comprobante" class="form-control" placeholder="Ej: VAL-0012">
+          </div>
+        </div>
+
+        <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 12px; font-size: 11.5px; color: #92400E; display: flex; gap: 8px;">
+          <i class="fas fa-exclamation-triangle" style="font-size: 14px; margin-top: 2px;"></i>
+          <span>Este monto se descontará inmediatamente del efectivo en cajón para el arqueo de cierre. Conserve el ticket o firma física en el cajón.</span>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 16px; margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-cash-egreso')">Cancelar</button>
+        <button class="btn btn-danger" onclick="CashBillingModule.confirmEgreso()">
+          <i class="fas fa-receipt"></i> Registrar Vale de Salida
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Cierre de Turno / Arqueo con Conteo de Efectivo -->
+  <div id="modal-cash-cierre" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 580px; padding: 26px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(15, 23, 42, 0.08); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--primary-navy);">
+            <i class="fas fa-cash-register"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 19px; color: var(--primary-navy); font-family: var(--font-heading);">Cierre de Turno & Arqueo de Caja</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Auditoría de efectivo físico vs registros del sistema</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-cash-cierre')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <!-- Cuadro Resumen Teórico del Turno -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #64748B; margin-bottom: 10px;">
+            1. Movimientos Físicos del Turno (Mostrador)
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+            <span style="color: #475569;">Fondo Fijo Inicial de Apertura:</span>
+            <strong id="cierre-fondo-inicial">0 Gs.</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px;">
+            <span style="color: #16A34A;"><i class="fas fa-plus-circle"></i> Ingresos Efectivo de Turno:</span>
+            <strong id="cierre-ingresos-efectivo" style="color: #166534;">+0 Gs.</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
+            <span style="color: #DC2626;"><i class="fas fa-minus-circle"></i> Egresos / Vales de Caja del Turno:</span>
+            <strong id="cierre-egresos-total" style="color: #991B1B;">-0 Gs.</strong>
+          </div>
+          <div style="border-top: 1px dashed #CBD5E1; padding-top: 8px; display: flex; justify-content: space-between; font-size: 14.5px;">
+            <span style="font-weight: 700; color: var(--primary-navy);">Efectivo Teórico Esperado en Cajón:</span>
+            <strong id="cierre-efectivo-esperado" style="color: var(--primary-navy); font-size: 16px;">0 Gs.</strong>
+          </div>
+        </div>
+
+        <!-- Conteo Físico Real -->
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+          <label style="font-size: 12px; font-weight: 700; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block;">
+            2. ¿Cuánto efectivo físico tienes en el cajón en este momento? *
+          </label>
+          <p style="font-size: 11.5px; color: #3B82F6; margin: 0 0 10px;">Cuente todos los billetes y monedas físicos en la gaveta e ingrese el total real.</p>
+          <div style="position: relative;">
+            <input type="number" id="cierre-efectivo-real" class="form-control" placeholder="0" step="5000" oninput="CashBillingModule.calculateArqueoDiff()" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); padding: 10px 52px 10px 14px; border-radius: 8px; border: 2px solid #3B82F6;">
+            <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--text-muted); font-size: 14px;">Gs.</span>
+          </div>
+        </div>
+
+        <!-- Resultado Dinámico del Arqueo (Cuadrada / Sobrante / Faltante) -->
+        <div id="cierre-resultado-arqueo" style="padding: 12px; border-radius: 10px; margin-bottom: 16px; display: none;">
+          <!-- Dinámico -->
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 12px; font-weight: 600; color: #334155;">Observaciones o Justificación de Cierre (Opcional)</label>
+          <textarea id="cierre-observaciones" class="form-control" rows="2" placeholder="Ej: Se cuadró con comprobantes de compras menores de mostrador."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 16px; margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-cash-cierre')">Volver</button>
+        <button class="btn btn-danger" onclick="CashBillingModule.confirmCloseSession()">
+          <i class="fas fa-lock"></i> Confirmar y Finalizar Turno de Caja
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal ABM Producto/Servicio para la Venta -->
+  <div id="modal-item-sales" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 540px; padding: 26px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 18px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(197, 160, 89, 0.15); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--primary-gold);">
+            <i class="fas fa-tag"></i>
+          </div>
+          <div>
+            <h3 id="sales-item-title" style="margin: 0; font-size: 19px; color: var(--primary-navy); font-family: var(--font-heading);">Nuevo Producto / Servicio para Venta</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Configuración de precios y disponibilidad para huéspedes</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-item-sales')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <input type="hidden" id="sales-item-id">
+
+        <div class="form-group">
+          <label style="font-size: 12.5px; font-weight: 600;">Nombre del Producto o Servicio *</label>
+          <input type="text" id="sales-item-name" class="form-control" placeholder="Ej: Hamburguesa Especial 3 Vagos, Masaje Spa...">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-size: 12.5px; font-weight: 600;">Categoría *</label>
+            <select id="sales-item-category" class="form-control">
+              <option value="Minibar">Minibar (Bebidas / Snacks)</option>
+              <option value="Room Service">Room Service (Cocina)</option>
+              <option value="Spa & Bienestar">Spa & Bienestar</option>
+              <option value="Servicios Extra">Servicios Extra (Lavandería, etc.)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="font-size: 12.5px; font-weight: 600;">Precio de Venta (Gs.) *</label>
+            <input type="number" id="sales-item-price" class="form-control" placeholder="Ej: 45000" step="1000">
+          </div>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div>
+              <strong style="font-size: 13px; color: var(--primary-navy);">¿Es un producto físico con stock?</strong>
+              <small style="display: block; color: var(--text-muted); font-size: 11px;">Marque si es comida, bebida o artículo tangible</small>
+            </div>
+            <input type="checkbox" id="sales-item-physical" onchange="InventoryModule.onPhysicalItemChange()" checked style="width: 18px; height: 18px; accent-color: var(--primary-gold);">
+          </div>
+
+          <div id="sales-item-stock-container" class="form-group" style="margin-bottom: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Stock Físico Disponible (Unidades)</label>
+            <input type="number" id="sales-item-stock" class="form-control" value="20" min="0">
+          </div>
+        </div>
+
+        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 10px; padding: 12px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <strong style="font-size: 13px; color: #065F46;"><i class="fas fa-mobile-alt"></i> Habilitar en App Móvil</strong>
+            <small style="display: block; color: #047857; font-size: 11px;">Si se desmarca, los huéspedes no podrán pedirlo en su celular</small>
+          </div>
+          <input type="checkbox" id="sales-item-app" checked style="width: 18px; height: 18px; accent-color: #10B981;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 12.5px; font-weight: 600;">Descripción para el Folio / Menú</label>
+          <textarea id="sales-item-desc" class="form-control" rows="2" placeholder="Detalles de ingredientes, porciones o duración del servicio"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 16px; margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-item-sales')">Cancelar</button>
+        <button class="btn btn-primary" onclick="InventoryModule.saveSalesItem()">
+          <i class="fas fa-save"></i> Guardar en Catálogo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal ABM Insumo Uso Interno (Pañol) -->
+  <div id="modal-item-internal" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 520px; padding: 26px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 18px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(99, 102, 241, 0.12); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #6366F1;">
+            <i class="fas fa-boxes"></i>
+          </div>
+          <div>
+            <h3 id="internal-item-title" style="margin: 0; font-size: 19px; color: var(--primary-navy); font-family: var(--font-heading);">Registrar Nuevo Insumo de Uso Interno</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Control de pañol, housekeeping y mantenimiento</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-item-internal')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <input type="hidden" id="internal-item-id">
+
+        <div class="form-group">
+          <label style="font-size: 12.5px; font-weight: 600;">Nombre del Insumo / Material *</label>
+          <input type="text" id="internal-item-name" class="form-control" placeholder="Ej: Jaboncitos 20g, Detergente, Sábanas...">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-size: 12.5px; font-weight: 600;">Categoría de Pañol *</label>
+            <select id="internal-item-category" class="form-control">
+              <option value="Limpieza & Sanitización">Limpieza & Sanitización</option>
+              <option value="Amenidades Huésped">Amenidades Huésped (Jabón, Papel)</option>
+              <option value="Lencería & Blancos">Lencería & Blancos (Toallas, Sábanas)</option>
+              <option value="Repuestos Mantenimiento">Repuestos Mantenimiento (Pilas, Focos)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="font-size: 12.5px; font-weight: 600;">Unidad de Medida *</label>
+            <input type="text" id="internal-item-unit" class="form-control" placeholder="Unidades, Litros, Juegos...">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-size: 12.5px; font-weight: 600;">Stock Actual en Pañol *</label>
+            <input type="number" id="internal-item-stock" class="form-control" value="20" min="0">
+          </div>
+          <div class="form-group">
+            <label style="font-size: 12.5px; font-weight: 600;">Stock Mínimo Seguro *</label>
+            <input type="number" id="internal-item-min" class="form-control" value="10" min="1" title="Si baja de este valor, se marcará alerta de Stock Crítico">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 12.5px; font-weight: 600;">Ubicación / Depósito Físico</label>
+          <input type="text" id="internal-item-location" class="form-control" value="Depósito Central Housekeeping">
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 16px; margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-item-internal')">Cancelar</button>
+        <button class="btn btn-primary" onclick="InventoryModule.saveInternalItem()">
+          <i class="fas fa-save"></i> Guardar Insumo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Movimiento de Stock en Pañol (Entrada / Salida) -->
+  <div id="modal-stock-movement" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 480px; padding: 26px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 18px;">
+        <div>
+          <h3 id="stock-move-title" style="margin: 0; font-size: 19px; color: var(--primary-navy); font-family: var(--font-heading);">
+            Registrar Movimiento de Stock
+          </h3>
+          <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Auditoría contra pérdidas y control de consumo</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-stock-movement')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <input type="hidden" id="stock-move-item-id">
+        <input type="hidden" id="stock-move-type">
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong id="stock-move-item-name" style="color: var(--primary-navy); font-size: 14px;">-</strong>
+            <span id="stock-move-badge"></span>
+          </div>
+          <div style="font-size: 12.5px; color: #64748B;">
+            Stock disponible actual en pañol: <strong id="stock-move-current-stock" style="color: var(--primary-navy);">-</strong>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label style="font-size: 12.5px; font-weight: 600;">Cantidad a Operar *</label>
+          <input type="number" id="stock-move-quantity" class="form-control" value="1" min="1" style="font-size: 18px; font-weight: 700; padding: 8px 12px;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 12.5px; font-weight: 600;">Motivo / Justificación *</label>
+          <input type="text" id="stock-move-reason" class="form-control" placeholder="Ej: Dotación para habitación 102, reposición proveedor...">
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 16px; margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-stock-movement')">Cancelar</button>
+        <button id="btn-confirm-stock-move" class="btn btn-primary" onclick="InventoryModule.saveStockMovement()">
+          <i class="fas fa-save"></i> Confirmar Movimiento
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- =========================================================
        MODAL: FICHA TÉCNICA & VISOR MULTIMEDIA DE HABITACIÓN
        ========================================================= -->
@@ -2285,6 +2749,7 @@
   <script src="js/modules/rates_seasons.js?v=2.1"></script>
   <script src="js/modules/housekeeping.js?v=2.1"></script>
   <script src="js/modules/maintenance.js?v=2.1"></script>
+  <script src="js/modules/inventory.js?v=2.1"></script>
   <script src="js/modules/cash_billing.js?v=2.1"></script>
   <script src="js/modules/guests.js?v=2.1"></script>
   <script src="js/app.js?v=2.1"></script>
