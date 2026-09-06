@@ -131,6 +131,29 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE/Edge */
+}
+
+.sidebar-nav::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar,
+.rack-wrapper::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar,
+.kardex-table-wrapper::-webkit-scrollbar,
+.custom-scrollbar-hide::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+.sidebar,
+.rack-wrapper,
+.table-responsive,
+.kardex-table-wrapper,
+.custom-scrollbar-hide {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .nav-category {

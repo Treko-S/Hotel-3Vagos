@@ -66,36 +66,22 @@
       const green = [22, 101, 52];       // #166534
       const red = [185, 28, 28];         // #B91C1C
 
-      // 1. Barra superior tricolor de la Bandera Paraguaya
-      doc.setFillColor(220, 38, 38); // Rojo
-      doc.rect(0, 0, 70, 3.5, 'F');
-      doc.setFillColor(255, 255, 255); // Blanco
-      doc.rect(70, 0, 70, 3.5, 'F');
-      doc.setFillColor(30, 64, 175); // Azul
-      doc.rect(140, 0, 70, 3.5, 'F');
+      // 1. Barra superior institucional sobria
+      doc.setFillColor(...navy);
+      doc.rect(0, 0, 210, 3.5, 'F');
 
-      // 2. Escarapela Nacional
-      const escarapelaBase64 = window.ESCARAPELA_PY_BASE64 || null;
-      if (escarapelaBase64) {
-        try {
-          doc.addImage(escarapelaBase64, 'PNG', 14, 7, 22, 22);
-        } catch (e) {
-          console.warn('Advertencia al renderizar Escarapela en PDF:', e);
-        }
-      }
-
-      // Membrete Institucional
+      // 2. Membrete Institucional Limpio y Directo (Sin escarapela)
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
+      doc.setFontSize(17);
       doc.setTextColor(...navy);
-      doc.text('HOTEL 3 VAGOS S.A.', 40, 14);
+      doc.text('HOTEL 3 VAGOS S.A.', 14, 14);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(...slate);
-      doc.text('Servicios de Alojamiento y Hospedaje Turístico de Alta Gama', 40, 19);
-      doc.text('Asunción, Paraguay • Convenio Académico e Institucional UTCD', 40, 23);
-      doc.text('Tel: +595 21 555-0199 | E-mail: recepcion@hotel3vagos.com.py', 40, 27);
+      doc.text('Servicios de Alojamiento y Hospedaje Turístico de Alta Gama', 14, 19);
+      doc.text('Asunción, Paraguay • Convenio Académico e Institucional UTCD', 14, 23);
+      doc.text('Tel: +595 21 555-0199 | E-mail: recepcion@hotel3vagos.com.py', 14, 27);
 
       // Recuadro Timbrado Legal SET
       doc.setFillColor(...cardBg);
