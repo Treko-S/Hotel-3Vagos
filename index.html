@@ -613,11 +613,35 @@
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
               <div>
                 <h3 class="panel-title"><i class="fas fa-tag" style="color: var(--primary-gold);"></i> Catálogo Oficial de Productos y Servicios</h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Precios en Guaraníes y switch en tiempo real para pausar o habilitar pedidos desde la App Móvil</p>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Precios en Guaraníes, soporte multimedia y sincronización en tiempo real con la App Móvil</p>
               </div>
               <button class="btn btn-primary" onclick="InventoryModule.openSalesItemModal()">
                 <i class="fas fa-plus"></i> Nuevo Ítem para Venta
               </button>
+            </div>
+
+            <!-- Barra de Filtros por Categoría y Ordenación -->
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; background: #F8FAFC; padding: 10px 14px; border-radius: 12px; border: 1px solid #E2E8F0;">
+              <!-- Categorías Tabs -->
+              <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 4px;">Categoría:</span>
+                <button type="button" id="sales-filter-all" class="btn btn-sm sales-cat-btn active" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('all')">Todos</button>
+                <button type="button" id="sales-filter-minibar" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Minibar')"><i class="fas fa-cocktail"></i> Minibar</button>
+                <button type="button" id="sales-filter-roomservice" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Room Service')"><i class="fas fa-utensils"></i> Room Service</button>
+                <button type="button" id="sales-filter-spa" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Spa & Bienestar')"><i class="fas fa-spa"></i> Spa & Relax</button>
+                <button type="button" id="sales-filter-extra" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Servicios Extra')"><i class="fas fa-concierge-bell"></i> Servicios Extra</button>
+              </div>
+
+              <!-- Selector de Ordenación -->
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;"><i class="fas fa-sort-amount-down"></i> Ordenar:</span>
+                <select id="sales-sort-select" class="form-control" style="font-size: 12px; height: 32px; padding: 2px 10px; width: auto; border-radius: 8px;" onchange="InventoryModule.sortSalesCatalog(this.value)">
+                  <option value="category">Por Categoría (A-Z)</option>
+                  <option value="price-asc">Precio: Menor a Mayor</option>
+                  <option value="price-desc">Precio: Mayor a Menor</option>
+                  <option value="name">Nombre (A-Z)</option>
+                </select>
+              </div>
             </div>
 
             <div style="overflow-x: auto;">
@@ -2200,6 +2224,43 @@
           <input type="checkbox" id="sales-item-app" checked style="width: 18px; height: 18px; accent-color: #10B981;">
         </div>
 
+        <!-- Fotografía del Producto / Servicio (App Móvil & Menú) -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <label style="font-size: 12.5px; font-weight: 600; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-camera" style="color: var(--primary-gold);"></i> Fotografía del Producto / Servicio
+            </label>
+            <span style="font-size: 11px; color: var(--text-muted);">Sincronizada con la App Móvil</span>
+          </div>
+
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <!-- Caja de Previsualización -->
+            <div id="sales-item-image-preview-box" style="width: 58px; height: 58px; border-radius: 10px; border: 1px dashed #CBD5E1; background: #FFF; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; box-shadow: var(--shadow-sm);">
+              <img id="sales-item-image-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+              <i id="sales-item-image-placeholder" class="fas fa-image" style="font-size: 22px; color: #94A3B8;"></i>
+            </div>
+
+            <div style="flex: 1;">
+              <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                <input type="text" id="sales-item-image" class="form-control" placeholder="Pegue la URL directa o use presets..." style="font-size: 12px; height: 32px;" oninput="InventoryModule.onSalesImageUrlInput()">
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('sales-item-file-input').click()" style="white-space: nowrap; height: 32px; padding: 0 10px; font-size: 11px;" title="Subir foto desde su dispositivo">
+                  <i class="fas fa-upload"></i> Subir
+                </button>
+                <input type="file" id="sales-item-file-input" accept="image/*" style="display: none;" onchange="InventoryModule.onSalesImageFileSelected(event)">
+              </div>
+              <div style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
+                <span style="font-size: 10.5px; color: var(--text-muted); font-weight: 600;">Presets:</span>
+                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('desayuno')">Desayuno</button>
+                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('spa')">Spa</button>
+                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('agua')">Agua</button>
+                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('cerveza')">Cerveza</button>
+                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('hamburguesa')">Burger</button>
+                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('lavanderia')">Lavandería</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group" style="margin-bottom: 0;">
           <label style="font-size: 12.5px; font-weight: 600;">Descripción para el Folio / Menú</label>
           <textarea id="sales-item-desc" class="form-control" rows="2" placeholder="Detalles de ingredientes, porciones o duración del servicio"></textarea>
@@ -2727,22 +2788,22 @@
   <div id="toast-container"></div>
 
   <!-- Scripts Operativos del Sistema PMS -->
-  <script src="js/vendor/jspdf.umd.min.js?v=2.1"></script>
-  <script src="js/vendor/jspdf.plugin.autotable.min.js?v=2.1"></script>
-  <script src="js/escarapela_data.js?v=2.1"></script>
-  <script src="js/supabase_client.js?v=2.1"></script>
-  <script src="js/auth.js?v=2.1"></script>
-  <script src="js/dialogs.js?v=2.1"></script>
-  <script src="js/folio_pdf_service.js?v=2.1"></script>
-  <script src="js/modules/dashboard.js?v=2.1"></script>
-  <script src="js/modules/reservations.js?v=2.1"></script>
-  <script src="js/modules/rooms.js?v=2.1"></script>
-  <script src="js/modules/rates_seasons.js?v=2.1"></script>
-  <script src="js/modules/housekeeping.js?v=2.1"></script>
-  <script src="js/modules/maintenance.js?v=2.1"></script>
-  <script src="js/modules/inventory.js?v=2.1"></script>
-  <script src="js/modules/cash_billing.js?v=2.1"></script>
-  <script src="js/modules/guests.js?v=2.1"></script>
-  <script src="js/app.js?v=2.1"></script>
+  <script src="js/vendor/jspdf.umd.min.js?v=2.2"></script>
+  <script src="js/vendor/jspdf.plugin.autotable.min.js?v=2.2"></script>
+  <script src="js/escarapela_data.js?v=2.2"></script>
+  <script src="js/supabase_client.js?v=2.2"></script>
+  <script src="js/auth.js?v=2.2"></script>
+  <script src="js/dialogs.js?v=2.2"></script>
+  <script src="js/folio_pdf_service.js?v=2.2"></script>
+  <script src="js/modules/dashboard.js?v=2.2"></script>
+  <script src="js/modules/reservations.js?v=2.2"></script>
+  <script src="js/modules/rooms.js?v=2.2"></script>
+  <script src="js/modules/rates_seasons.js?v=2.2"></script>
+  <script src="js/modules/housekeeping.js?v=2.2"></script>
+  <script src="js/modules/maintenance.js?v=2.2"></script>
+  <script src="js/modules/inventory.js?v=2.2"></script>
+  <script src="js/modules/cash_billing.js?v=2.2"></script>
+  <script src="js/modules/guests.js?v=2.2"></script>
+  <script src="js/app.js?v=2.2"></script>
 </body>
 </html>

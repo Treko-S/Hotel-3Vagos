@@ -32,17 +32,50 @@ const MaintenanceModule = {
 
       const { data, error } = await supabaseClient
         .from('ordenes_mantenimiento')
-        .select('*')
-        .order('id', { ascending: false });
+        .select('*, habitaciones(numero)')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       this.orders = data || [];
+
+      // Sincronizar bidireccionalmente con la bitácora de Housekeeping (hotel_hk_incidents)
+      let hkIncidents = [];
+      try {
+        const rawHk = localStorage.getItem('hotel_hk_incidents');
+        if (rawHk) hkIncidents = JSON.parse(rawHk);
+      } catch (e) {}
+
+      // Si hay incidencias en la bitácora de HK marcadas para mantenimiento, asegurar su presencia
+      hkIncidents.forEach(inc => {
+        if ((inc.nature || '').toLowerCase() === 'mantenimiento') {
+          const alreadyInOrders = this.orders.some(o => 
+            (o.descripcion && o.descripcion.includes(inc.description)) ||
+            (o.habitaciones && String(o.habitaciones.numero) === String(inc.roomNumber)) ||
+            String(o.habitacion_id) === String(inc.roomNumber)
+          );
+          if (!alreadyInOrders) {
+            this.orders.push({
+              id: inc.id || 'HK-104',
+              habitacion_id: inc.roomNumber,
+              roomNumberDisplay: inc.roomNumber,
+              titulo: 'Incidencia técnica reportada por Housekeeping',
+              descripcion: `[Reporte ${inc.reportedBy || 'Mucama'}]: ${inc.description}`,
+              prioridad: 'Alta',
+              estado: inc.status === 'Resuelto por Mantenimiento' ? 'Resuelto' : 'Pendiente',
+              costo_reparacion: 0,
+              tecnico_asignado: 'Mario Gómez (Mantenimiento Técnico)',
+              isLocalHk: true,
+              localHkId: inc.id
+            });
+          }
+        }
+      });
+
       this.renderTable(this.orders);
 
     } catch (err) {
       console.error('Error al cargar órdenes de mantenimiento:', err);
-      // Si la tabla no tiene datos o está vacía
       this.renderTable([]);
     }
   },
@@ -59,12 +92,18 @@ const MaintenanceModule = {
     let html = '';
     list.forEach(ord => {
       const isPending = (ord.estado || '').toLowerCase() !== 'resuelto';
+      const roomNum = ord.habitaciones?.numero || ord.roomNumberDisplay || ord.habitacion_id || 'General';
+      const shortId = typeof ord.id === 'string' && ord.id.length > 8 ? ord.id.substring(0, 8).toUpperCase() : ord.id;
+      const title = ord.titulo || ord.tipo_incidencia || 'Incidencia Técnica';
+      const tech = ord.tecnico_asignado || (ord.tecnico_id ? 'Técnico Especialista' : 'Mario Gómez (Mantenimiento)');
+      const cost = ord.costo_reparacion !== undefined ? ord.costo_reparacion : (ord.costo_estimado || 0);
+
       html += `
         <tr>
-          <td><strong>#MNT-${ord.id}</strong></td>
-          <td><strong style="color: var(--primary-navy);">Habitación ${ord.habitacion_id || 'General'}</strong></td>
+          <td><strong>#MNT-${shortId}</strong></td>
+          <td><strong style="color: var(--primary-navy);">Habitación ${roomNum}</strong></td>
           <td>
-            <div style="font-weight: 600;">${sanitizeInput(ord.tipo_incidencia || 'General')}</div>
+            <div style="font-weight: 600;">${sanitizeInput(title)}</div>
             <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(ord.descripcion || '')}</div>
           </td>
           <td>
@@ -72,12 +111,12 @@ const MaintenanceModule = {
               ${sanitizeInput(ord.prioridad || 'Media')}
             </span>
           </td>
-          <td>${sanitizeInput(ord.tecnico_asignado || 'Técnico de Turno')}</td>
-          <td>${formatGs(ord.costo_estimado || 0)}</td>
+          <td>${sanitizeInput(tech)}</td>
+          <td>${formatGs(cost)}</td>
           <td>
             <div class="action-btn-group">
               ${isPending ? `
-                <button class="btn-action btn-action-reserve" onclick="MaintenanceModule.resolveOrder(${ord.id}, ${ord.habitacion_id})" title="Marcar orden como resuelta">
+                <button class="btn-action btn-action-reserve" onclick="MaintenanceModule.resolveOrder('${ord.id}', '${roomNum}')" title="Marcar orden como resuelta">
                   <i class="fas fa-check"></i> Resolver
                 </button>
               ` : `<span class="badge badge-disponible"><i class="fas fa-check-double"></i> Resuelto</span>`}
@@ -99,17 +138,16 @@ const MaintenanceModule = {
       const roomId = document.getElementById('maint-room-select').value;
       const type = document.getElementById('maint-type').value;
       const priority = document.getElementById('maint-priority').value;
-      const tech = document.getElementById('maint-tech').value || 'Técnico Especialista';
+      const tech = document.getElementById('maint-tech').value || 'Mario Gómez (Mantenimiento Técnico)';
       const cost = Number(document.getElementById('maint-cost').value) || 0;
       const desc = document.getElementById('maint-desc').value.trim();
 
-      // 1. Insertar orden en ordenes_mantenimiento
+      // 1. Insertar orden en ordenes_mantenimiento con columnas compatibles con Supabase
       const { error: ordErr } = await supabaseClient.from('ordenes_mantenimiento').insert({
         habitacion_id: roomId,
-        tipo_incidencia: type,
+        titulo: type,
         prioridad: priority,
-        tecnico_asignado: tech,
-        costo_estimado: cost,
+        costo_reparacion: cost,
         descripcion: desc,
         estado: 'En Proceso'
       });
@@ -138,13 +176,30 @@ const MaintenanceModule = {
 
   async resolveOrder(orderId, roomId) {
     try {
-      // 1. Marcar orden como resuelta
-      await supabaseClient.from('ordenes_mantenimiento').update({
-        estado: 'Resuelto'
-      }).eq('id', orderId);
+      // 1. Marcar orden como resuelta en Supabase si no es puramente local
+      if (!String(orderId).startsWith('HK-')) {
+        await supabaseClient.from('ordenes_mantenimiento').update({
+          estado: 'Resuelto'
+        }).eq('id', orderId);
+      }
 
-      // 2. Pasar habitación a 'Sucia' para inspección/limpieza final
-      if (roomId) {
+      // 2. Sincronizar bidireccionalmente con la bitácora de Housekeeping
+      try {
+        const rawHk = localStorage.getItem('hotel_hk_incidents');
+        if (rawHk) {
+          let hkIncidents = JSON.parse(rawHk);
+          hkIncidents = hkIncidents.map(inc => {
+            if (String(inc.id) === String(orderId) || String(inc.roomNumber) === String(roomId)) {
+              return { ...inc, status: 'Resuelto por Mantenimiento' };
+            }
+            return inc;
+          });
+          localStorage.setItem('hotel_hk_incidents', JSON.stringify(hkIncidents));
+        }
+      } catch (e) {}
+
+      // 3. Pasar habitación a 'Sucia' para inspección/limpieza final
+      if (roomId && !isNaN(Number(roomId))) {
         await supabaseClient.from('habitaciones').update({
           estado: 'Sucia',
           observaciones: 'Mantenimiento finalizado. Requiere limpieza previa a liberación.'

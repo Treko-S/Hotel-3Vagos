@@ -1044,13 +1044,15 @@ const HousekeepingModule = {
         const roomObj = this.currentRooms.find(r => String(r.numero) === String(roomNumber));
         await supabaseClient.from('ordenes_mantenimiento').insert({
           habitacion_id: roomObj ? roomObj.id : null,
-          tipo_incidencia: 'Incidencia reportada por Housekeeping',
+          titulo: `Incidencia técnica Habitación ${roomNumber}`,
           descripcion: `[Reporte ${reporter}]: ${description}`,
           prioridad: 'Alta',
-          tecnico_asignado: 'Mario Gómez (Mantenimiento Técnico)',
-          costo_estimado: 0,
+          costo_reparacion: 0,
           estado: 'Pendiente'
         });
+        if (typeof MaintenanceModule !== 'undefined' && MaintenanceModule.loadOrders) {
+          MaintenanceModule.loadOrders();
+        }
       } catch (e) {
         console.warn('Mantenimiento auto-insert skip:', e);
       }

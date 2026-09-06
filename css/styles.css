@@ -1515,5 +1515,27 @@ html[data-user-role="jefa_limpieza"] .nav-category:first-of-type {
   font-weight: 700;
 }
 
+.sales-cat-btn {
+  background: #FFFFFF;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+}
+
+.sales-cat-btn:hover {
+  background: #F1F5F9;
+  color: var(--primary-navy, #0A192F);
+  border-color: #94A3B8;
+}
+
+.sales-cat-btn.active {
+  background: var(--primary-navy, #0A192F) !important;
+  color: #FFFFFF !important;
+  border-color: var(--primary-navy, #0A192F) !important;
+  box-shadow: 0 2px 6px rgba(10, 25, 47, 0.25);
+}
+
 
 

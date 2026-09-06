@@ -63,7 +63,7 @@ const CashBillingModule = {
     try {
       const { data, error } = await supabaseClient
         .from('sesiones_caja')
-        .select('*')
+        .select('*, users(full_name)')
         .eq('estado', 'Abierta')
         .order('id', { ascending: false })
         .limit(1);
@@ -105,7 +105,7 @@ const CashBillingModule = {
             <span class="badge badge-confirmada" style="font-size: 11px;">Turno Activo</span>
           </div>
           <p style="font-size: 12.5px; color: var(--text-muted); margin: 6px 0 4px;">
-            Responsable: <strong style="color: var(--primary-navy);">${sanitizeInput(session.responsable || 'Recepcionista')}</strong> • Fondo Fijo Apertura: <strong>${formatGs(apertura)}</strong>
+            Responsable: <strong style="color: var(--primary-navy);">${sanitizeInput(session.responsable || session.users?.full_name || localStorage.getItem('caja_responsable') || 'Marcos Rolón (Recepcionista)')}</strong> • Turno: <strong style="color: var(--primary-navy);">${sanitizeInput(localStorage.getItem('caja_turno') || 'Turno Mañana')}</strong> • Fondo Fijo Apertura: <strong>${formatGs(apertura)}</strong>
           </p>
           <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 12px;">
             <span style="color: #166534;"><i class="fas fa-arrow-down"></i> Cobros Efectivo: <strong>+${formatGs(totalEfec)}</strong></span>
@@ -387,11 +387,21 @@ const CashBillingModule = {
   async confirmAperturaCaja() {
     try {
       const monto = Number(document.getElementById('caja-monto-inicial').value) || 0;
-      const resp = document.getElementById('caja-responsable').value.trim() || 'Recepcionista Turno';
+      const resp = document.getElementById('caja-responsable').value.trim() || 'Marcos Rolón (Recepcionista)';
+      const turno = document.getElementById('caja-turno-select')?.value || 'Turno Mañana (06:00 - 14:00)';
+
+      // Almacenar metadatos para UI y auditoría legal
+      localStorage.setItem('caja_responsable', resp);
+      localStorage.setItem('caja_turno', turno);
+
+      // Obtener usuario_id válido (FK obligatoria a users)
+      const validUserId = (typeof AppState !== 'undefined' && AppState.currentUser?.id && AppState.currentUser.id.length > 20)
+        ? AppState.currentUser.id
+        : '44635480-0093-4c8f-930c-6d4a12c1d5fe'; // Laura Benítez (Recepción)
 
       const { error } = await supabaseClient.from('sesiones_caja').insert({
+        usuario_id: validUserId,
         monto_apertura: monto,
-        responsable: resp,
         estado: 'Abierta'
       });
 
@@ -619,11 +629,14 @@ const CashBillingModule = {
       const updateData = {
         estado: 'Cerrada',
         monto_cierre: real,
-        diferencia_arqueo: diff,
-        observaciones: obs
+        monto_diferencia: diff,
+        fecha_cierre: new Date().toISOString()
       };
 
       await supabaseClient.from('sesiones_caja').update(updateData).eq('id', this.currentSession.id);
+
+      localStorage.removeItem('caja_responsable');
+      localStorage.removeItem('caja_turno');
 
       closeModal('modal-cash-cierre');
       showToast(`Turno de caja cerrado. Arqueo completado (${diff === 0 ? 'Caja Cuadrada' : (diff > 0 ? 'Sobrante ' + formatGs(diff) : 'Faltante ' + formatGs(Math.abs(diff)))}).`, 'success');

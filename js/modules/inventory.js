@@ -4,12 +4,13 @@
  * 1. Catálogo Para la Venta (Minibar, Room Service, Spa, Servicios Extra) con switch para App Móvil
  * 2. Uso Interno (Insumos de limpieza, Lencería/Blancos, Amenidades, Repuestos) con control de fugas
  */
-
 const InventoryModule = {
   activeTab: 'sales', // 'sales' | 'internal'
   salesItems: [],
   internalItems: [],
   stockMovements: [],
+  selectedCategory: 'all',
+  sortBy: 'category',
 
   async init() {
     this.loadData();
@@ -23,6 +24,21 @@ const InventoryModule = {
       const savedSales = localStorage.getItem('hotel_catalog_sales');
       if (savedSales) {
         this.salesItems = JSON.parse(savedSales);
+        // Garantizar que todos los ítems posean imagen por defecto si aún no la tienen
+        const defaultImages = {
+          1: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800",
+          2: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800",
+          3: "https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=800",
+          4: "https://images.unsplash.com/photo-1608270199026-663f7389a056?w=800",
+          5: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800",
+          6: "https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800"
+        };
+        this.salesItems.forEach(item => {
+          if (!item.imageUrl && defaultImages[item.id]) {
+            item.imageUrl = defaultImages[item.id];
+          }
+        });
+        this.saveSalesData();
       } else {
         this.salesItems = [
           {
@@ -33,7 +49,8 @@ const InventoryModule = {
             availableInApp: true,
             stock: null, // Servicio intangible
             isPhysical: false,
-            description: "Desayuno completo en el salón comedor con frutas, café, jugos y panificados."
+            description: "Desayuno completo en el salón comedor con frutas, café, jugos y panificados.",
+            imageUrl: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800"
           },
           {
             id: 2,
@@ -43,7 +60,8 @@ const InventoryModule = {
             availableInApp: true,
             stock: null,
             isPhysical: false,
-            description: "Sesión terapéutica en cabina de spa con aromaterapia y aceites esenciales."
+            description: "Sesión terapéutica en cabina de spa con aromaterapia y aceites esenciales.",
+            imageUrl: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800"
           },
           {
             id: 3,
@@ -53,7 +71,8 @@ const InventoryModule = {
             availableInApp: true,
             stock: 48,
             isPhysical: true,
-            description: "Agua purificada fría de manantial en botella PET."
+            description: "Agua purificada fría de manantial en botella PET.",
+            imageUrl: "https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=800"
           },
           {
             id: 4,
@@ -63,7 +82,8 @@ const InventoryModule = {
             availableInApp: true,
             stock: 24,
             isPhysical: true,
-            description: "Cerveza rubia importada fría con gajo de lima."
+            description: "Cerveza rubia importada fría con gajo de lima.",
+            imageUrl: "https://images.unsplash.com/photo-1608270199026-663f7389a056?w=800"
           },
           {
             id: 5,
@@ -73,7 +93,8 @@ const InventoryModule = {
             availableInApp: true,
             stock: 15,
             isPhysical: true,
-            description: "Carne angus 200g, queso cheddar, cebolla caramelizada y salsa especial."
+            description: "Carne angus 200g, queso cheddar, cebolla caramelizada y salsa especial.",
+            imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800"
           },
           {
             id: 6,
@@ -83,7 +104,8 @@ const InventoryModule = {
             availableInApp: false, // Apagado temporalmente para la App
             stock: null,
             isPhysical: false,
-            description: "Lavado y planchado en el día con entrega en percha a la habitación."
+            description: "Lavado y planchado en el día con entrega en percha a la habitación.",
+            imageUrl: "https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800"
           }
         ];
         this.saveSalesData();
@@ -201,6 +223,24 @@ const InventoryModule = {
   /* =========================================================
      1. PESTAÑA PARA LA VENTA (SERVICIOS, ROOM SERVICE & APP)
      ========================================================= */
+  filterSalesCategory(cat) {
+    this.selectedCategory = cat;
+    document.querySelectorAll('.sales-cat-btn').forEach(btn => btn.classList.remove('active'));
+    const target = document.getElementById(
+      cat === 'all' ? 'sales-filter-all' :
+      cat === 'Minibar' ? 'sales-filter-minibar' :
+      cat === 'Room Service' ? 'sales-filter-roomservice' :
+      cat === 'Spa & Bienestar' ? 'sales-filter-spa' : 'sales-filter-extra'
+    );
+    if (target) target.classList.add('active');
+    this.renderSalesCatalog();
+  },
+
+  sortSalesCatalog(criteria) {
+    this.sortBy = criteria;
+    this.renderSalesCatalog();
+  },
+
   renderSalesCatalog() {
     const tbody = document.getElementById('inv-sales-table-body');
     const kpiTotal = document.getElementById('inv-sales-kpi-total');
@@ -213,13 +253,30 @@ const InventoryModule = {
 
     if (!tbody) return;
 
-    if (this.salesItems.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay ítems registrados en el catálogo de venta.</td></tr>`;
+    // Filtrar por categoría
+    let list = [...this.salesItems];
+    if (this.selectedCategory && this.selectedCategory !== 'all') {
+      list = list.filter(i => i.category === this.selectedCategory);
+    }
+
+    // Ordenar según criterio seleccionado
+    if (this.sortBy === 'category') {
+      list.sort((a, b) => (a.category || '').localeCompare(b.category || ''));
+    } else if (this.sortBy === 'price-asc') {
+      list.sort((a, b) => (a.price || 0) - (b.price || 0));
+    } else if (this.sortBy === 'price-desc') {
+      list.sort((a, b) => (b.price || 0) - (a.price || 0));
+    } else if (this.sortBy === 'name') {
+      list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }
+
+    if (list.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay ítems en esta categoría.</td></tr>`;
       return;
     }
 
     let html = '';
-    this.salesItems.forEach(item => {
+    list.forEach(item => {
       const isApp = item.availableInApp;
       const categoryBadge = this.getSalesCategoryBadge(item.category);
       const stockDisplay = item.isPhysical 
@@ -229,8 +286,18 @@ const InventoryModule = {
       html += `
         <tr>
           <td>
-            <strong style="color: var(--primary-navy); font-size: 14px;">${sanitizeInput(item.name)}</strong>
-            <small style="display: block; color: var(--text-muted); font-size: 11.5px;">${sanitizeInput(item.description || '-')}</small>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 48px; height: 48px; border-radius: 8px; overflow: hidden; background: #F1F5F9; border: 1px solid #E2E8F0; flex-shrink: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.06);" onclick="InventoryModule.previewImageModal('${item.imageUrl || ''}', '${sanitizeInput(item.name)}')" title="Ver foto ampliada">
+                ${item.imageUrl 
+                  ? `<img src="${item.imageUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none';">`
+                  : `<i class="fas fa-image" style="color: #94A3B8; font-size: 18px;"></i>`
+                }
+              </div>
+              <div>
+                <strong style="color: var(--primary-navy); font-size: 14px;">${sanitizeInput(item.name)}</strong>
+                <small style="display: block; color: var(--text-muted); font-size: 11.5px;">${sanitizeInput(item.description || '-')}</small>
+              </div>
+            </div>
           </td>
           <td>${categoryBadge}</td>
           <td>
@@ -249,7 +316,7 @@ const InventoryModule = {
           </td>
           <td>
             <div class="action-btn-group">
-              <button class="btn-action btn-action-edit" onclick="InventoryModule.openSalesItemModal(${item.id})" title="Editar producto o precio">
+              <button class="btn-action btn-action-edit" onclick="InventoryModule.openSalesItemModal(${item.id})" title="Editar producto, precio o foto">
                 <i class="fas fa-edit"></i> Editar
               </button>
               <button class="btn-action" style="background: #FEE2E2; color: #991B1B;" onclick="InventoryModule.deleteSalesItem(${item.id})" title="Eliminar del catálogo">
@@ -302,6 +369,12 @@ const InventoryModule = {
     document.getElementById('sales-item-app').checked = item ? !!item.availableInApp : true;
     document.getElementById('sales-item-desc').value = item ? (item.description || '') : '';
 
+    const imgInput = document.getElementById('sales-item-image');
+    if (imgInput) {
+      imgInput.value = item ? (item.imageUrl || '') : '';
+      this.onSalesImageUrlInput();
+    }
+
     this.onPhysicalItemChange();
     openModal('modal-item-sales');
   },
@@ -314,6 +387,89 @@ const InventoryModule = {
     }
   },
 
+  onSalesImageUrlInput() {
+    const input = document.getElementById('sales-item-image');
+    const preview = document.getElementById('sales-item-image-preview');
+    const placeholder = document.getElementById('sales-item-image-placeholder');
+    const url = input ? input.value.trim() : '';
+
+    if (url && preview && placeholder) {
+      preview.src = url;
+      preview.style.display = 'block';
+      placeholder.style.display = 'none';
+      preview.onerror = () => {
+        preview.style.display = 'none';
+        placeholder.style.display = 'block';
+      };
+    } else if (preview && placeholder) {
+      preview.src = '';
+      preview.style.display = 'none';
+      placeholder.style.display = 'block';
+    }
+  },
+
+  onSalesImageFileSelected(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      const input = document.getElementById('sales-item-image');
+      if (input) {
+        input.value = dataUrl;
+        this.onSalesImageUrlInput();
+      }
+    };
+    reader.readAsDataURL(file);
+  },
+
+  setSalesImagePreset(type) {
+    const presets = {
+      'desayuno': 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800',
+      'spa': 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800',
+      'agua': 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=800',
+      'cerveza': 'https://images.unsplash.com/photo-1608270199026-663f7389a056?w=800',
+      'hamburguesa': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800',
+      'lavanderia': 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800'
+    };
+    const input = document.getElementById('sales-item-image');
+    if (input && presets[type]) {
+      input.value = presets[type];
+      this.onSalesImageUrlInput();
+    }
+  },
+
+  previewImageModal(url, title) {
+    if (!url) {
+      showToast('Este ítem no tiene foto cargada', 'info');
+      return;
+    }
+    // Crear o reutilizar lightbox emergente
+    let lightbox = document.getElementById('modal-image-lightbox');
+    if (!lightbox) {
+      lightbox = document.createElement('div');
+      lightbox.id = 'modal-image-lightbox';
+      lightbox.className = 'modal-backdrop';
+      lightbox.style.zIndex = '9999';
+      lightbox.innerHTML = `
+        <div class="modal-box" style="max-width: 520px; padding: 16px; border-radius: 16px; text-align: center; background: #0F172A;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 id="lightbox-title" style="color: #FFF; font-size: 16px; margin: 0;">Foto</h4>
+            <button class="modal-close" style="color: #FFF;" onclick="closeModal('modal-image-lightbox')">&times;</button>
+          </div>
+          <div style="border-radius: 12px; overflow: hidden; max-height: 420px; display: flex; align-items: center; justify-content: center; background: #000;">
+            <img id="lightbox-img" src="" style="width: 100%; max-height: 420px; object-fit: contain;">
+          </div>
+        </div>
+      `;
+      document.body.appendChild(lightbox);
+    }
+    document.getElementById('lightbox-title').innerText = title || 'Producto / Servicio';
+    document.getElementById('lightbox-img').src = url;
+    openModal('modal-image-lightbox');
+  },
+
   saveSalesItem() {
     const idInput = document.getElementById('sales-item-id').value;
     const name = document.getElementById('sales-item-name').value.trim();
@@ -323,6 +479,7 @@ const InventoryModule = {
     const stock = isPhysical ? (parseInt(document.getElementById('sales-item-stock').value, 10) || 0) : null;
     const availableInApp = document.getElementById('sales-item-app').checked;
     const description = document.getElementById('sales-item-desc').value.trim();
+    const imageUrl = document.getElementById('sales-item-image')?.value.trim() || '';
 
     if (!name) {
       showToast('Debe ingresar el nombre del producto o servicio', 'warning');
@@ -345,6 +502,7 @@ const InventoryModule = {
         item.stock = stock;
         item.availableInApp = availableInApp;
         item.description = description;
+        item.imageUrl = imageUrl;
       }
       showToast(`Producto "${name}" actualizado con éxito`, 'success');
     } else {
@@ -358,7 +516,8 @@ const InventoryModule = {
         isPhysical,
         stock,
         availableInApp,
-        description
+        description,
+        imageUrl
       });
       showToast(`Producto "${name}" agregado al catálogo oficial`, 'success');
     }
