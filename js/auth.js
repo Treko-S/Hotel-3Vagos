@@ -364,3 +364,5 @@ const AuthModule = {
     this.openLogoutModal();
   }
 };
+
+window.AuthModule = AuthModule;

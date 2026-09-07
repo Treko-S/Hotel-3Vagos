@@ -71,6 +71,53 @@ const CustomDialog = {
   },
 
   /**
+   * Muestra un diálogo de alerta o auditoría personalizado con soporte HTML
+   * @param {Object} options
+   * @returns {Promise<boolean>}
+   */
+  alert({
+    title = 'Información',
+    message = '',
+    subtitle = 'Auditoría & Control PMS',
+    icon = 'fa-info-circle',
+    confirmText = 'Entendido'
+  } = {}) {
+    return new Promise((resolve) => {
+      this._alertResolve = resolve;
+
+      const modal = document.getElementById('modal-custom-alert');
+      if (!modal) {
+        window.alert(typeof message === 'string' ? message.replace(/<[^>]*>/g, '') : message);
+        resolve(true);
+        return;
+      }
+
+      const titleEl = document.getElementById('dialog-alert-title');
+      const subEl = document.getElementById('dialog-alert-subtitle');
+      const msgEl = document.getElementById('dialog-alert-message');
+      const iconEl = document.getElementById('dialog-alert-icon');
+      const btnEl = document.getElementById('dialog-alert-ok-btn');
+
+      if (titleEl) titleEl.textContent = title;
+      if (subEl) subEl.textContent = subtitle;
+      if (msgEl) msgEl.innerHTML = message;
+      if (iconEl) iconEl.className = `fas ${icon}`;
+      if (btnEl) btnEl.textContent = confirmText;
+
+      openModal('modal-custom-alert');
+    });
+  },
+
+  handleAlertOk() {
+    closeModal('modal-custom-alert');
+    if (this._alertResolve) {
+      const r = this._alertResolve;
+      this._alertResolve = null;
+      r(true);
+    }
+  },
+
+  /**
    * Muestra un diálogo de entrada de texto personalizado
    * @param {Object} options
    * @returns {Promise<string|null>}

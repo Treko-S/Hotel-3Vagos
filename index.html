@@ -108,7 +108,7 @@
       </a>
 
       <div class="nav-category">Configuración & Sistema</div>
-      <a class="nav-item" onclick="openModal('modal-hotel-config')" style="cursor: pointer;" title="Ajustes institucionales, políticas y timbrado SET">
+      <a class="nav-item" onclick="openModal('modal-hotel-config'); toggleMobileSidebar(false);" style="cursor: pointer;" title="Ajustes institucionales, políticas y timbrado SET">
         <i class="fas fa-hotel"></i>
         <span>Configuración Hotel</span>
       </a>
@@ -321,11 +321,14 @@
             </div>
             <div class="panel-tools" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
               <div class="view-toggle-group" style="display: flex; background: #E2E8F0; padding: 3px; border-radius: 8px; gap: 3px;">
-                <button type="button" id="btn-view-res-table" class="btn-toggle-view active" onclick="ReservationsModule.switchSubView('table')">
+                <button type="button" id="btn-view-res-table" class="btn-toggle-view active" onclick="ReservationsModule.switchSubView('table')" title="Ver reservas activas y pendientes">
                   <i class="fas fa-list"></i> Lista
                 </button>
-                <button type="button" id="btn-view-res-rack" class="btn-toggle-view" onclick="ReservationsModule.switchSubView('rack')">
+                <button type="button" id="btn-view-res-rack" class="btn-toggle-view" onclick="ReservationsModule.switchSubView('rack')" title="Ver calendario visual Gantt">
                   <i class="fas fa-calendar-alt"></i> Rack de Ocupación
+                </button>
+                <button type="button" id="btn-view-res-history" class="btn-toggle-view" onclick="ReservationsModule.switchSubView('history')" title="Ver historial de reservas finalizadas (solo lectura)">
+                  <i class="fas fa-history"></i> Historial de Reservas
                 </button>
               </div>
               <div class="search-box">
@@ -333,11 +336,10 @@
                 <input type="text" id="search-reservations" placeholder="Buscar por código, huésped o habitación...">
               </div>
               <select id="filter-res-status" class="form-control" style="width: auto; padding: 7px 12px;">
-                <option value="ALL">Todos los Estados</option>
+                <option value="ALL">Todos los Estados Activos</option>
                 <option value="CONFIRMADA">Confirmadas</option>
                 <option value="GARANTIZADA">Garantizadas (con Seña/Pago)</option>
                 <option value="CHECK-IN">En Estadía (Check-in)</option>
-                <option value="FINALIZADA">Finalizadas</option>
                 <option value="CANCELADA">Canceladas</option>
               </select>
               <button class="btn btn-primary" onclick="ReservationsModule.openNewReservationModal()">
@@ -409,6 +411,49 @@
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+
+          <!-- CONTENEDOR 3: HISTORIAL DE RESERVAS FINALIZADAS (SOLO LECTURA) -->
+          <div id="reservations-history-container" style="display: none;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 34px; height: 34px; border-radius: 8px; background: rgba(16, 185, 129, 0.12); color: #10B981; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                  <i class="fas fa-archive"></i>
+                </div>
+                <div>
+                  <strong style="color: var(--primary-navy); font-size: 14px;">Historial Oficial de Reservas Concluidas</strong>
+                  <p style="font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0;">
+                    Registro histórico y archivo inmutable de estadías finalizadas y folios saldados (Modo Consulta / Solo Lectura)
+                  </p>
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="badge" style="background: #E2E8F0; color: #334155; font-size: 11.5px; padding: 4px 10px; font-weight: 600;">
+                  <i class="fas fa-lock"></i> Solo Lectura
+                </span>
+              </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Código / Canal</th>
+                    <th>Habitación & Tipo</th>
+                    <th>Estadía Realizada</th>
+                    <th>Huésped Titular</th>
+                    <th>Monto Total Liquidado</th>
+                    <th>Seña / Anticipo</th>
+                    <th>Saldo</th>
+                    <th>Estado</th>
+                    <th style="text-align: center;">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="reservations-history-table-body">
+                  <!-- Dinámico -->
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -2028,6 +2073,7 @@
           <button class="btn btn-outline btn-sm" onclick="ReservationsModule.downloadCurrentFolioPdf()" title="Descargar Comprobante Legal Oficial en PDF">
             <i class="fas fa-file-pdf" style="color: #DC2626;"></i> Descargar PDF
           </button>
+        </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button id="btn-folio-checkout-action" class="btn btn-warning btn-sm" onclick="closeModal('modal-folio'); ReservationsModule.openCheckOutModal(ReservationsModule.currentActiveFolioBooking?.id)" title="Cobrar y realizar Check-out en Caja Mostrador" style="background: #D97706; color: #fff; border-color: #B45309;">
             <i class="fas fa-cash-register"></i> Cobrar en Caja & Check-out
@@ -2178,6 +2224,30 @@
         <button class="btn btn-outline btn-sm" onclick="closeModal('modal-add-consumption')">Cancelar</button>
         <button class="btn btn-gold btn-sm" onclick="CustomDialog.confirmAddConsumption()">
           <i class="fas fa-plus-circle"></i> Cargar al Folio
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Alerta Informativo Personalizado (CustomDialog.alert) -->
+  <div id="modal-custom-alert" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 520px; padding: 26px; border-radius: var(--radius-xl);">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+        <div id="dialog-alert-icon-wrap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(18, 59, 99, 0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--primary-navy);">
+          <i id="dialog-alert-icon" class="fas fa-info-circle"></i>
+        </div>
+        <div>
+          <h3 id="dialog-alert-title" style="font-family: var(--font-heading); font-size: 18px; color: var(--primary-navy); margin: 0;">Información</h3>
+          <p id="dialog-alert-subtitle" style="font-size: 11.5px; color: var(--text-muted); margin: 2px 0 0;">Hotel 3 Vagos PMS</p>
+        </div>
+        <button class="modal-close" onclick="CustomDialog.handleAlertOk()" style="margin-left: auto;">&times;</button>
+      </div>
+      <div id="dialog-alert-message" style="font-size: 13px; color: #334155; line-height: 1.6; margin-bottom: 20px;">
+        <!-- Mensaje / HTML dinámico -->
+      </div>
+      <div style="display: flex; justify-content: flex-end;">
+        <button id="dialog-alert-ok-btn" class="btn btn-primary" style="padding: 9px 24px;" onclick="CustomDialog.handleAlertOk()">
+          Entendido
         </button>
       </div>
     </div>
@@ -2418,7 +2488,7 @@
 
   <!-- Modal Cierre de Turno / Arqueo con Conteo de Efectivo -->
   <div id="modal-cash-cierre" class="modal-backdrop">
-    <div class="modal-box" style="max-width: 580px; padding: 26px; border-radius: var(--radius-xl);">
+    <div class="modal-box" style="max-width: 640px; padding: 26px; border-radius: var(--radius-xl);">
       <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 16px;">
         <div style="display: flex; align-items: center; gap: 12px;">
           <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(15, 23, 42, 0.08); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--primary-navy);">
@@ -2456,14 +2526,162 @@
           </div>
         </div>
 
-        <!-- Conteo Físico Real -->
-        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
-          <label style="font-size: 12px; font-weight: 700; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block;">
-            2. ¿Cuánto efectivo físico tienes en el cajón en este momento? *
-          </label>
-          <p style="font-size: 11.5px; color: #3B82F6; margin: 0 0 10px;">Cuente todos los billetes y monedas físicos en la gaveta e ingrese el total real.</p>
+        <!-- Conteo Físico Real con Desglose por Billetes y Monedas -->
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E40AF; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">
+              2. Conteo de Efectivo Físico en Cajón *
+            </label>
+            <span class="badge" style="background: #DBEAFE; color: #1E40AF; font-size: 11px; padding: 3px 8px;">
+              <i class="fas fa-calculator"></i> Conteo por Denominación
+            </span>
+          </div>
+          <p style="font-size: 11.5px; color: #3B82F6; margin: 0 0 12px;">
+            Ingrese la cantidad de cada billete y moneda en la gaveta; el sistema calculará automáticamente los subtotales y el arqueo en vivo.
+          </p>
+
+          <!-- Desglose Interactivo de Billetes y Monedas Guaraníes -->
+          <div style="background: #ffffff; border: 1px solid #CBD5E1; border-radius: 10px; padding: 14px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <!-- Sección Billetes -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #F1F5F9;">
+              <span style="font-size: 12px; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-money-bill-wave" style="color: #16A34A; font-size: 14px;"></i> Billetes Oficiales (Gs.)
+              </span>
+              <span style="font-size: 11.5px; font-weight: 700; color: #166534;">
+                Subtotal: <span id="arqueo-subtotal-billetes">0 Gs.</span>
+              </span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;">
+              <!-- 100.000 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">100.000 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-100000" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-100000" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+
+              <!-- 50.000 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">50.000 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-50000" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-50000" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+
+              <!-- 20.000 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">20.000 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-20000" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-20000" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+
+              <!-- 10.000 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">10.000 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-10000" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-10000" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+
+              <!-- 5.000 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">5.000 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-5000" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-5000" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+
+              <!-- 2.000 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">2.000 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-2000" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-2000" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sección Monedas -->
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-top: 8px; border-top: 1px dashed #E2E8F0;">
+              <span style="font-size: 12px; font-weight: 700; color: #0F172A; display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-coins" style="color: #D97706; font-size: 14px;"></i> Monedas Acuñadas (Gs.)
+              </span>
+              <span style="font-size: 11.5px; font-weight: 700; color: #B45309;">
+                Subtotal: <span id="arqueo-subtotal-monedas">0 Gs.</span>
+              </span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <!-- 1.000 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">1.000 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-1000" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-1000" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+
+              <!-- 500 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">500 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-500" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-500" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+
+              <!-- 100 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">100 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-100" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-100" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+
+              <!-- 50 Gs. -->
+              <div style="display: flex; align-items: center; justify-content: space-between; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 6px 10px; border-radius: 6px;">
+                <span style="font-size: 12px; font-weight: 700; color: #1E293B;">50 Gs.</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">x</span>
+                  <input type="number" min="0" id="denom-50" class="form-control" placeholder="0" oninput="CashBillingModule.calculateDenominationsTotal()" style="width: 58px; height: 30px; padding: 2px 6px; font-size: 13px; text-align: center; font-weight: 700;">
+                  <span id="denom-sub-50" style="font-size: 11px; color: #475569; min-width: 65px; text-align: right; font-weight: 600;">0 Gs.</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+              <button type="button" class="btn btn-outline btn-xs" onclick="CashBillingModule.resetDenominations()" style="color: #64748B;">
+                <i class="fas fa-undo"></i> Limpiar Conteo
+              </button>
+            </div>
+          </div>
+
+          <!-- Total Consolidado Contado -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E40AF; text-transform: uppercase; margin: 0;">
+              Total Efectivo Real Contado (Gaveta):
+            </label>
+            <span style="font-size: 11px; color: #64748B;">Se actualiza automáticamente</span>
+          </div>
           <div style="position: relative;">
-            <input type="number" id="cierre-efectivo-real" class="form-control" placeholder="0" step="5000" oninput="CashBillingModule.calculateArqueoDiff()" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); padding: 10px 52px 10px 14px; border-radius: 8px; border: 2px solid #3B82F6;">
+            <input type="number" id="cierre-efectivo-real" class="form-control" placeholder="0" step="50" oninput="CashBillingModule.calculateArqueoDiff()" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); padding: 10px 52px 10px 14px; border-radius: 8px; border: 2px solid #3B82F6;">
             <span style="position: absolute; right: 14px; top: 50%; transform: translateY(-50%); font-weight: 700; color: var(--text-muted); font-size: 14px;">Gs.</span>
           </div>
         </div>

@@ -928,7 +928,66 @@ const CashBillingModule = {
     }
     if (elObs) elObs.value = '';
 
+    this.resetDenominations();
+
     openModal('modal-cash-cierre');
+  },
+
+  calculateDenominationsTotal() {
+    const denoms = [
+      { id: 'denom-100000', val: 100000, subId: 'denom-sub-100000', type: 'billete' },
+      { id: 'denom-50000', val: 50000, subId: 'denom-sub-50000', type: 'billete' },
+      { id: 'denom-20000', val: 20000, subId: 'denom-sub-20000', type: 'billete' },
+      { id: 'denom-10000', val: 10000, subId: 'denom-sub-10000', type: 'billete' },
+      { id: 'denom-5000', val: 5000, subId: 'denom-sub-5000', type: 'billete' },
+      { id: 'denom-2000', val: 2000, subId: 'denom-sub-2000', type: 'billete' },
+      { id: 'denom-1000', val: 1000, subId: 'denom-sub-1000', type: 'moneda' },
+      { id: 'denom-500', val: 500, subId: 'denom-sub-500', type: 'moneda' },
+      { id: 'denom-100', val: 100, subId: 'denom-sub-100', type: 'moneda' },
+      { id: 'denom-50', val: 50, subId: 'denom-sub-50', type: 'moneda' }
+    ];
+
+    let totalBilletes = 0;
+    let totalMonedas = 0;
+
+    denoms.forEach(d => {
+      const input = document.getElementById(d.id);
+      const sub = document.getElementById(d.subId);
+      const count = Math.max(0, parseInt(input?.value, 10) || 0);
+      const subtotal = count * d.val;
+      if (sub) sub.innerText = formatGs(subtotal);
+
+      if (d.type === 'billete') totalBilletes += subtotal;
+      else totalMonedas += subtotal;
+    });
+
+    const elSubBilletes = document.getElementById('arqueo-subtotal-billetes');
+    if (elSubBilletes) elSubBilletes.innerText = formatGs(totalBilletes);
+
+    const elSubMonedas = document.getElementById('arqueo-subtotal-monedas');
+    if (elSubMonedas) elSubMonedas.innerText = formatGs(totalMonedas);
+
+    const grandTotal = totalBilletes + totalMonedas;
+    const realInput = document.getElementById('cierre-efectivo-real');
+    if (realInput) {
+      realInput.value = grandTotal > 0 ? grandTotal : '';
+    }
+
+    this.calculateArqueoDiff();
+  },
+
+  resetDenominations() {
+    const ids = ['100000', '50000', '20000', '10000', '5000', '2000', '1000', '500', '100', '50'];
+    ids.forEach(id => {
+      const input = document.getElementById(`denom-${id}`);
+      const sub = document.getElementById(`denom-sub-${id}`);
+      if (input) input.value = '';
+      if (sub) sub.innerText = '0 Gs.';
+    });
+    const elSubBilletes = document.getElementById('arqueo-subtotal-billetes');
+    if (elSubBilletes) elSubBilletes.innerText = '0 Gs.';
+    const elSubMonedas = document.getElementById('arqueo-subtotal-monedas');
+    if (elSubMonedas) elSubMonedas.innerText = '0 Gs.';
   },
 
   calculateArqueoDiff() {
@@ -989,6 +1048,27 @@ const CashBillingModule = {
     }
   },
 
+  getDenominationsBreakdownSummary() {
+    const denoms = [
+      { id: 'denom-100000', label: '100k' },
+      { id: 'denom-50000', label: '50k' },
+      { id: 'denom-20000', label: '20k' },
+      { id: 'denom-10000', label: '10k' },
+      { id: 'denom-5000', label: '5k' },
+      { id: 'denom-2000', label: '2k' },
+      { id: 'denom-1000', label: '1.000m' },
+      { id: 'denom-500', label: '500m' },
+      { id: 'denom-100', label: '100m' },
+      { id: 'denom-50', label: '50m' }
+    ];
+    const parts = [];
+    denoms.forEach(d => {
+      const count = parseInt(document.getElementById(d.id)?.value, 10) || 0;
+      if (count > 0) parts.push(`${d.label}x${count}`);
+    });
+    return parts.length > 0 ? `[Desglose: ${parts.join(', ')}]` : '';
+  },
+
   async confirmCloseSession() {
     if (!this.currentSession) return;
     const realInput = document.getElementById('cierre-efectivo-real');
@@ -1001,6 +1081,8 @@ const CashBillingModule = {
     const esperado = this.getEsperadoEfectivo();
     const diff = real - esperado;
     const obs = (document.getElementById('cierre-observaciones')?.value || '').trim();
+    const breakdown = this.getDenominationsBreakdownSummary();
+    const finalObs = [obs, breakdown].filter(Boolean).join(' - ');
 
     try {
       const updateData = {

@@ -7,41 +7,21 @@
 (function () {
   'use strict';
 
-  // 1. Silenciar y neutralizar métodos de la consola en todos los navegadores
+  // 1. Silenciar métodos informativos de depuración manteniendo errores y advertencias visibles
   const noop = function () { };
-  const methods = ['log', 'debug', 'info', 'warn', 'error', 'table', 'trace', 'dir', 'dirxml', 'group', 'groupCollapsed', 'groupEnd', 'time', 'timeEnd', 'timeLog'];
+  const methods = ['debug', 'table', 'trace', 'dir', 'dirxml', 'group', 'groupCollapsed', 'groupEnd', 'time', 'timeEnd', 'timeLog'];
 
   try {
     if (window.console) {
       methods.forEach(method => {
         try {
-          window.console[method] = noop;
+          if (typeof window.console[method] === 'function') {
+            window.console[method] = noop;
+          }
         } catch (e) { }
       });
-
-      // Congelar el objeto console para evitar que scripts externos restauren los logs
-      try {
-        Object.freeze(window.console);
-      } catch (e) { }
     }
   } catch (e) { }
-
-  // 2. Suprimir errores no capturados y promesas rechazadas para no exponer trazas ni URLs
-  window.addEventListener('error', function (event) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    return true;
-  }, true);
-
-  window.addEventListener('unhandledrejection', function (event) {
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-    return true;
-  }, true);
 
   // 3. Bloquear atajos comunes de inspección de DevTools y código fuente
   document.addEventListener('keydown', function (e) {

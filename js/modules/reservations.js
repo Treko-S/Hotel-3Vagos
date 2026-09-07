@@ -18,20 +18,29 @@ const ReservationsModule = {
     this.currentSubView = viewType;
     const tableContainer = document.getElementById('reservations-table-container');
     const rackContainer = document.getElementById('reservations-rack-container');
+    const historyContainer = document.getElementById('reservations-history-container');
     const btnTable = document.getElementById('btn-view-res-table');
     const btnRack = document.getElementById('btn-view-res-rack');
+    const btnHistory = document.getElementById('btn-view-res-history');
+    const filterStatus = document.getElementById('filter-res-status');
+
+    if (btnTable) btnTable.classList.toggle('active', viewType === 'table');
+    if (btnRack) btnRack.classList.toggle('active', viewType === 'rack');
+    if (btnHistory) btnHistory.classList.toggle('active', viewType === 'history');
+
+    if (tableContainer) tableContainer.style.display = viewType === 'table' ? 'block' : 'none';
+    if (rackContainer) rackContainer.style.display = viewType === 'rack' ? 'block' : 'none';
+    if (historyContainer) historyContainer.style.display = viewType === 'history' ? 'block' : 'none';
+
+    if (filterStatus) {
+      filterStatus.style.display = viewType === 'history' ? 'none' : 'inline-block';
+    }
 
     if (viewType === 'rack') {
-      if (tableContainer) tableContainer.style.display = 'none';
-      if (rackContainer) rackContainer.style.display = 'block';
-      if (btnTable) btnTable.classList.remove('active');
-      if (btnRack) btnRack.classList.add('active');
       this.renderRackView();
+    } else if (viewType === 'history') {
+      this.renderHistoryTable(this.currentBookings);
     } else {
-      if (tableContainer) tableContainer.style.display = 'block';
-      if (rackContainer) rackContainer.style.display = 'none';
-      if (btnTable) btnTable.classList.add('active');
-      if (btnRack) btnRack.classList.remove('active');
       this.renderTable(this.currentBookings);
     }
   },
@@ -236,6 +245,8 @@ const ReservationsModule = {
       this.updateFrontDeskKPIs(this.currentBookings);
       if (this.currentSubView === 'rack') {
         this.renderRackView();
+      } else if (this.currentSubView === 'history') {
+        this.renderHistoryTable(this.currentBookings);
       } else {
         this.renderTable(this.currentBookings);
       }
@@ -285,13 +296,16 @@ const ReservationsModule = {
     const tbody = document.getElementById('reservations-table-body');
     if (!tbody) return;
 
-    if (!list || list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 36px; color: var(--text-muted);">No se encontraron reservas con los criterios seleccionados.</td></tr>`;
+    // Excluir reservaciones que ya terminaron (Finalizada) de la lista activa de recepción
+    const activeList = (list || []).filter(b => (b.estado || '').toLowerCase() !== 'finalizada');
+
+    if (activeList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 36px; color: var(--text-muted);"><i class="fas fa-calendar-times" style="font-size: 24px; margin-bottom: 8px; display: block; opacity: 0.5;"></i>No se encontraron reservas activas con los criterios seleccionados.</td></tr>`;
       return;
     }
 
     let html = '';
-    list.forEach(b => {
+    activeList.forEach(b => {
       const hab = b.habitaciones || {};
       const tipo = hab.tipos_habitacion || {};
       const user = b.users || {};
@@ -398,7 +412,27 @@ const ReservationsModule = {
 
   filterTable(query = '', statusFilter = 'ALL') {
     const q = (query || '').toLowerCase().trim();
+
+    // Si estamos en la vista de Historial de Reservas
+    if (this.currentSubView === 'history') {
+      const historyFiltered = this.currentBookings.filter(b => {
+        if ((b.estado || '').toLowerCase() !== 'finalizada') return false;
+        if (!q) return true;
+        const code = (b.codigo_reserva || '').toLowerCase();
+        const hab = b.habitaciones ? (b.habitaciones.numero || '').toLowerCase() : '';
+        const guestName = (b.users?.full_name || '').toLowerCase();
+        const guestDoc = (b.users?.document_number || '').toLowerCase();
+        return code.includes(q) || hab.includes(q) || guestName.includes(q) || guestDoc.includes(q);
+      });
+      this.renderHistoryTable(historyFiltered);
+      return;
+    }
+
+    // Filtro para la vista de Lista Activa
     const filtered = this.currentBookings.filter(b => {
+      // Excluir reservaciones finalizadas
+      if ((b.estado || '').toLowerCase() === 'finalizada') return false;
+
       const code = (b.codigo_reserva || '').toLowerCase();
       const hab = b.habitaciones ? (b.habitaciones.numero || '').toLowerCase() : '';
       const guestName = (b.users?.full_name || '').toLowerCase();
@@ -421,6 +455,104 @@ const ReservationsModule = {
     });
 
     this.renderTable(filtered);
+  },
+
+  /**
+   * Renderiza el Historial de Reservas Concluidas (Modo Solo Lectura)
+   */
+  renderHistoryTable(list) {
+    const tbody = document.getElementById('reservations-history-table-body');
+    if (!tbody) return;
+
+    const finished = (list || []).filter(b => (b.estado || '').toLowerCase() === 'finalizada');
+
+    if (finished.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 36px; color: var(--text-muted);">
+            <i class="fas fa-archive" style="font-size: 26px; margin-bottom: 8px; display: block; opacity: 0.4;"></i>
+            No se encontraron reservas finalizadas en el historial.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    let html = '';
+    finished.forEach(b => {
+      const hab = b.habitaciones || {};
+      const tipo = hab.tipos_habitacion || {};
+      const user = b.users || {};
+      const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
+      
+      const montoTotal = Number(b.monto_total || 0);
+      const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(b.anticipo_pagado || 0);
+
+      html += `
+        <tr>
+          <td>
+            <strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(b.codigo_reserva)}</strong>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+              <i class="fas fa-mobile-alt" style="color: var(--info);"></i> ${sanitizeInput(b.canal_venta || 'App Móvil')}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: 600;">Habitación ${sanitizeInput(hab.numero || 'N/A')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(tipo.nombre || 'Estándar')}</div>
+          </td>
+          <td>
+            <div style="font-size: 12px;"><i class="far fa-calendar-alt" style="color: var(--info);"></i> ${formatDate(b.check_in_previsto || b.fecha_entrada)}</div>
+            <div style="font-size: 12px; color: #15803D;"><i class="far fa-calendar-check"></i> ${formatDate(b.check_out_previsto || b.fecha_salida)}</div>
+          </td>
+          <td>
+            <div style="font-weight: 600; color: var(--primary-dark);">${sanitizeInput(user.full_name || 'Huésped Registrado')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">
+              <i class="fas fa-id-card"></i> Doc: ${sanitizeInput(user.document_number || 'S/D')}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: bold; color: #15803D; font-size: 13.5px;">${formatGs(montoTotal)}</div>
+            <div style="font-size: 10.5px; color: var(--text-muted);">100% Liquidado</div>
+          </td>
+          <td>
+            <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10B981; font-weight: 700; padding: 3px 8px; font-size: 11.5px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+              <i class="fas fa-check-circle" style="font-size: 10px;"></i> ${formatGs(anticipo)}
+            </span>
+          </td>
+          <td>
+            <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #BBF7D0;">
+              <i class="fas fa-check-double"></i> 0 Gs. Saldado
+            </span>
+          </td>
+          <td>
+            <span class="badge badge-disponible"><i class="fas fa-flag-checkered"></i> Finalizada</span>
+          </td>
+          <td style="text-align: center;">
+            <div class="action-btn-group" style="justify-content: center;">
+              <button class="btn-action btn-action-folio" onclick="ReservationsModule.viewFolioDetail('${b.id}')" title="Ver Folio Cerrado & Detalles de Cuenta">
+                <i class="fas fa-file-invoice"></i> Ver Folio
+              </button>
+              <button class="btn-action" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; font-weight: 600;" onclick="ReservationsModule.downloadBookingPdf('${b.id}')" title="Descargar Comprobante Legal Oficial en PDF">
+                <i class="fas fa-file-pdf"></i> PDF
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  downloadBookingPdf(bookingId) {
+    const booking = this.currentBookings.find(b => b.id == bookingId);
+    if (!booking) return;
+    if (typeof FolioPdfService !== 'undefined') {
+      FolioPdfService.downloadFolioPdf(booking);
+    } else {
+      showToast('Generando comprobante oficial...', 'info');
+      this.viewFolioDetail(bookingId);
+    }
   },
 
   getStatusBadge(estado) {
