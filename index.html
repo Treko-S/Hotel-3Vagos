@@ -1543,54 +1543,116 @@
     </div>
   </div>
 
-  <!-- Modal Check-out -->
+  <!-- Modal Check-out & Cobro en Caja -->
   <div id="modal-checkout" class="modal-backdrop">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 620px; max-height: 90vh; overflow-y: auto; scrollbar-width: none;">
       <div class="modal-header">
-        <h3><i class="fas fa-sign-out-alt" style="color: var(--accent-gold);"></i> Check-out & Facturación</h3>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(197, 160, 89, 0.15); display: flex; align-items: center; justify-content: center; color: var(--accent-gold); font-size: 18px;">
+            <i class="fas fa-cash-register"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 17px; color: var(--primary-navy);">Cobro de Check-out & Facturación Legal</h3>
+            <p style="margin: 0; font-size: 11px; color: var(--text-muted);">Liquidación final en Caja Mostrador • Emisión Oficial SET Paraguay</p>
+          </div>
+        </div>
         <button class="modal-close" onclick="closeModal('modal-checkout')">&times;</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="padding: 18px 24px;">
         <input type="hidden" id="checkout-booking-id">
         <input type="hidden" id="checkout-room-id">
         <input type="hidden" id="checkout-folio-id">
 
-        <div style="background: var(--bg-main); padding: 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-            <span>Reserva: <strong id="checkout-res-code"></strong></span>
-            <span>Habitación: <strong id="checkout-room-number"></strong></span>
+        <!-- Indicador de Estado de Sesión de Caja -->
+        <div id="checkout-caja-session-badge" style="margin-bottom: 14px;">
+          <!-- Dinámico -->
+        </div>
+
+        <!-- Tarjeta de Resumen de Cuenta de Hospedaje -->
+        <div style="background: var(--bg-main); border: 1px solid var(--border-color); padding: 14px 16px; border-radius: var(--radius-md); margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px;">
+            <span>Reserva: <strong id="checkout-res-code" style="color: var(--primary-navy); font-family: monospace;"></strong></span>
+            <span>Habitación: <strong id="checkout-room-number" style="color: var(--primary-navy);"></strong></span>
           </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; color: var(--text-muted);">
+            <span>Huésped: <strong id="checkout-guest-summary" style="color: var(--text-main);"></strong></span>
+            <span id="checkout-dates-summary"></span>
+          </div>
+
+          <!-- Desglose de importes -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 8px;">
+            <div>Alojamiento: <strong id="checkout-alojam-amount">0 Gs.</strong></div>
+            <div style="text-align: right;">Consumos Extras: <strong id="checkout-consumos-amount" style="color: var(--warning);">0 Gs.</strong></div>
+            <div>Pagos Previos / Anticipo: <strong id="checkout-anticipo-amount" style="color: var(--success);">0 Gs.</strong></div>
+            <div style="text-align: right;">Total Cuenta: <strong id="checkout-grand-total">0 Gs.</strong></div>
+          </div>
+
+          <!-- Saldo Pendiente destacado -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 8px;">
-            <span style="font-weight: bold; color: var(--primary-navy);">Saldo Pendiente de Folio:</span>
-            <span id="checkout-balance-amount" style="font-size: 18px; font-weight: bold; color: var(--danger);"></span>
+            <span style="font-weight: bold; color: var(--primary-navy); font-size: 14px;">Saldo Pendiente a Cobrar:</span>
+            <span id="checkout-balance-amount" style="font-size: 19px; font-weight: 800; color: var(--danger);">0 Gs.</span>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Monto a Cobrar (Gs.)</label>
-          <input type="number" id="checkout-payment-amount" class="form-control" style="font-weight: bold; font-size: 16px;">
+        <!-- Formulario de Cobro en Mostrador -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 12.5px;">Monto a Cobrar (Gs.)</label>
+            <div style="display: flex; gap: 6px;">
+              <input type="number" id="checkout-payment-amount" class="form-control" style="font-weight: bold; font-size: 15px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="ReservationsModule.fillCheckoutFullBalance()" title="Copiar saldo total pendiente" style="padding: 0 10px; font-size: 11px;">Total</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 12.5px;">Medio de Pago</label>
+            <select id="checkout-payment-method" class="form-control" style="font-size: 13.5px;">
+              <option value="Efectivo">Efectivo (Cajón de Recepción)</option>
+              <option value="Tarjeta de Débito/Crédito">Tarjeta POS Mostrador</option>
+              <option value="Transferencia Bancaria (SIPAP)">Transferencia Bancaria (SIPAP)</option>
+              <option value="QR / Billetera Digital">QR / Billetera Digital</option>
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Medio de Pago</label>
-          <select id="checkout-payment-method" class="form-control">
-            <option value="Efectivo">Efectivo</option>
-            <option value="Tarjeta de Débito/Crédito">Tarjeta de Débito / Crédito</option>
-            <option value="Transferencia Bancaria (SIPAP)">Transferencia Bancaria (SIPAP)</option>
-            <option value="QR / Billetera Digital">QR / Billetera Digital</option>
-          </select>
+
+        <!-- Datos para Factura Legal SET -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 14px; border-radius: var(--radius-md); margin-bottom: 14px;">
+          <div style="font-size: 12.5px; font-weight: 700; color: var(--primary-navy); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+            <span><i class="fas fa-file-invoice" style="color: var(--primary);"></i> Datos de Factura Legal (SET Paraguay)</span>
+            <span style="font-size: 11px; color: var(--text-muted); font-weight: normal;">Timbrado: 16789423</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+            <div>
+              <label style="font-size: 11.5px; color: var(--text-muted);">N° Factura</label>
+              <input type="text" id="checkout-invoice-number" class="form-control" style="font-size: 12.5px; font-family: monospace; font-weight: 600;" placeholder="001-001-0000000">
+            </div>
+            <div>
+              <label style="font-size: 11.5px; color: var(--text-muted);">RUC o Cédula</label>
+              <input type="text" id="checkout-invoice-ruc" class="form-control" style="font-size: 12.5px;" value="44444401-7">
+            </div>
+          </div>
+          <div style="margin-bottom: 8px;">
+            <label style="font-size: 11.5px; color: var(--text-muted);">Razón Social / Nombre</label>
+            <input type="text" id="checkout-invoice-name" class="form-control" style="font-size: 12.5px;" value="Consumidor Final">
+          </div>
+          <div>
+            <label style="font-size: 11.5px; color: var(--text-muted);">Correo del Huésped (para envío automático)</label>
+            <input type="email" id="checkout-invoice-email" class="form-control" style="font-size: 12.5px;" placeholder="correo@cliente.com">
+          </div>
         </div>
-        <div class="form-group">
-          <label>RUC o Cédula para Factura Legal</label>
-          <input type="text" id="checkout-invoice-ruc" class="form-control" value="44444401-7">
-        </div>
-        <div class="form-group">
-          <label>Razón Social / Nombre del Huésped</label>
-          <input type="text" id="checkout-invoice-name" class="form-control" value="Consumidor Final">
+
+        <!-- Opción de Envío Automático por Correo -->
+        <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px;">
+          <input type="checkbox" id="checkout-send-email" checked style="width: 17px; height: 17px; cursor: pointer;">
+          <label for="checkout-send-email" style="font-size: 12px; color: #1E40AF; cursor: pointer; margin: 0; font-weight: 600;">
+            <i class="fas fa-paper-plane"></i> Enviar Factura Legal con desglose tributario y PDF adjunto por correo al cliente automáticamente (Brevo)
+          </label>
         </div>
       </div>
-      <div class="modal-footer">
+      <div class="modal-footer" style="padding: 14px 24px;">
         <button class="btn btn-outline" onclick="closeModal('modal-checkout')">Cancelar</button>
-        <button class="btn btn-gold" onclick="ReservationsModule.confirmCheckOut()">Cobrar & Liberar para Housekeeping</button>
+        <button id="btn-confirm-checkout" class="btn btn-gold" onclick="ReservationsModule.confirmCheckOut()">
+          <i class="fas fa-check-circle"></i> Cobrar Total, Facturar & Finalizar Check-out
+        </button>
       </div>
     </div>
   </div>
@@ -1966,8 +2028,10 @@
           <button class="btn btn-outline btn-sm" onclick="ReservationsModule.downloadCurrentFolioPdf()" title="Descargar Comprobante Legal Oficial en PDF">
             <i class="fas fa-file-pdf" style="color: #DC2626;"></i> Descargar PDF
           </button>
-        </div>
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btn-folio-checkout-action" class="btn btn-warning btn-sm" onclick="closeModal('modal-folio'); ReservationsModule.openCheckOutModal(ReservationsModule.currentActiveFolioBooking?.id)" title="Cobrar y realizar Check-out en Caja Mostrador" style="background: #D97706; color: #fff; border-color: #B45309;">
+            <i class="fas fa-cash-register"></i> Cobrar en Caja & Check-out
+          </button>
           <button id="btn-folio-send-email" class="btn btn-gold btn-sm" onclick="ReservationsModule.sendFolioEmailCurrent()" title="Enviar copia legal oficial por correo al huésped vía Brevo">
             <i class="fas fa-paper-plane"></i> Enviar Comprobante Digital
           </button>
