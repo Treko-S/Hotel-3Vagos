@@ -911,81 +911,130 @@
             </div>
           </div>
 
-          <!-- CONTENIDO PESTAÑA 4: COMPRAS & DIRECTORIO DE PROVEEDORES -->
           <!-- CONTENIDO PESTAÑA 4: COMPRAS & PROVEEDORES (Checklist Parte 5) -->
           <div id="inv-content-providers" style="display: none;">
             
-            <!-- Sub-navegación del Módulo de Compras (Checklist Parte 5: Proveedores, Órdenes, Recepciones, Pagos) -->
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-              <button id="btn-compras-sub-providers" class="btn btn-sm" style="background: rgba(2, 132, 199, 0.15); color: #0284C7; border: 1px solid rgba(2, 132, 199, 0.35); font-weight: 700; padding: 6px 14px; border-radius: 8px;" onclick="InventoryModule.switchComprasSubTab('providers')">
-                <i class="fas fa-truck"></i> Proveedores
+            <!-- Resumen Ejecutivo KPIs de Compras -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 22px;">
+              <div class="kpi-card" style="border-left: 4px solid #3B82F6; padding: 14px 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div>
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Órdenes de Compra</span>
+                    <h3 id="compras-kpi-orders" style="font-size: 20px; font-weight: 800; color: #1D4ED8; margin: 4px 0 2px;">0 Emitidas</h3>
+                    <small style="font-size: 11px; color: var(--text-muted);">Solicitudes a proveedores</small>
+                  </div>
+                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #EFF6FF; color: #3B82F6; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                    <i class="fas fa-file-invoice"></i>
+                  </div>
+                </div>
+              </div>
+
+              <div class="kpi-card" style="border-left: 4px solid #10B981; padding: 14px 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div>
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Recepciones a Stock</span>
+                    <h3 id="compras-kpi-receptions" style="font-size: 20px; font-weight: 800; color: #047857; margin: 4px 0 2px;">0 Ingresadas</h3>
+                    <small style="font-size: 11px; color: var(--text-muted);">Auditadas con remisión</small>
+                  </div>
+                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #ECFDF5; color: #10B981; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                    <i class="fas fa-dolly"></i>
+                  </div>
+                </div>
+              </div>
+
+              <div class="kpi-card" style="border-left: 4px solid #F59E0B; padding: 14px 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div>
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Pagos / Egresos Caja</span>
+                    <h3 id="compras-kpi-payments" style="font-size: 18px; font-weight: 800; color: #B45309; margin: 4px 0 2px;">0 Gs.</h3>
+                    <small style="font-size: 11px; color: var(--text-muted);">Deducidos de arqueo</small>
+                  </div>
+                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #FEF3C7; color: #D97706; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                    <i class="fas fa-receipt"></i>
+                  </div>
+                </div>
+              </div>
+
+              <div class="kpi-card" style="border-left: 4px solid #8B5CF6; padding: 14px 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div>
+                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Proveedores Activos</span>
+                    <h3 id="compras-kpi-providers" style="font-size: 20px; font-weight: 800; color: #6D28D9; margin: 4px 0 2px;">0 Empresas</h3>
+                    <small style="font-size: 11px; color: var(--text-muted);">Homologadas con RUC</small>
+                  </div>
+                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #F5F3FF; color: #8B5CF6; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                    <i class="fas fa-truck"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sub-navegación Principal de Compras (Checklist Parte 5) -->
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 10px; border-radius: 12px;">
+              <button id="btn-compras-sub-orders" class="btn btn-sm active" style="background: var(--primary-navy); color: #FFFFFF; font-weight: 700; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.switchComprasSubTab('orders')">
+                <i class="fas fa-file-invoice"></i> 1. Órdenes de Compra
               </button>
-              <button id="btn-compras-sub-orders" class="btn btn-sm" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; padding: 6px 14px; border-radius: 8px;" onclick="InventoryModule.switchComprasSubTab('orders')">
-                <i class="fas fa-file-invoice"></i> Órdenes de Compra
+              <button id="btn-compras-sub-receptions" class="btn btn-sm" style="background: transparent; color: #475569; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.switchComprasSubTab('receptions')">
+                <i class="fas fa-dolly"></i> 2. Recepción de Mercaderías
               </button>
-              <button id="btn-compras-sub-receptions" class="btn btn-sm" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; padding: 6px 14px; border-radius: 8px;" onclick="InventoryModule.switchComprasSubTab('receptions')">
-                <i class="fas fa-dolly"></i> Recepciones de Mercadería
+              <button id="btn-compras-sub-payments" class="btn btn-sm" style="background: transparent; color: #475569; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.switchComprasSubTab('payments')">
+                <i class="fas fa-receipt"></i> 3. Pagos a Proveedores (Egresos Caja)
               </button>
-              <button id="btn-compras-sub-payments" class="btn btn-sm" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; padding: 6px 14px; border-radius: 8px;" onclick="InventoryModule.switchComprasSubTab('payments')">
-                <i class="fas fa-receipt"></i> Pagos a Proveedores
+              <button id="btn-compras-sub-providers" class="btn btn-sm" style="background: transparent; color: #475569; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.switchComprasSubTab('providers')">
+                <i class="fas fa-truck"></i> 4. Directorio de Proveedores
               </button>
             </div>
 
-            <!-- 1. SUB-SECCIÓN PROVEEDORES -->
-            <div id="compras-subview-providers">
-              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+            <!-- 1. SUB-SECCIÓN ÓRDENES DE COMPRA (Checklist Parte 5) -->
+            <div id="compras-subview-orders" style="display: block;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
                 <div>
-                  <h3 class="panel-title"><i class="fas fa-truck" style="color: #0284C7;"></i> Directorio Oficial de Proveedores</h3>
-                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Empresas homologadas para insumos, bebidas de minibar, lencería y mantenimiento</p>
+                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-file-invoice" style="color: #3B82F6;"></i>
+                    <span>Órdenes de Compra Emitidas</span>
+                  </h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    Emisión de pedidos seleccionando proveedores homologados, responsable emisor auditado y detalle de insumos
+                  </p>
                 </div>
-                <button class="btn btn-primary" onclick="InventoryModule.openNewProviderModal()">
-                  <i class="fas fa-plus-circle"></i> Registrar Nuevo Proveedor
-                </button>
-              </div>
-              <div id="providers-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;">
-                <!-- Tarjetas dinámicas de proveedores -->
-              </div>
-            </div>
-
-            <!-- 2. SUB-SECCIÓN ÓRDENES DE COMPRA -->
-            <div id="compras-subview-orders" style="display: none;">
-              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
-                <div>
-                  <h3 class="panel-title"><i class="fas fa-file-invoice" style="color: #3B82F6;"></i> Órdenes de Compra Emitidas</h3>
-                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Solicitudes oficiales de abastecimiento para pañol, minibar y cocina del hotel</p>
-                </div>
-                <button class="btn btn-primary" onclick="InventoryModule.openNewOrderModal()">
-                  <i class="fas fa-plus"></i> Generar Orden de Compra
+                <button class="btn btn-primary" onclick="InventoryModule.openNewOrderModal()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-plus-circle"></i> Generar Orden de Compra
                 </button>
               </div>
               <div style="overflow-x: auto;">
                 <table class="custom-table">
                   <thead>
                     <tr>
-                      <th>Código Orden</th>
-                      <th>Proveedor</th>
+                      <th>Código</th>
+                      <th>Proveedor Seleccionado</th>
+                      <th>Quién Realiza (Emisor)</th>
                       <th>Fecha Emisión</th>
                       <th>Detalle de Insumos</th>
-                      <th>Monto Estimado</th>
-                      <th>Estado</th>
-                      <th style="text-align: center;">Acción</th>
+                      <th style="text-align: right;">Total Estimado</th>
+                      <th style="text-align: center;">Estado</th>
+                      <th style="text-align: center;">Acciones Operativas</th>
                     </tr>
                   </thead>
                   <tbody id="compras-orders-tbody">
-                    <!-- Dinámico -->
+                    <!-- Filas dinámicas -->
                   </tbody>
                 </table>
               </div>
             </div>
 
-            <!-- 3. SUB-SECCIÓN RECEPCIONES -->
+            <!-- 2. SUB-SECCIÓN RECEPCIONES DE MERCADERÍA (Checklist Parte 5) -->
             <div id="compras-subview-receptions" style="display: none;">
-              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
                 <div>
-                  <h3 class="panel-title"><i class="fas fa-dolly" style="color: #10B981;"></i> Recepción e Ingreso de Mercaderías</h3>
-                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Ingreso auditado a stock y kardex a partir de notas de remisión y facturas de compra</p>
+                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-dolly" style="color: #10B981;"></i>
+                    <span>Recepción de Mercaderías & Control de Stock</span>
+                  </h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    Control de entrega física, registro de remisión/factura del proveedor, responsable receptor e ingreso al Kardex
+                  </p>
                 </div>
-                <button class="btn btn-primary" style="background: #10B981; border-color: #059669;" onclick="InventoryModule.openNewReceptionModal()">
+                <button class="btn btn-primary" style="background: #10B981; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.openNewReceptionModal()">
                   <i class="fas fa-check-double"></i> Registrar Recepción
                 </button>
               </div>
@@ -993,30 +1042,46 @@
                 <table class="custom-table">
                   <thead>
                     <tr>
-                      <th>Remisión / Factura</th>
+                      <th>N° Recepción</th>
+                      <th>Orden Asoc.</th>
                       <th>Proveedor</th>
-                      <th>Fecha Recepción</th>
+                      <th>Remisión / Factura</th>
+                      <th>Fecha / Hora</th>
+                      <th>Quién Recepciona</th>
                       <th>Artículos Recibidos</th>
-                      <th>Responsable Recepción</th>
-                      <th>Impacto en Stock</th>
+                      <th>Impacto Stock</th>
+                      <th style="text-align: center;">Estado</th>
+                      <th style="text-align: center;">Acción</th>
                     </tr>
                   </thead>
                   <tbody id="compras-receptions-tbody">
-                    <!-- Dinámico -->
+                    <!-- Filas dinámicas -->
                   </tbody>
                 </table>
               </div>
             </div>
 
-            <!-- 4. SUB-SECCIÓN PAGOS A PROVEEDORES -->
+            <!-- 3. SUB-SECCIÓN PAGOS A PROVEEDORES (EGRESOS DE CAJA) (Checklist Parte 5) -->
             <div id="compras-subview-payments" style="display: none;">
-              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+              <div style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; color: #92400E; font-size: 12.5px; display: flex; align-items: center; gap: 12px;">
+                <i class="fas fa-info-circle" style="font-size: 18px; color: #D97706;"></i>
                 <div>
-                  <h3 class="panel-title"><i class="fas fa-receipt" style="color: #F59E0B;"></i> Pagos y Vales Emitidos a Proveedores</h3>
-                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Comprobantes de pago, vales de caja y transferencias por adquisición de insumos</p>
+                  <strong>Vinculación Directa con Caja Registradora:</strong> Los pagos a proveedores registrados en <em>Efectivo</em> se deducen automáticamente del saldo físico en cajón de la sesión de caja activa y emiten su correspondiente <strong>Vale Oficial de Egreso</strong>.
                 </div>
-                <button class="btn btn-outline" onclick="CashBillingModule.openEgresoModal()">
-                  <i class="fas fa-plus-circle"></i> Nuevo Vale de Pago Proveedor
+              </div>
+
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
+                <div>
+                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-receipt" style="color: #F59E0B;"></i>
+                    <span>Pagos y Vales de Egreso a Proveedores</span>
+                  </h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    Liquidación de facturas de abastecimiento, comprobantes de pago y egresos de caja registradora
+                  </p>
+                </div>
+                <button class="btn btn-primary" style="background: #F59E0B; border-color: #D97706; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.openNewPaymentModal()">
+                  <i class="fas fa-plus-circle"></i> Registrar Pago a Proveedor
                 </button>
               </div>
               <div style="overflow-x: auto;">
@@ -1024,17 +1089,41 @@
                   <thead>
                     <tr>
                       <th>Vale / Comprobante</th>
-                      <th>Proveedor / Motivo</th>
+                      <th>Proveedor Beneficiario</th>
+                      <th>Factura / Orden Ref.</th>
+                      <th style="text-align: right;">Monto Abonado</th>
+                      <th>Medio de Pago</th>
+                      <th>Quién Autorizó / Pagó</th>
                       <th>Fecha / Hora</th>
-                      <th>Monto Abonado</th>
-                      <th>Emitido Por</th>
-                      <th>Estado</th>
+                      <th style="text-align: center;">Estado</th>
+                      <th style="text-align: center;">Acción</th>
                     </tr>
                   </thead>
                   <tbody id="compras-payments-tbody">
-                    <!-- Dinámico -->
+                    <!-- Filas dinámicas -->
                   </tbody>
                 </table>
+              </div>
+            </div>
+
+            <!-- 4. SUB-SECCIÓN DIRECTORIO DE PROVEEDORES (Checklist Parte 5) -->
+            <div id="compras-subview-providers" style="display: none;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
+                <div>
+                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-truck" style="color: #0284C7;"></i>
+                    <span>Directorio Oficial de Proveedores Homologados</span>
+                  </h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    Empresas registradas con RUC para provisión de bebidas, lencería hotelera, químicos de limpieza y mantenimiento
+                  </p>
+                </div>
+                <button class="btn btn-primary" onclick="InventoryModule.openNewProviderModal()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-plus-circle"></i> Registrar Nuevo Proveedor
+                </button>
+              </div>
+              <div id="providers-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;">
+                <!-- Tarjetas dinámicas de proveedores -->
               </div>
             </div>
 
@@ -3952,6 +4041,238 @@
           <button type="button" class="btn btn-outline" onclick="closeModal('modal-provider')">Cancelar</button>
           <button type="submit" id="btn-save-provider" class="btn btn-primary">
             <i class="fas fa-save"></i> Guardar Proveedor
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Emisión de Orden de Compra (Checklist Parte 5) -->
+  <div id="modal-compras-order" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 640px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 18px; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-file-invoice" style="color: #3B82F6;"></i>
+            <span>Emitir Orden de Compra Oficial</span>
+          </h3>
+          <small style="color: var(--text-muted);">Selección de proveedor homologado y asignación auditada de emisor</small>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-compras-order')">&times;</button>
+      </div>
+      <form id="form-compras-order" onsubmit="event.preventDefault(); InventoryModule.saveOrder();">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Proveedor Homologado *</label>
+            <select id="order-provider-select" class="form-control" required style="font-size: 12.5px;">
+              <!-- Dinámico según proveedores registrados -->
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Quién Realiza la Orden (Emisor) *</label>
+            <select id="order-issuer-select" class="form-control" required style="font-size: 12.5px;">
+              <option value="Carlos Gómez (Administrador General)">Carlos Gómez (Administrador General)</option>
+              <option value="Marta Giménez (Gobernanta General)">Marta Giménez (Gobernanta General)</option>
+              <option value="Juan Pérez (Encargado de Pañol y Compras)">Juan Pérez (Encargado de Pañol y Compras)</option>
+              <option value="Marcos Rolón (Recepcionista Front Desk)">Marcos Rolón (Recepcionista Front Desk)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Destino / Destinado A *</label>
+            <select id="order-destination-select" class="form-control" style="font-size: 12.5px;">
+              <option value="Minibar y Room Service (Para la Venta)">Minibar y Room Service (Para la Venta)</option>
+              <option value="Pañol de Limpieza y Aseo (Uso Interno)">Pañol de Limpieza y Aseo (Uso Interno)</option>
+              <option value="Lencería & Blancos Hotelera">Lencería & Blancos Hotelera</option>
+              <option value="Mantenimiento Técnico y Repuestos">Mantenimiento Técnico y Repuestos</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Fecha Estimada de Entrega</label>
+            <input type="date" id="order-delivery-date" class="form-control" style="font-size: 12.5px;">
+          </div>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 14px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <label style="font-size: 12.5px; font-weight: 700; color: var(--primary-navy); margin: 0;">Detalle de Insumos & Artículos Solicitados</label>
+            <button type="button" class="btn btn-outline btn-xs" onclick="InventoryModule.addOrderItemRow()">
+              <i class="fas fa-plus"></i> Añadir Línea
+            </button>
+          </div>
+          <div id="order-items-container" style="display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto;">
+            <!-- Filas dinámicas de ítems -->
+          </div>
+          <div style="border-top: 1px dashed #CBD5E1; margin-top: 10px; padding-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; color: var(--text-muted);">Total Estimado de la Orden:</span>
+            <strong id="order-total-sum-display" style="font-size: 16px; color: #1E40AF;">0 Gs.</strong>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 12px; font-weight: 600;">Condiciones / Observaciones</label>
+          <textarea id="order-observations" class="form-control" rows="2" placeholder="Ej: Entregar en horario matutino de 08:00 a 11:00 hs con factura crédito a 15 días." style="font-size: 12.5px;"></textarea>
+        </div>
+
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-compras-order')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="font-weight: 700;">
+            <i class="fas fa-check-circle"></i> Emitir Orden Oficial
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Recepción de Mercadería (Checklist Parte 5) -->
+  <div id="modal-compras-reception" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 620px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 18px; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-dolly" style="color: #10B981;"></i>
+            <span>Registrar Recepción de Mercadería</span>
+          </h3>
+          <small style="color: var(--text-muted);">Verificación física de entrega, remisión y responsable receptor</small>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-compras-reception')">&times;</button>
+      </div>
+      <form id="form-compras-reception" onsubmit="event.preventDefault(); InventoryModule.saveReception();">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Orden de Compra Asociada *</label>
+          <select id="reception-order-select" class="form-control" onchange="InventoryModule.onReceptionOrderSelected(this.value)" required style="font-size: 12.5px;">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Proveedor</label>
+            <input type="text" id="reception-provider-name" class="form-control" readonly style="font-size: 12.5px; background: #F1F5F9; font-weight: 600;">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Quién Recepciona la Orden *</label>
+            <select id="reception-receiver-select" class="form-control" required style="font-size: 12.5px;">
+              <option value="Carlos Gómez (Recepción / Turno Mañana)">Carlos Gómez (Recepción / Turno Mañana)</option>
+              <option value="Marta Giménez (Gobernanta General)">Marta Giménez (Gobernanta General)</option>
+              <option value="Juan Pérez (Encargado de Pañol y Almacén)">Juan Pérez (Encargado de Pañol y Almacén)</option>
+              <option value="Marcos Rolón (Recepcionista Front Desk)">Marcos Rolón (Recepcionista Front Desk)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">N° Remisión / Factura Proveedor *</label>
+            <input type="text" id="reception-doc-ref" class="form-control" placeholder="Ej: Remisión N° 001-002-004452" required style="font-size: 12.5px;">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Estado de Recepción / Calidad *</label>
+            <select id="reception-status-select" class="form-control" style="font-size: 12.5px;">
+              <option value="Recibido Conforme">Recibido Conforme (100% Íntegro)</option>
+              <option value="Recibido Parcial">Recibido Parcial (Con faltantes)</option>
+              <option value="Observado / Daño">Observado (Con averías documentadas)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Artículos / Insumos Recibidos</label>
+          <textarea id="reception-items-text" class="form-control" rows="2" style="font-size: 12.5px;" placeholder="Detalle de cantidades recibidas físicamente..."></textarea>
+        </div>
+
+        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;">
+          <label style="font-size: 12px; color: #065F46; font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0;">
+            <input type="checkbox" id="reception-sync-stock" checked style="width: 16px; height: 16px; accent-color: #10B981;">
+            <span>Ingresar automáticamente estas unidades al Stock físico del hotel (Minibar / Pañol) y registrar movimiento en Kardex</span>
+          </label>
+        </div>
+
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-compras-reception')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background: #10B981; border-color: #059669; font-weight: 700;">
+            <i class="fas fa-check-double"></i> Confirmar Recepción a Stock
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Pago a Proveedor - Egreso de Caja Registradora (Checklist Parte 5) -->
+  <div id="modal-compras-payment" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 620px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div>
+          <h3 style="font-size: 18px; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-receipt" style="color: #F59E0B;"></i>
+            <span>Registrar Pago a Proveedor (Egreso de Caja)</span>
+          </h3>
+          <small style="color: var(--text-muted);">Los pagos en efectivo se deducen directamente de la sesión de caja activa</small>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-compras-payment')">&times;</button>
+      </div>
+      <form id="form-compras-payment" onsubmit="event.preventDefault(); InventoryModule.savePayment();">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Orden o Factura a Liquidar *</label>
+          <select id="payment-order-select" class="form-control" onchange="InventoryModule.onPaymentOrderSelected(this.value)" required style="font-size: 12.5px;">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Proveedor Beneficiario</label>
+            <input type="text" id="payment-provider-display" class="form-control" readonly style="font-size: 12.5px; background: #F1F5F9; font-weight: 600;">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Monto a Abonar (Gs.) *</label>
+            <input type="number" id="payment-amount-input" class="form-control" required style="font-size: 13.5px; font-weight: 700; color: #15803D;">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Medio de Pago *</label>
+            <select id="payment-method-select" class="form-control" onchange="InventoryModule.onPaymentMethodChange(this.value)" style="font-size: 12.5px; font-weight: 600;">
+              <option value="Efectivo (Caja Registradora Mostrador)">Efectivo (Caja Registradora Mostrador)</option>
+              <option value="Transferencia Bancaria (Itaú / Continental)">Transferencia Bancaria (Itaú / Continental)</option>
+              <option value="Cheque al Día / Diferido">Cheque al Día / Diferido</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 700; color: #1E293B;">Quién Realiza el Pago (Responsable) *</label>
+            <select id="payment-responsible-select" class="form-control" required style="font-size: 12.5px;">
+              <option value="Carlos Gómez (Administrador General)">Carlos Gómez (Administrador General)</option>
+              <option value="Marcos Rolón (Recepcionista Front Desk)">Marcos Rolón (Recepcionista Front Desk)</option>
+              <option value="Cajero en Turno">Cajero en Turno</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="payment-cash-alert-box" style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; color: #92400E; font-size: 12px; display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-cash-register" style="font-size: 16px; color: #D97706;"></i>
+          <div>
+            <strong>Egreso de Caja:</strong> Este pago se restará automáticamente del dinero físico en cajón de la sesión de caja activa y generará un Vale Oficial de Egreso.
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">N° Comprobante / Vale / Ref.</label>
+            <input type="text" id="payment-voucher-ref" class="form-control" placeholder="Ej: VALE-EGR-0405" style="font-size: 12.5px;">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Concepto / Factura Afectada</label>
+            <input type="text" id="payment-concept-input" class="form-control" placeholder="Ej: Pago Factura N° 001-002-004452" style="font-size: 12.5px;">
+          </div>
+        </div>
+
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 14px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-compras-payment')">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background: #F59E0B; border-color: #D97706; font-weight: 700;">
+            <i class="fas fa-receipt"></i> Efectuar Pago & Generar Egreso
           </button>
         </div>
       </form>

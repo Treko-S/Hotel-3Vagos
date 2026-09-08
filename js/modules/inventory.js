@@ -251,6 +251,27 @@ const InventoryModule = {
   saveSalesData() {
     try {
       localStorage.setItem('hotel_catalog_sales', JSON.stringify(this.salesItems));
+      // Sincronización en tiempo real con Supabase Storage (hotel-rooms/catalog/sales_catalog.json)
+      if (typeof supabaseClient !== 'undefined' && supabaseClient.storage) {
+        const jsonBlob = new Blob([JSON.stringify(this.salesItems, null, 2)], { type: 'application/json' });
+        supabaseClient.storage.from('hotel-rooms').upload('catalog/sales_catalog.json', jsonBlob, { upsert: true }).then(() => {
+          // Emitir broadcast en canal universal para refrescar la App Móvil Flutter al instante
+          try {
+            const ch = supabaseClient.channel('hotel_universal_sync');
+            ch.subscribe((status) => {
+              if (status === 'SUBSCRIBED') {
+                ch.send({
+                  type: 'broadcast',
+                  event: 'hotel_data_updated',
+                  payload: { entity: 'sales_catalog', timestamp: Date.now() }
+                });
+              }
+            });
+          } catch (eBroadcast) {}
+        }).catch(errStorage => {
+          console.warn('Error subiendo sales_catalog.json a Supabase:', errStorage);
+        });
+      }
     } catch (e) {}
   },
 
@@ -282,7 +303,10 @@ const InventoryModule = {
     if (tabName === 'sales') this.renderSalesCatalog();
     if (tabName === 'internal') this.renderInternalInventory();
     if (tabName === 'kardex') this.renderKardex();
-    if (tabName === 'providers') this.renderProviders();
+    if (tabName === 'providers') {
+      this.switchComprasSubTab(this.comprasActiveSubTab || 'orders');
+      this.updateComprasKPIs();
+    }
   },
 
   /* =========================================================
@@ -1169,7 +1193,10 @@ const InventoryModule = {
               <i class="fas fa-map-marker-alt" style="width: 14px; color: var(--primary-gold);"></i> ${sanitizeInput(p.address || 'Asunción, Paraguay')}
             </div>
           </div>
-          <div style="border-top: 1px solid #E2E8F0; padding-top: 12px; margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px;">
+          <div style="border-top: 1px solid #E2E8F0; padding-top: 12px; margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-outline btn-xs" style="color: #2563EB; border-color: #BFDBFE; font-weight: 700;" onclick="InventoryModule.openNewOrderModal('${p.id}')" title="Emitir orden de compra con este proveedor">
+              <i class="fas fa-file-invoice"></i> + Nueva Orden
+            </button>
             <button class="btn btn-outline btn-xs" onclick="InventoryModule.editProvider('${p.id}')" title="Editar Proveedor">
               <i class="fas fa-edit"></i> Editar
             </button>
@@ -1264,26 +1291,27 @@ const InventoryModule = {
 
   /* =========================================================
      5. GESTIÓN INTEGRAL DE COMPRAS (ÓRDENES, RECEPCIONES & PAGOS)
+     Checklist Parte 5: Responsables, Homologación y Egresos de Caja
      ========================================================= */
   switchComprasSubTab(subTab) {
     this.comprasActiveSubTab = subTab;
 
     // Actualizar estilo visual de los 4 botones
-    const tabs = ['providers', 'orders', 'receptions', 'payments'];
+    const tabs = ['orders', 'receptions', 'payments', 'providers'];
     tabs.forEach(t => {
       const btn = document.getElementById(`btn-compras-sub-${t}`);
       const view = document.getElementById(`compras-subview-${t}`);
       if (btn) {
         if (t === subTab) {
           btn.classList.add('active');
-          btn.style.background = 'rgba(10, 25, 47, 0.08)';
-          btn.style.color = '#0A192F';
-          btn.style.borderColor = 'rgba(10, 25, 47, 0.3)';
+          btn.style.background = 'var(--primary-navy)';
+          btn.style.color = '#FFFFFF';
+          btn.style.borderColor = 'transparent';
         } else {
           btn.classList.remove('active');
           btn.style.background = 'transparent';
-          btn.style.color = '#64748B';
-          btn.style.borderColor = '#E2E8F0';
+          btn.style.color = '#475569';
+          btn.style.borderColor = 'transparent';
         }
       }
       if (view) {
@@ -1291,10 +1319,27 @@ const InventoryModule = {
       }
     });
 
-    if (subTab === 'providers') this.renderProviders();
+    this.updateComprasKPIs();
+
     if (subTab === 'orders') this.renderOrders();
     if (subTab === 'receptions') this.renderReceptions();
     if (subTab === 'payments') this.renderPayments();
+    if (subTab === 'providers') this.renderProviders();
+  },
+
+  updateComprasKPIs() {
+    const kpiOrders = document.getElementById('compras-kpi-orders');
+    const kpiReceptions = document.getElementById('compras-kpi-receptions');
+    const kpiPayments = document.getElementById('compras-kpi-payments');
+    const kpiProviders = document.getElementById('compras-kpi-providers');
+
+    if (kpiOrders) kpiOrders.innerText = `${this.purchaseOrders.length} Emitidas`;
+    if (kpiReceptions) kpiReceptions.innerText = `${this.purchaseReceptions.length} Ingresadas`;
+    if (kpiPayments) {
+      const totalPagado = this.purchasePayments.reduce((s, p) => s + (Number(p.amount) || 0), 0);
+      kpiPayments.innerText = formatGs(totalPagado);
+    }
+    if (kpiProviders) kpiProviders.innerText = `${this.providers.length} Empresas`;
   },
 
   loadComprasData() {
@@ -1306,26 +1351,53 @@ const InventoryModule = {
         this.purchaseOrders = [
           {
             id: 'OC-2026-081',
+            providerId: 'prv-1',
             provider: 'Distribuidora Central de Bebidas S.A.',
+            issuer: 'Carlos Gómez (Administrador General)',
             date: '06/09/2026',
-            items: '50x Agua Mineral 500ml, 30x Cerveza Corona Extra 355ml',
-            total: 625000,
-            status: 'Aprobada'
+            deliveryDate: '07/09/2026',
+            destination: 'Minibar y Room Service (Para la Venta)',
+            items: [
+              { name: 'Agua Mineral sin Gas 500ml', qty: 50, cost: 4500, subtotal: 225000 },
+              { name: 'Cerveza Corona Extra 355ml', qty: 30, cost: 13500, subtotal: 405000 }
+            ],
+            itemsSummary: '50x Agua Mineral 500ml, 30x Cerveza Corona Extra 355ml',
+            total: 630000,
+            obs: 'Entregar en recepción refrigerado antes de las 11:00 hs',
+            status: 'Recibida'
           },
           {
             id: 'OC-2026-082',
+            providerId: 'prv-3',
             provider: 'Limpieza Total & Químicos Paraguay S.A.',
+            issuer: 'Marta Giménez (Gobernanta General)',
             date: '07/09/2026',
-            items: '10x Detergente Desinfectante 5L, 100x Jaboncitos de Tocador',
+            deliveryDate: '09/09/2026',
+            destination: 'Pañol de Limpieza y Aseo (Uso Interno)',
+            items: [
+              { name: 'Detergente Desinfectante Hospitalario 5L', qty: 10, cost: 45000, subtotal: 450000 },
+              { name: 'Jaboncitos de Tocador Hipoalergénicos 20g', qty: 100, cost: 4000, subtotal: 400000 }
+            ],
+            itemsSummary: '10x Detergente Desinfectante 5L, 100x Jaboncitos de Tocador',
             total: 850000,
+            obs: 'Entregar en depósito central de Housekeeping',
             status: 'En Tránsito'
           },
           {
             id: 'OC-2026-083',
+            providerId: 'prv-2',
             provider: 'Textil & Lencería Hotelera Guaraní S.R.L.',
+            issuer: 'Juan Pérez (Encargado de Pañol y Compras)',
             date: '08/09/2026',
-            items: '20x Toallas de Baño Grandes, 15x Juegos de Sábanas 300 Hilos',
+            deliveryDate: '11/09/2026',
+            destination: 'Lencería & Blancos Hotelera',
+            items: [
+              { name: 'Juegos de Sábanas King 300 Hilos', qty: 15, cost: 110000, subtotal: 1650000 },
+              { name: 'Toallas de Baño Grandes Felpa 550g', qty: 20, cost: 40000, subtotal: 800000 }
+            ],
+            itemsSummary: '15x Sábanas King 300 Hilos, 20x Toallas Felpa 550g',
             total: 2450000,
+            obs: 'Control de gramaje obligatorio al momento de recepción',
             status: 'Pendiente'
           }
         ];
@@ -1342,7 +1414,10 @@ const InventoryModule = {
             provider: 'Distribuidora Central de Bebidas S.A.',
             docRef: 'Remisión N° 001-002-004452',
             date: '07/09/2026 10:30 hs',
-            receiver: 'Carlos Gómez (Recepción)',
+            receiver: 'Carlos Gómez (Recepción / Turno Mañana)',
+            itemsSummary: '50x Agua Mineral 500ml, 30x Cerveza Corona Extra 355ml',
+            stockImpacted: true,
+            stockImpactSummary: '+50 Aguas, +30 Coronas a Minibar',
             status: 'Recibido Conforme'
           },
           {
@@ -1351,16 +1426,10 @@ const InventoryModule = {
             provider: 'Refrigeración & Repuestos del Este',
             docRef: 'Factura N° 001-001-000891',
             date: '05/09/2026 15:45 hs',
-            receiver: 'Marta Giménez (Gobernanta)',
-            status: 'Verificado Completo'
-          },
-          {
-            id: 'REC-0093',
-            orderId: 'OC-2026-078',
-            provider: 'Limpieza Total & Químicos Paraguay S.A.',
-            docRef: 'Remisión N° 001-005-001229',
-            date: '02/09/2026 09:15 hs',
-            receiver: 'Carlos Gómez (Recepción)',
+            receiver: 'Marta Giménez (Gobernanta General)',
+            itemsSummary: '2x Filtros Aire Acondicionado Split 18000 BTU',
+            stockImpacted: true,
+            stockImpactSummary: '+2 Filtros a Pañol Técnico',
             status: 'Recibido Conforme'
           }
         ];
@@ -1372,36 +1441,34 @@ const InventoryModule = {
       } else {
         this.purchasePayments = [
           {
-            id: 'PAG-0401',
+            id: 'VALE-EGR-0401',
+            orderId: 'OC-2026-081',
             provider: 'Distribuidora Central de Bebidas S.A.',
             invoice: 'Factura N° 001-002-004452',
-            amount: 625000,
-            method: 'Transferencia Itaú',
-            date: '07/09/2026',
-            status: 'Pagado'
+            amount: 630000,
+            method: 'Efectivo (Caja Registradora Mostrador)',
+            responsible: 'Carlos Gómez (Administrador General)',
+            date: '07/09/2026 11:15 hs',
+            concept: 'Pago a Distribuidora Central de Bebidas por 50 aguas y 30 cervezas',
+            status: 'Pagado en Caja'
           },
           {
-            id: 'PAG-0402',
-            provider: 'Textil & Lencería Hotelera Guaraní S.R.L.',
-            invoice: 'Factura N° 002-001-001205',
-            amount: 1800000,
-            method: 'Cheque Diferido BNF (Vto 15/09)',
-            date: 'Pendiente',
-            status: 'Pendiente'
-          },
-          {
-            id: 'PAG-0403',
-            provider: 'Limpieza Total & Químicos Paraguay S.A.',
-            invoice: 'Factura N° 001-003-009941',
-            amount: 850000,
-            method: 'Efectivo Caja Chica',
-            date: '07/09/2026',
-            status: 'Pagado'
+            id: 'VALE-EGR-0402',
+            orderId: 'OC-2026-079',
+            provider: 'Refrigeración & Repuestos del Este',
+            invoice: 'Factura N° 001-001-000891',
+            amount: 450000,
+            method: 'Transferencia Bancaria (Itaú / Continental)',
+            responsible: 'Carlos Gómez (Administrador General)',
+            date: '05/09/2026 16:00 hs',
+            concept: 'Transferencia por repuestos técnicos de refrigeración',
+            status: 'Transferido'
           }
         ];
       }
 
       this.saveComprasData();
+      this.updateComprasKPIs();
     } catch (e) {
       console.warn('Error loading compras data:', e);
     }
@@ -1412,34 +1479,75 @@ const InventoryModule = {
       localStorage.setItem('hotel_compras_orders', JSON.stringify(this.purchaseOrders));
       localStorage.setItem('hotel_compras_receptions', JSON.stringify(this.purchaseReceptions));
       localStorage.setItem('hotel_compras_payments', JSON.stringify(this.purchasePayments));
+      this.updateComprasKPIs();
     } catch (e) {}
   },
 
+  /* ---------------------------------------------------------
+     1. ÓRDENES DE COMPRA
+     --------------------------------------------------------- */
   renderOrders() {
     const tbody = document.getElementById('compras-orders-tbody');
     if (!tbody) return;
 
     if (this.purchaseOrders.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay órdenes de compra registradas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 28px; color: var(--text-muted);"><i class="fas fa-file-invoice"></i> No hay órdenes de compra registradas. Presione "Generar Orden de Compra" arriba.</td></tr>`;
       return;
     }
 
     let html = '';
     this.purchaseOrders.forEach(o => {
-      const statusBadge = o.status === 'Aprobada'
-        ? `<span class="badge badge-confirmada"><i class="fas fa-check"></i> Aprobada</span>`
+      const statusBadge = o.status === 'Pagada'
+        ? `<span class="badge badge-confirmada"><i class="fas fa-check-double"></i> Pagada</span>`
+        : o.status === 'Recibida'
+        ? `<span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #059669; border: 1px solid rgba(16, 185, 129, 0.3);"><i class="fas fa-dolly"></i> Recibida</span>`
+        : o.status === 'Aprobada'
+        ? `<span class="badge" style="background: rgba(59, 130, 246, 0.12); color: #2563EB; border: 1px solid rgba(59, 130, 246, 0.3);"><i class="fas fa-check"></i> Aprobada</span>`
         : o.status === 'En Tránsito'
-        ? `<span class="badge" style="background: rgba(37, 99, 235, 0.12); color: #2563EB; border: 1px solid rgba(37, 99, 235, 0.25);"><i class="fas fa-shipping-fast"></i> En Tránsito</span>`
-        : `<span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #D97706; border: 1px solid rgba(245, 158, 11, 0.25);"><i class="fas fa-clock"></i> Pendiente</span>`;
+        ? `<span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #D97706; border: 1px solid rgba(245, 158, 11, 0.3);"><i class="fas fa-shipping-fast"></i> En Tránsito</span>`
+        : `<span class="badge" style="background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1;"><i class="fas fa-clock"></i> Pendiente</span>`;
 
       html += `
         <tr>
-          <td><strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(o.id)}</strong></td>
-          <td><strong style="color: #1E293B;">${sanitizeInput(o.provider)}</strong></td>
-          <td style="color: var(--text-muted); font-size: 12px;">${sanitizeInput(o.date)}</td>
-          <td style="font-size: 12.5px; color: #475569;">${sanitizeInput(o.items)}</td>
-          <td><strong style="color: #0A192F; font-size: 14px;">${formatGs(o.total)}</strong></td>
-          <td>${statusBadge}</td>
+          <td><strong style="color: var(--primary-navy); font-size: 13px; font-family: monospace;">${sanitizeInput(o.id)}</strong></td>
+          <td>
+            <strong style="color: #1E293B; font-size: 13px;">${sanitizeInput(o.provider)}</strong>
+            <div style="font-size: 11px; color: var(--text-muted);"><i class="fas fa-map-marker-alt"></i> ${sanitizeInput(o.destination || 'Hotel 3 Vagos')}</div>
+          </td>
+          <td>
+            <div style="font-size: 12.5px; font-weight: 600; color: #0F172A;"><i class="fas fa-user-edit" style="color: #3B82F6;"></i> ${sanitizeInput(o.issuer || 'Administración')}</div>
+          </td>
+          <td style="color: var(--text-muted); font-size: 12px;">
+            ${sanitizeInput(o.date)}
+            ${o.deliveryDate ? `<br><small style="color: #64748B;">Entrega: ${sanitizeInput(o.deliveryDate)}</small>` : ''}
+          </td>
+          <td style="font-size: 12px; color: #334155; max-width: 260px;">
+            ${sanitizeInput(o.itemsSummary || (Array.isArray(o.items) ? o.items.map(i => `${i.qty}x ${i.name}`).join(', ') : o.items))}
+          </td>
+          <td style="text-align: right;">
+            <strong style="color: #0A192F; font-size: 13.5px;">${formatGs(o.total)}</strong>
+          </td>
+          <td style="text-align: center;">${statusBadge}</td>
+          <td style="text-align: center;">
+            <div style="display: inline-flex; gap: 6px; align-items: center;">
+              ${o.status !== 'Recibida' && o.status !== 'Pagada' ? `
+                <button class="btn btn-outline btn-xs" style="color: #059669; border-color: #A7F3D0; font-weight: 700;" onclick="InventoryModule.openNewReceptionModal('${o.id}')" title="Registrar recepción de mercadería">
+                  <i class="fas fa-dolly"></i> Recepcionar
+                </button>
+              ` : ''}
+              ${o.status !== 'Pagada' ? `
+                <button class="btn btn-outline btn-xs" style="color: #D97706; border-color: #FCD34D; font-weight: 700;" onclick="InventoryModule.openNewPaymentModal('${o.id}')" title="Pagar orden y generar egreso de caja">
+                  <i class="fas fa-receipt"></i> Pagar
+                </button>
+              ` : ''}
+              <button class="btn btn-outline btn-xs" onclick="InventoryModule.printOrderPdf('${o.id}')" title="Descargar / Imprimir Orden de Compra">
+                <i class="fas fa-file-pdf" style="color: #DC2626;"></i> PDF
+              </button>
+              <button class="btn btn-outline btn-xs" style="color: #DC2626; border-color: #FECACA;" onclick="InventoryModule.deleteOrder('${o.id}')" title="Eliminar orden">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
         </tr>
       `;
     });
@@ -1447,25 +1555,180 @@ const InventoryModule = {
     tbody.innerHTML = html;
   },
 
+  openNewOrderModal(preselectedProviderId = null) {
+    const selProvider = document.getElementById('order-provider-select');
+    if (selProvider) {
+      selProvider.innerHTML = this.providers.map(p => `
+        <option value="${p.id}" ${preselectedProviderId === p.id ? 'selected' : ''}>
+          ${p.name} (RUC: ${p.ruc}) - [${p.rubro}]
+        </option>
+      `).join('');
+    }
+
+    const container = document.getElementById('order-items-container');
+    if (container) {
+      container.innerHTML = '';
+      this.addOrderItemRow('Agua Mineral sin Gas 500ml', 50, 4500);
+      this.addOrderItemRow('Cerveza Corona Extra 355ml', 30, 13500);
+    }
+
+    const delivDate = document.getElementById('order-delivery-date');
+    if (delivDate) {
+      const d = new Date();
+      d.setDate(d.getDate() + 2);
+      delivDate.value = d.toISOString().split('T')[0];
+    }
+
+    this.calcOrderTotal();
+    openModal('modal-compras-order');
+  },
+
+  addOrderItemRow(name = '', qty = 10, cost = 5000) {
+    const container = document.getElementById('order-items-container');
+    if (!container) return;
+
+    const rowId = 'item-row-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    const div = document.createElement('div');
+    div.id = rowId;
+    div.style.cssText = 'display: grid; grid-template-columns: 2fr 1fr 1.2fr 1.2fr 34px; gap: 8px; align-items: center; background: #FFFFFF; padding: 6px 10px; border-radius: 6px; border: 1px solid #E2E8F0;';
+
+    div.innerHTML = `
+      <input type="text" class="form-control form-control-sm order-item-name" value="${sanitizeInput(name)}" placeholder="Artículo / Insumo..." required style="font-size: 12px;">
+      <input type="number" class="form-control form-control-sm order-item-qty" value="${qty}" min="1" oninput="InventoryModule.calcOrderTotal()" required style="font-size: 12px;">
+      <input type="number" class="form-control form-control-sm order-item-cost" value="${cost}" min="0" step="500" oninput="InventoryModule.calcOrderTotal()" required style="font-size: 12px;">
+      <span class="order-item-subtotal" style="font-size: 12px; font-weight: 700; color: #1E40AF; text-align: right;">${formatGs(qty * cost)}</span>
+      <button type="button" class="btn btn-outline btn-xs" style="color: #DC2626; border: none; padding: 4px;" onclick="document.getElementById('${rowId}').remove(); InventoryModule.calcOrderTotal();" title="Eliminar fila">
+        <i class="fas fa-trash"></i>
+      </button>
+    `;
+
+    container.appendChild(div);
+    this.calcOrderTotal();
+  },
+
+  calcOrderTotal() {
+    const rows = document.querySelectorAll('#order-items-container > div');
+    let total = 0;
+    rows.forEach(r => {
+      const qty = Number(r.querySelector('.order-item-qty')?.value) || 0;
+      const cost = Number(r.querySelector('.order-item-cost')?.value) || 0;
+      const sub = qty * cost;
+      total += sub;
+      const subEl = r.querySelector('.order-item-subtotal');
+      if (subEl) subEl.innerText = formatGs(sub);
+    });
+
+    const totalEl = document.getElementById('order-total-sum-display');
+    if (totalEl) totalEl.innerText = formatGs(total);
+    return total;
+  },
+
+  saveOrder() {
+    const selProvider = document.getElementById('order-provider-select');
+    const providerId = selProvider?.value;
+    const providerObj = this.providers.find(p => p.id === providerId) || { name: selProvider?.selectedOptions[0]?.text || 'Proveedor Homologado' };
+    const issuer = document.getElementById('order-issuer-select')?.value || 'Carlos Gómez (Administrador General)';
+    const destination = document.getElementById('order-destination-select')?.value || 'Minibar y Room Service';
+    const deliveryDate = document.getElementById('order-delivery-date')?.value || '';
+    const obs = document.getElementById('order-observations')?.value.trim() || '';
+
+    const rows = document.querySelectorAll('#order-items-container > div');
+    const items = [];
+    rows.forEach(r => {
+      const name = r.querySelector('.order-item-name')?.value.trim();
+      const qty = Number(r.querySelector('.order-item-qty')?.value) || 1;
+      const cost = Number(r.querySelector('.order-item-cost')?.value) || 0;
+      if (name) {
+        items.push({ name, qty, cost, subtotal: qty * cost });
+      }
+    });
+
+    if (items.length === 0) {
+      showToast('Debe agregar al menos un artículo a la orden de compra', 'warning');
+      return;
+    }
+
+    const total = items.reduce((s, i) => s + i.subtotal, 0);
+    const itemsSummary = items.map(i => `${i.qty}x ${i.name}`).join(', ');
+
+    const newOrder = {
+      id: `OC-2026-${String(this.purchaseOrders.length + 84).padStart(3, '0')}`,
+      providerId,
+      provider: providerObj.name,
+      issuer,
+      date: new Date().toLocaleDateString('es-PY'),
+      deliveryDate,
+      destination,
+      items,
+      itemsSummary,
+      total,
+      obs,
+      status: 'Aprobada'
+    };
+
+    this.purchaseOrders.unshift(newOrder);
+    this.saveComprasData();
+    closeModal('modal-compras-order');
+    showToast(`Orden de compra ${newOrder.id} emitida con éxito por ${issuer}`, 'success');
+    this.switchComprasSubTab('orders');
+  },
+
+  deleteOrder(id) {
+    if (!confirm(`¿Está seguro de anular y eliminar la orden de compra ${id}?`)) return;
+    this.purchaseOrders = this.purchaseOrders.filter(o => o.id !== id);
+    this.saveComprasData();
+    this.renderOrders();
+    showToast(`Orden ${id} eliminada`, 'info');
+  },
+
+  /* ---------------------------------------------------------
+     2. RECEPCIONES DE MERCADERÍA
+     --------------------------------------------------------- */
   renderReceptions() {
     const tbody = document.getElementById('compras-receptions-tbody');
     if (!tbody) return;
 
     if (this.purchaseReceptions.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay recepciones de mercadería registradas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 28px; color: var(--text-muted);"><i class="fas fa-dolly"></i> No hay recepciones registradas. Presione "Registrar Recepción" arriba.</td></tr>`;
       return;
     }
 
     let html = '';
     this.purchaseReceptions.forEach(r => {
+      const isPaid = this.purchasePayments.some(p => p.orderId === r.orderId || p.invoice === r.docRef);
+
       html += `
         <tr>
-          <td><strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(r.id)}</strong></td>
-          <td><span class="badge" style="background: #F1F5F9; color: #334155; font-weight: 700;">${sanitizeInput(r.orderId)}</span></td>
-          <td><strong style="color: #1E293B;">${sanitizeInput(r.provider)}</strong></td>
-          <td style="font-size: 12px; color: #64748B;"><i class="fas fa-file-invoice"></i> ${sanitizeInput(r.docRef)}</td>
-          <td style="font-size: 12px; color: var(--text-muted);">${sanitizeInput(r.date)}<br><small style="color: #059669; font-weight: 600;"><i class="fas fa-user-check"></i> ${sanitizeInput(r.receiver)}</small></td>
-          <td><span class="badge badge-confirmada"><i class="fas fa-check-double"></i> ${sanitizeInput(r.status)}</span></td>
+          <td><strong style="color: var(--primary-navy); font-size: 13px; font-family: monospace;">${sanitizeInput(r.id)}</strong></td>
+          <td><span class="badge" style="background: #EFF6FF; color: #2563EB; font-weight: 700;">${sanitizeInput(r.orderId || 'Directo')}</span></td>
+          <td><strong style="color: #1E293B; font-size: 13px;">${sanitizeInput(r.provider)}</strong></td>
+          <td><strong style="color: #0F172A; font-size: 12px;"><i class="fas fa-file-invoice" style="color: #3B82F6;"></i> ${sanitizeInput(r.docRef)}</strong></td>
+          <td style="font-size: 12px; color: var(--text-muted);">${sanitizeInput(r.date)}</td>
+          <td>
+            <div style="font-size: 12px; font-weight: 600; color: #059669;"><i class="fas fa-user-check"></i> ${sanitizeInput(r.receiver)}</div>
+          </td>
+          <td style="font-size: 12px; color: #334155; max-width: 220px;">${sanitizeInput(r.itemsSummary || '-')}</td>
+          <td>
+            <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 11px;"><i class="fas fa-arrow-circle-up"></i> ${sanitizeInput(r.stockImpactSummary || 'Stock Actualizado')}</span>
+          </td>
+          <td style="text-align: center;">
+            <span class="badge badge-confirmada"><i class="fas fa-check-double"></i> ${sanitizeInput(r.status)}</span>
+          </td>
+          <td style="text-align: center;">
+            <div style="display: inline-flex; gap: 6px; align-items: center;">
+              ${!isPaid ? `
+                <button class="btn btn-outline btn-xs" style="color: #D97706; border-color: #FCD34D; font-weight: 700;" onclick="InventoryModule.openNewPaymentModal(null, '${r.id}')" title="Pagar factura de esta recepción">
+                  <i class="fas fa-receipt"></i> Pagar
+                </button>
+              ` : '<span class="badge badge-confirmada" style="font-size: 10px;">Pagado</span>'}
+              <button class="btn btn-outline btn-xs" onclick="InventoryModule.printReceptionPdf('${r.id}')" title="Imprimir Acta de Recepción">
+                <i class="fas fa-file-pdf" style="color: #DC2626;"></i> Acta
+              </button>
+              <button class="btn btn-outline btn-xs" style="color: #DC2626; border-color: #FECACA;" onclick="InventoryModule.deleteReception('${r.id}')" title="Eliminar recepción">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
         </tr>
       `;
     });
@@ -1473,34 +1736,484 @@ const InventoryModule = {
     tbody.innerHTML = html;
   },
 
+  openNewReceptionModal(orderId = null) {
+    const selOrder = document.getElementById('reception-order-select');
+    if (selOrder) {
+      let optionsHtml = '<option value="">-- Seleccionar Orden de Compra --</option>';
+      this.purchaseOrders.forEach(o => {
+        optionsHtml += `<option value="${o.id}" ${orderId === o.id ? 'selected' : ''}>${o.id} - ${o.provider} (${formatGs(o.total)})</option>`;
+      });
+      optionsHtml += '<option value="DIRECTO">Recepción Directa sin Orden Previa</option>';
+      selOrder.innerHTML = optionsHtml;
+    }
+
+    if (orderId) {
+      this.onReceptionOrderSelected(orderId);
+    } else {
+      const firstOrder = this.purchaseOrders[0];
+      if (firstOrder) {
+        if (selOrder) selOrder.value = firstOrder.id;
+        this.onReceptionOrderSelected(firstOrder.id);
+      }
+    }
+
+    const docRef = document.getElementById('reception-doc-ref');
+    if (docRef) docRef.value = `Remisión N° 001-002-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    openModal('modal-compras-reception');
+  },
+
+  onReceptionOrderSelected(orderId) {
+    const providerInput = document.getElementById('reception-provider-name');
+    const itemsInput = document.getElementById('reception-items-text');
+
+    if (orderId === 'DIRECTO') {
+      if (providerInput) {
+        providerInput.value = 'Proveedor Directo';
+        providerInput.readOnly = false;
+      }
+      if (itemsInput) itemsInput.value = '';
+      return;
+    }
+
+    const o = this.purchaseOrders.find(item => item.id === orderId);
+    if (o) {
+      if (providerInput) {
+        providerInput.value = o.provider;
+        providerInput.readOnly = true;
+      }
+      if (itemsInput) {
+        itemsInput.value = o.itemsSummary || (Array.isArray(o.items) ? o.items.map(i => `${i.qty}x ${i.name}`).join(', ') : o.items);
+      }
+    }
+  },
+
+  saveReception() {
+    const orderId = document.getElementById('reception-order-select')?.value || 'DIRECTO';
+    const provider = document.getElementById('reception-provider-name')?.value.trim() || 'Proveedor';
+    const receiver = document.getElementById('reception-receiver-select')?.value || 'Carlos Gómez (Recepción)';
+    const docRef = document.getElementById('reception-doc-ref')?.value.trim();
+    const status = document.getElementById('reception-status-select')?.value || 'Recibido Conforme';
+    const itemsSummary = document.getElementById('reception-items-text')?.value.trim() || 'Insumos varios';
+    const syncStock = document.getElementById('reception-sync-stock')?.checked;
+
+    if (!docRef) {
+      showToast('Debe ingresar el N° de remisión o factura del proveedor', 'warning');
+      return;
+    }
+
+    // Impacto automático en stock físico e historial de Kardex
+    let impactText = 'Stock Auditado';
+    if (syncStock) {
+      const order = this.purchaseOrders.find(o => o.id === orderId);
+      if (order && Array.isArray(order.items)) {
+        order.items.forEach(it => {
+          // Si coincide con producto de venta (ej: Agua Mineral o Corona Extra)
+          const salesMatch = this.salesItems.find(s => s.name.toLowerCase().includes(it.name.toLowerCase()) || it.name.toLowerCase().includes(s.name.toLowerCase()));
+          if (salesMatch && salesMatch.stock !== null) {
+            salesMatch.stock = (salesMatch.stock || 0) + Number(it.qty);
+          }
+
+          // Si coincide con insumo interno
+          const internalMatch = this.internalItems.find(i => i.name.toLowerCase().includes(it.name.toLowerCase()) || it.name.toLowerCase().includes(i.name.toLowerCase()));
+          if (internalMatch) {
+            internalMatch.stock = (internalMatch.stock || 0) + Number(it.qty);
+          }
+
+          // Registrar en Kardex
+          if (this.kardexEntries) {
+            this.kardexEntries.unshift({
+              id: 'KRD-' + Date.now() + '-' + Math.floor(Math.random() * 100),
+              date: new Date().toLocaleDateString('es-PY') + ' ' + new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }),
+              item: it.name,
+              type: 'Entrada por Compra',
+              qty: `+${it.qty}`,
+              responsible: receiver,
+              ref: docRef,
+              obs: `Ingreso conforme a stock por ${receiver}`
+            });
+          }
+        });
+        this.saveSalesData();
+        this.saveInternalData();
+        this.saveKardexData();
+        impactText = `+ Stock Sumado (${order.items.length} ítems)`;
+      } else {
+        impactText = '+ Stock Ingresado a Depósito';
+      }
+    }
+
+    // Actualizar estado de la orden de compra a Recibida
+    if (orderId && orderId !== 'DIRECTO') {
+      const order = this.purchaseOrders.find(o => o.id === orderId);
+      if (order) order.status = 'Recibida';
+    }
+
+    const newReception = {
+      id: `REC-${String(this.purchaseReceptions.length + 94).padStart(4, '0')}`,
+      orderId,
+      provider,
+      docRef,
+      date: new Date().toLocaleDateString('es-PY') + ' ' + new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+      receiver,
+      itemsSummary,
+      stockImpacted: !!syncStock,
+      stockImpactSummary: impactText,
+      status
+    };
+
+    this.purchaseReceptions.unshift(newReception);
+    this.saveComprasData();
+    closeModal('modal-compras-reception');
+    showToast(`Recepción ${newReception.id} registrada con éxito por ${receiver}. Stock actualizado.`, 'success');
+    this.switchComprasSubTab('receptions');
+  },
+
+  deleteReception(id) {
+    if (!confirm(`¿Está seguro de eliminar el registro de recepción ${id}?`)) return;
+    this.purchaseReceptions = this.purchaseReceptions.filter(r => r.id !== id);
+    this.saveComprasData();
+    this.renderReceptions();
+    showToast(`Recepción ${id} eliminada`, 'info');
+  },
+
+  /* ---------------------------------------------------------
+     3. PAGOS A PROVEEDORES (EGRESOS DE CAJA)
+     --------------------------------------------------------- */
   renderPayments() {
     const tbody = document.getElementById('compras-payments-tbody');
     if (!tbody) return;
 
     if (this.purchasePayments.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay pagos registrados.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 28px; color: var(--text-muted);"><i class="fas fa-receipt"></i> No hay pagos registrados a proveedores. Presione "Registrar Pago a Proveedor" arriba.</td></tr>`;
       return;
     }
 
     let html = '';
     this.purchasePayments.forEach(p => {
-      const isPaid = p.status === 'Pagado';
-      const badge = isPaid
-        ? `<span class="badge badge-confirmada"><i class="fas fa-check-circle"></i> Pagado</span>`
-        : `<span class="badge" style="background: rgba(239, 68, 68, 0.12); color: #DC2626; border: 1px solid rgba(239, 68, 68, 0.25);"><i class="fas fa-hourglass-half"></i> Pendiente</span>`;
+      const isCash = (p.method || '').includes('Efectivo');
+      const badgeMetodo = isCash
+        ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #B45309; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 700;"><i class="fas fa-money-bill-wave"></i> Efectivo (Caja)</span>`
+        : `<span class="badge" style="background: rgba(59, 130, 246, 0.12); color: #1D4ED8; border: 1px solid rgba(59, 130, 246, 0.3); font-weight: 600;"><i class="fas fa-university"></i> Transferencia</span>`;
 
       html += `
         <tr>
-          <td><strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(p.id)}</strong></td>
-          <td><strong style="color: #1E293B;">${sanitizeInput(p.provider)}</strong></td>
-          <td style="font-size: 12px; color: #64748B;">${sanitizeInput(p.invoice)}</td>
-          <td><strong style="color: #0A192F; font-size: 14px;">${formatGs(p.amount)}</strong></td>
-          <td style="font-size: 12px; color: #475569;"><i class="fas fa-credit-card" style="color: var(--primary-gold);"></i> ${sanitizeInput(p.method)}</td>
-          <td>${badge}</td>
+          <td><strong style="color: var(--primary-navy); font-size: 13px; font-family: monospace;">${sanitizeInput(p.id)}</strong></td>
+          <td><strong style="color: #1E293B; font-size: 13px;">${sanitizeInput(p.provider)}</strong></td>
+          <td><span style="font-size: 12px; color: #475569;"><i class="fas fa-file-invoice"></i> ${sanitizeInput(p.invoice || p.orderId || '-')}</span></td>
+          <td style="text-align: right;"><strong style="color: #B45309; font-size: 14px;">${formatGs(p.amount)}</strong></td>
+          <td>${badgeMetodo}</td>
+          <td><div style="font-size: 12px; font-weight: 600; color: #0F172A;"><i class="fas fa-user-shield" style="color: var(--primary-gold);"></i> ${sanitizeInput(p.responsible || 'Administración')}</div></td>
+          <td style="font-size: 12px; color: var(--text-muted);">${sanitizeInput(p.date)}</td>
+          <td style="text-align: center;"><span class="badge badge-confirmada"><i class="fas fa-check-circle"></i> ${sanitizeInput(p.status)}</span></td>
+          <td style="text-align: center;">
+            <div style="display: inline-flex; gap: 6px; align-items: center;">
+              <button class="btn btn-outline btn-xs" onclick="InventoryModule.printPaymentValePdf('${p.id}')" title="Descargar / Imprimir Vale Oficial de Egreso">
+                <i class="fas fa-file-pdf" style="color: #DC2626;"></i> Vale
+              </button>
+              <button class="btn btn-outline btn-xs" style="color: #DC2626; border-color: #FECACA;" onclick="InventoryModule.deletePayment('${p.id}')" title="Eliminar pago">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
         </tr>
       `;
     });
 
     tbody.innerHTML = html;
+  },
+
+  openNewPaymentModal(orderId = null, receptionId = null) {
+    const selOrder = document.getElementById('payment-order-select');
+    if (selOrder) {
+      let optionsHtml = '<option value="">-- Seleccionar Orden o Factura a Liquidar --</option>';
+      this.purchaseOrders.forEach(o => {
+        optionsHtml += `<option value="OC:${o.id}" data-amount="${o.total}" data-provider="${o.provider}" data-concept="Pago Orden de Compra ${o.id}" ${orderId === o.id ? 'selected' : ''}>
+          Orden ${o.id} - ${o.provider} (${formatGs(o.total)})
+        </option>`;
+      });
+      this.purchaseReceptions.forEach(r => {
+        optionsHtml += `<option value="REC:${r.id}" data-amount="630000" data-provider="${r.provider}" data-concept="Pago s/ Remisión ${r.docRef}" ${receptionId === r.id ? 'selected' : ''}>
+          Recepción ${r.id} (${r.docRef}) - ${r.provider}
+        </option>`;
+      });
+      selOrder.innerHTML = optionsHtml;
+    }
+
+    if (orderId) {
+      this.onPaymentOrderSelected('OC:' + orderId);
+    } else if (receptionId) {
+      this.onPaymentOrderSelected('REC:' + receptionId);
+    } else {
+      const firstOpt = selOrder?.options[1]?.value;
+      if (firstOpt) {
+        selOrder.value = firstOpt;
+        this.onPaymentOrderSelected(firstOpt);
+      }
+    }
+
+    const voucherEl = document.getElementById('payment-voucher-ref');
+    if (voucherEl) voucherEl.value = `VALE-EGR-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    this.onPaymentMethodChange('Efectivo (Caja Registradora Mostrador)');
+    openModal('modal-compras-payment');
+  },
+
+  onPaymentOrderSelected(selVal) {
+    const sel = document.getElementById('payment-order-select');
+    const opt = sel?.selectedOptions[0];
+    const providerDisplay = document.getElementById('payment-provider-display');
+    const amountInput = document.getElementById('payment-amount-input');
+    const conceptInput = document.getElementById('payment-concept-input');
+
+    if (opt) {
+      const prov = opt.getAttribute('data-provider') || 'Proveedor';
+      const amt = opt.getAttribute('data-amount') || '500000';
+      const concept = opt.getAttribute('data-concept') || 'Pago a proveedor';
+
+      if (providerDisplay) providerDisplay.value = prov;
+      if (amountInput) amountInput.value = amt;
+      if (conceptInput) conceptInput.value = concept;
+    }
+  },
+
+  onPaymentMethodChange(method) {
+    const alertBox = document.getElementById('payment-cash-alert-box');
+    if (alertBox) {
+      alertBox.style.display = method.includes('Efectivo') ? 'flex' : 'none';
+    }
+  },
+
+  savePayment() {
+    const sel = document.getElementById('payment-order-select');
+    const selVal = sel?.value || '';
+    const provider = document.getElementById('payment-provider-display')?.value.trim() || 'Proveedor';
+    const amount = Number(document.getElementById('payment-amount-input')?.value) || 0;
+    const method = document.getElementById('payment-method-select')?.value || 'Efectivo (Caja Registradora Mostrador)';
+    const responsible = document.getElementById('payment-responsible-select')?.value || 'Carlos Gómez (Administrador General)';
+    const voucher = document.getElementById('payment-voucher-ref')?.value.trim() || `VALE-EGR-${Math.floor(1000 + Math.random() * 9000)}`;
+    const concept = document.getElementById('payment-concept-input')?.value.trim() || `Pago a proveedor ${provider}`;
+
+    if (amount <= 0) {
+      showToast('Debe ingresar un monto a pagar mayor a 0 Gs.', 'warning');
+      return;
+    }
+
+    const orderId = selVal.replace('OC:', '').replace('REC:', '');
+
+    // INTEGRACIÓN DIRECTA CON CAJA REGISTRADORA
+    if (method.includes('Efectivo')) {
+      if (typeof CashBillingModule !== 'undefined' && CashBillingModule.registrarEgresoProveedor) {
+        CashBillingModule.registrarEgresoProveedor({
+          monto: amount,
+          motivo: concept,
+          responsable,
+          comprobante: voucher,
+          ordenId,
+          proveedor: provider
+        });
+      }
+    }
+
+    // Actualizar estado de orden
+    const order = this.purchaseOrders.find(o => o.id === orderId);
+    if (order) order.status = 'Pagada';
+
+    const newPayment = {
+      id: voucher,
+      orderId,
+      provider,
+      invoice: concept,
+      amount,
+      method,
+      responsible,
+      date: new Date().toLocaleDateString('es-PY') + ' ' + new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }) + ' hs',
+      concept,
+      status: method.includes('Efectivo') ? 'Pagado en Caja' : 'Transferido'
+    };
+
+    this.purchasePayments.unshift(newPayment);
+    this.saveComprasData();
+    closeModal('modal-compras-payment');
+    showToast(`Pago de ${formatGs(amount)} a ${provider} registrado con éxito (Vale #${voucher}). Egreso asentado en caja.`, 'success');
+    this.switchComprasSubTab('payments');
+  },
+
+  deletePayment(id) {
+    if (!confirm(`¿Está seguro de anular el pago ${id}?`)) return;
+    this.purchasePayments = this.purchasePayments.filter(p => p.id !== id);
+    this.saveComprasData();
+    this.renderPayments();
+    showToast(`Comprobante de pago ${id} eliminado`, 'info');
+  },
+
+  /* ---------------------------------------------------------
+     4. GENERACIÓN DE REPORTES Y VALES EN PDF
+     --------------------------------------------------------- */
+  printOrderPdf(orderId) {
+    const o = this.purchaseOrders.find(item => item.id === orderId);
+    if (!o) return;
+
+    try {
+      const jsPdfConstructor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (typeof jsPDF !== 'undefined' ? jsPDF : null);
+      if (!jsPdfConstructor) {
+        window.print();
+        return;
+      }
+
+      const doc = new jsPdfConstructor({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 210, 4, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(15, 23, 42);
+      doc.text('HOTEL 3 VAGOS S.A. - ORDEN DE COMPRA', 14, 16);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(100, 116, 139);
+      doc.text('RUC: 80092341-2 • Asunción, Paraguay • Tel: +595 21 555-0199', 14, 21);
+
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, 28, 182, 28, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`N° ORDEN: ${o.id}`, 18, 35);
+      doc.text(`PROVEEDOR: ${o.provider}`, 18, 41);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(`Fecha Emisión: ${o.date} | Entrega Prevista: ${o.deliveryDate || 'Inmediata'}`, 18, 47);
+      doc.text(`Responsable Emisor: ${o.issuer}`, 18, 52);
+
+      let y = 66;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Detalle de Insumos & Artículos Solicitados:', 14, y);
+      y += 6;
+
+      doc.setFillColor(241, 245, 249);
+      doc.rect(14, y, 182, 8, 'F');
+      doc.setFontSize(8.5);
+      doc.text('Descripción del Artículo', 18, y + 5.5);
+      doc.text('Cantidad', 120, y + 5.5);
+      doc.text('Precio Unitario', 145, y + 5.5);
+      doc.text('Subtotal', 175, y + 5.5);
+      y += 10;
+
+      doc.setFont('helvetica', 'normal');
+      if (Array.isArray(o.items)) {
+        o.items.forEach(it => {
+          doc.text(it.name, 18, y);
+          doc.text(String(it.qty), 125, y);
+          doc.text(formatGs(it.cost), 145, y);
+          doc.text(formatGs(it.subtotal), 175, y);
+          y += 7;
+        });
+      } else {
+        doc.text(String(o.itemsSummary || o.items), 18, y);
+        y += 7;
+      }
+
+      y += 8;
+      doc.line(14, y, 196, y);
+      y += 6;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(`TOTAL ESTIMADO: ${formatGs(o.total)}`, 140, y);
+
+      y += 24;
+      doc.line(24, y, 80, y);
+      doc.line(130, y, 186, y);
+      y += 5;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Firma Responsable Emisor', 30, y);
+      doc.text('Firma y Sello de Gerencia', 138, y);
+
+      doc.save(`Orden_Compra_${o.id}.pdf`);
+      showToast(`Orden de compra ${o.id} descargada en PDF`, 'success');
+    } catch (e) {
+      console.warn('Error al generar PDF de orden:', e);
+    }
+  },
+
+  printReceptionPdf(receptionId) {
+    const r = this.purchaseReceptions.find(item => item.id === receptionId);
+    if (!r) return;
+    try {
+      const jsPdfConstructor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (typeof jsPDF !== 'undefined' ? jsPDF : null);
+      if (!jsPdfConstructor) return;
+
+      const doc = new jsPdfConstructor({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      doc.setFillColor(16, 185, 129);
+      doc.rect(0, 0, 210, 4, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.text('HOTEL 3 VAGOS - ACTA DE RECEPCIÓN DE MERCADERÍA', 14, 16);
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Acta Oficial N°: ${r.id} | Fecha/Hora: ${r.date}`, 14, 24);
+      doc.text(`Proveedor: ${r.provider} | Documento Ref: ${r.docRef}`, 14, 30);
+      doc.text(`Responsable de Recepción: ${r.receiver}`, 14, 36);
+      doc.text(`Estado / Conformidad: ${r.status}`, 14, 42);
+
+      doc.rect(14, 50, 182, 40);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Artículos Recibidos Físicamente & Auditados:', 18, 56);
+      doc.setFont('helvetica', 'normal');
+      doc.text(r.itemsSummary || 'Sin detalle', 18, 64);
+
+      doc.save(`Acta_Recepcion_${r.id}.pdf`);
+      showToast(`Acta de recepción ${r.id} descargada`, 'success');
+    } catch (e) {}
+  },
+
+  printPaymentValePdf(paymentId) {
+    const p = this.purchasePayments.find(item => item.id === paymentId);
+    if (!p) return;
+    try {
+      const jsPdfConstructor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (typeof jsPDF !== 'undefined' ? jsPDF : null);
+      if (!jsPdfConstructor) return;
+
+      const doc = new jsPdfConstructor({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+      doc.setFillColor(245, 158, 11);
+      doc.rect(0, 0, 148, 4, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text('HOTEL 3 VAGOS S.A. - VALE OFICIAL DE EGRESO', 12, 16);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`COMPROBANTE N°: ${p.id}`, 12, 23);
+      doc.text(`Fecha y Hora: ${p.date}`, 12, 28);
+      doc.text(`Beneficiario / Proveedor: ${p.provider}`, 12, 33);
+      doc.text(`Medio de Pago: ${p.method}`, 12, 38);
+
+      doc.setFillColor(254, 243, 199);
+      doc.rect(12, 44, 124, 16, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(180, 83, 9);
+      doc.text(`MONTO ABONADO: ${formatGs(p.amount)}`, 16, 54);
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Concepto: ${p.concept || p.invoice}`, 12, 68);
+      doc.text(`Autorizado y Pagado por: ${p.responsible}`, 12, 74);
+
+      doc.line(16, 92, 60, 92);
+      doc.line(88, 92, 132, 92);
+      doc.setFontSize(7.5);
+      doc.text('Firma Cajero / Pagador', 22, 97);
+      doc.text('Firma Recibí Conforme (Proveedor)', 88, 97);
+
+      doc.save(`Vale_Egreso_${p.id}.pdf`);
+      showToast(`Vale oficial de egreso ${p.id} descargado en PDF`, 'success');
+    } catch (e) {}
   }
 };

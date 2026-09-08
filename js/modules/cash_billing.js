@@ -126,6 +126,30 @@ const CashBillingModule = {
     return { success: true, egreso };
   },
 
+  async registrarEgresoProveedor({ monto, motivo, responsable, comprobante, ordenId, proveedor }) {
+    this.loadEgresos();
+    const egreso = {
+      id: Date.now(),
+      monto: Number(monto) || 0,
+      motivo: motivo || `Pago a Proveedor: ${proveedor || 'Insumos Hotel'}`,
+      responsable: responsable || 'Administrador General',
+      comprobante: comprobante || `VALE-EGR-${Date.now().toString().slice(-4)}`,
+      ordenId: ordenId,
+      proveedor: proveedor || 'Proveedor',
+      fecha: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    this.egresos.push(egreso);
+    this.saveEgresos();
+
+    if (this.currentSession) {
+      this.renderActiveSessionUI(this.currentSession);
+    }
+    await this.loadPaymentsFlow();
+
+    return { success: true, egreso };
+  },
+
   async loadActiveSession() {
     try {
       const { data, error } = await supabaseClient
@@ -159,6 +183,11 @@ const CashBillingModule = {
       console.warn('loadActiveSession error or table empty:', err);
       this.currentSession = null;
       this.renderNoSessionUI();
+    } finally {
+      // Siempre mantener sincronizada la lista de saldos pendientes de cobro
+      try {
+        await this.loadPendingBalances();
+      } catch (ePending) {}
     }
   },
 
@@ -204,33 +233,6 @@ const CashBillingModule = {
     const ingresos = this.getTotalEfectivoCobrado();
     const egresos = this.getTotalEgresos();
     return apertura + ingresos - egresos;
-  },
-
-  async loadActiveSession() {
-    try {
-      const { data, error } = await supabaseClient
-        .from('sesiones_caja')
-        .select('*, users(full_name)')
-        .eq('estado', 'Abierta')
-        .order('id', { ascending: false })
-        .limit(1);
-
-      if (error) throw error;
-
-      if (data && data.length > 0) {
-        this.currentSession = data[0];
-        this.loadEgresos();
-        this.renderActiveSessionUI(this.currentSession);
-      } else {
-        this.currentSession = null;
-        this.egresos = [];
-        this.renderNoSessionUI();
-      }
-    } catch (err) {
-      console.warn('loadActiveSession error or table empty:', err);
-      this.currentSession = null;
-      this.renderNoSessionUI();
-    }
   },
 
   renderActiveSessionUI(session) {
@@ -932,9 +934,14 @@ const CashBillingModule = {
               <span class="badge badge-confirmada">${sanitizeInput(inv.metodo_pago || 'Contado / Digital')}</span>
             </td>
             <td style="text-align: center;">
-              <button class="btn-action-pdf" onclick="CashBillingModule.viewInvoicePdf('${inv.id}', '${inv.folio_id}')" title="Descargar o Imprimir Factura Legal SET">
-                <i class="fas fa-file-pdf" style="color: #DC2626;"></i> Ver PDF
-              </button>
+              <div style="display: inline-flex; gap: 6px; align-items: center;">
+                <button class="btn-action-pdf" onclick="CashBillingModule.viewInvoicePdf('${inv.id}', '${inv.folio_id}', 'set')" title="Descargar o Imprimir Factura Legal SET (A4)">
+                  <i class="fas fa-file-invoice" style="color: #DC2626;"></i> Factura SET
+                </button>
+                <button class="btn btn-outline btn-xs" style="font-size: 11px; padding: 4px 8px; color: #2563EB; border-color: #BFDBFE;" onclick="CashBillingModule.viewInvoiceTicket('${inv.id}', '${inv.folio_id}')" title="Imprimir Ticket Térmico 80mm">
+                  <i class="fas fa-receipt"></i> Ticket 80mm
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -947,33 +954,32 @@ const CashBillingModule = {
   },
 
   /**
-   * Previsualiza o descarga la Factura Legal SET en formato PDF de alta fidelidad
+   * Previsualiza o descarga la Factura Legal SET o Ticket 80mm
    */
-  viewInvoicePdf(invoiceId, folioId) {
-    const inv = this.invoices.find(i => i.id === invoiceId || i.folio_id === folioId);
-    let booking = inv?.folios?.reservas;
-    let folio = inv?.folios;
+  viewInvoicePdf(invoiceId, folioId, format = 'set') {
+    const inv = this.invoices.find(i => String(i.id) === String(invoiceId) || String(i.folio_id) === String(folioId)) || {};
 
-    if (!booking) {
-      const pay = this.payments.find(p => p.folio_id === folioId);
-      booking = pay?.folios?.reservas;
-      folio = pay?.folios;
+    if (typeof FolioPdfService !== 'undefined') {
+      if (format === 'ticket' && typeof FolioPdfService.generateTicketReciboPdf === 'function') {
+        const doc = FolioPdfService.generateTicketReciboPdf(inv);
+        const blob = doc.output('blob');
+        window.open(URL.createObjectURL(blob), '_blank');
+        return;
+      }
+
+      if (typeof FolioPdfService.generateFacturaLegalSetPdf === 'function') {
+        const doc = FolioPdfService.generateFacturaLegalSetPdf(inv);
+        const blob = doc.output('blob');
+        window.open(URL.createObjectURL(blob), '_blank');
+        return;
+      }
     }
 
-    if (!booking) {
-      booking = {
-        codigo_reserva: 'FAC-' + (inv?.numero_factura || 'SET'),
-        monto_total: inv?.monto_total || 72000,
-        anticipo_pagado: inv?.monto_total || 72000,
-        users: { full_name: inv?.razon_social || 'Consumidor Final', document_number: inv?.ruc_ci || '44444401-7' }
-      };
-    }
+    showToast('Generador de Facturas y Tickets activo', 'info');
+  },
 
-    if (typeof FolioPdfService !== 'undefined' && typeof FolioPdfService.previewPdfInNewTab === 'function') {
-      FolioPdfService.previewPdfInNewTab(booking, folio);
-    } else {
-      showToast('Generador de PDF disponible en el navegador', 'info');
-    }
+  viewInvoiceTicket(invoiceId, folioId) {
+    this.viewInvoicePdf(invoiceId, folioId, 'ticket');
   },
 
   openAperturaModal() {
@@ -1458,13 +1464,18 @@ const CashBillingModule = {
               ${statusBadge}
             </td>
             <td style="text-align: center;">
-              ${this.currentSession
+              ${this.isCashOpen()
                 ? `<button class="btn btn-sm btn-primary" onclick="CashBillingModule.openCobroModal('${b.id}')" style="background: #10B981; border-color: #10B981; font-weight: 700; padding: 5px 12px; font-size: 12px;" title="Cobrar saldo pendiente en mostrador">
                     <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo
                   </button>`
-                : `<span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1; font-size: 11px; padding: 4px 8px;" title="Abra el turno de caja para habilitar cobranza física">
-                    <i class="fas fa-lock"></i> Requiere Apertura
-                  </span>`
+                : `<div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                    <button class="btn btn-sm btn-outline" onclick="CashBillingModule.openCobroModal('${b.id}')" style="font-size: 11px; padding: 4px 8px; color: #2563EB; border-color: #BFDBFE; font-weight: 600;" title="Registrar cobro con Tarjeta POS o Transferencia">
+                      <i class="fas fa-credit-card"></i> Cobro Digital / POS
+                    </button>
+                    <span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1; font-size: 9.5px; padding: 2px 6px;" title="Abra el turno de caja para recibir efectivo">
+                      <i class="fas fa-lock"></i> Requiere Apertura (Efectivo)
+                    </span>
+                  </div>`
               }
             </td>
           </tr>

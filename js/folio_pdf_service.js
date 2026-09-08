@@ -377,6 +377,291 @@
     },
 
     /**
+     * Convierte un número en Guaraníes a texto en mayúsculas (Formato Legal SET)
+     * @param {number} amount 
+     * @returns {string} Monto en letras
+     */
+    numeroALetrasGs(amount) {
+      const n = Math.round(Number(amount) || 0);
+      if (n === 0) return 'CERO GUARANÍES';
+
+      const unidades = ['', 'UN', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
+      const decenas = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
+      const diezAlQuince = ['DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISÉIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE'];
+      const centenas = ['', 'CIENTO', 'DOSCIENTOS', 'TRESCIENTOS', 'CUATROCIENTOS', 'QUINIENTOS', 'SEISCIENTOS', 'SETECIENTOS', 'OCHOCIENTOS', 'NOVECIENTOS'];
+
+      function leerCentenas(num) {
+        if (num === 100) return 'CIEN';
+        let res = '';
+        const c = Math.floor(num / 100);
+        const d = Math.floor((num % 100) / 10);
+        const u = num % 10;
+
+        if (c > 0) res += centenas[c] + ' ';
+
+        if (d === 1 && u > 0) {
+          res += diezAlQuince[u] + ' ';
+        } else if (d === 2 && u > 0) {
+          res += 'VEINTI' + unidades[u].toLowerCase() + ' ';
+        } else {
+          if (d > 0) res += decenas[d] + (u > 0 ? ' Y ' : ' ');
+          if (u > 0) res += unidades[u] + ' ';
+        }
+        return res.trim();
+      }
+
+      let millones = Math.floor(n / 1000000);
+      let miles = Math.floor((n % 1000000) / 1000);
+      let resto = n % 1000;
+      let resultado = '';
+
+      if (millones > 0) {
+        resultado += (millones === 1 ? 'UN MILLÓN' : leerCentenas(millones) + ' MILLONES') + ' ';
+      }
+      if (miles > 0) {
+        resultado += (miles === 1 ? 'MIL' : leerCentenas(miles) + ' MIL') + ' ';
+      }
+      if (resto > 0) {
+        resultado += leerCentenas(resto) + ' ';
+      }
+
+      return (resultado.trim() + ' GUARANÍES').toUpperCase();
+    },
+
+    /**
+     * Genera la Factura Legal Oficial SET / DNIT Paraguay (A4 con 3 columnas IVA)
+     * @param {Object} data Datos de la factura
+     * @returns {jsPDF}
+     */
+    generateFacturaLegalSetPdf(data) {
+      const jsPdfConstructor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (typeof jsPDF !== 'undefined' ? jsPDF : null);
+      if (!jsPdfConstructor) throw new Error('jsPDF no disponible');
+
+      const doc = new jsPdfConstructor({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const navy = [15, 23, 42];
+      const slate = [100, 116, 139];
+      const border = [203, 213, 225];
+
+      const invNo = data.numero_factura || '001-001-0000125';
+      const clientName = data.razon_social || 'Consumidor Final';
+      const rucCi = data.ruc_ci || '44444401-7';
+      const total = Number(data.monto_total || data.total || 576000);
+      const iva10 = Math.round(total / 11);
+      const gravada10 = total - iva10;
+      const concepto = data.concepto || 'Servicio de Alojamiento y Hospedaje Hotelero';
+      const fecha = data.fecha_emision ? data.fecha_emision.split('T')[0] : new Date().toLocaleDateString('es-PY');
+
+      // 1. Membrete Fiscal SET
+      doc.setFillColor(...navy);
+      doc.rect(0, 0, 210, 3.5, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(...navy);
+      doc.text('HOTEL 3 VAGOS S.A.', 14, 15);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...slate);
+      doc.text('Servicios de Alojamiento, Gastronomía y Eventos Turísticos', 14, 20);
+      doc.text('Casa Central: Asunción, Paraguay • Tel: +595 21 555-0199', 14, 24);
+      doc.text('Email: facturacion@hotel3vagos.com.py', 14, 28);
+
+      // Recuadro Timbrado Legal SET (Derecha)
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(...border);
+      doc.roundedRect(128, 6, 68, 26, 2, 2, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(...navy);
+      doc.text('TIMBRADO Nº: 16789423', 132, 12);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text('Vigencia: 01/01/2026 al 31/12/2026', 132, 16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RUC: 80092341-2', 132, 21);
+      doc.setFontSize(10);
+      doc.setTextColor(180, 83, 9);
+      doc.text(`FACTURA: ${invNo}`, 132, 28);
+
+      // 2. Datos del Cliente y Operación
+      doc.setDrawColor(...border);
+      doc.roundedRect(14, 35, 182, 22, 2, 2);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...navy);
+      doc.text(`Fecha de Emisión: ${fecha}`, 18, 41);
+      doc.text('Condición de Venta: CONTADO', 120, 41);
+      doc.text(`Nombre o Razón Social: ${clientName}`, 18, 47);
+      doc.text(`RUC / C.I. Nº: ${rucCi}`, 120, 47);
+      doc.text(`Dirección: Asunción, Paraguay`, 18, 53);
+      doc.text(`Moneda: Guaraníes (PYG)`, 120, 53);
+
+      // 3. Tabla con 3 Columnas Reglamentarias de IVA (Exentas, 5%, 10%)
+      let y = 62;
+      doc.setFillColor(241, 245, 249);
+      doc.rect(14, y, 182, 8, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('Cant.', 17, y + 5.5);
+      doc.text('Descripción del Servicio / Producto', 30, y + 5.5);
+      doc.text('Precio Unit.', 96, y + 5.5);
+      doc.text('Exentas', 125, y + 5.5);
+      doc.text('IVA 5%', 150, y + 5.5);
+      doc.text('IVA 10%', 174, y + 5.5);
+
+      y += 8;
+      doc.rect(14, y, 182, 50);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text('1', 19, y + 8);
+      doc.text(concepto, 30, y + 8);
+      doc.text(new Intl.NumberFormat('es-PY').format(total), 96, y + 8);
+      doc.text('0', 130, y + 8);
+      doc.text('0', 154, y + 8);
+      doc.text(new Intl.NumberFormat('es-PY').format(total), 172, y + 8);
+
+      // Fila de Subtotales
+      y += 50;
+      doc.setFillColor(248, 250, 252);
+      doc.rect(14, y, 182, 8, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('SUBTOTALES:', 30, y + 5.5);
+      doc.text('0 Gs.', 125, y + 5.5);
+      doc.text('0 Gs.', 150, y + 5.5);
+      doc.text(new Intl.NumberFormat('es-PY').format(total) + ' Gs.', 170, y + 5.5);
+
+      // 4. Total a Pagar y Total en Letras
+      y += 8;
+      doc.rect(14, y, 182, 16);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('TOTAL A PAGAR (Gs.):', 18, y + 6);
+      doc.setFontSize(11);
+      doc.setTextColor(22, 101, 52);
+      doc.text(new Intl.NumberFormat('es-PY').format(total) + ' GUARANÍES', 70, y + 6);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...navy);
+      doc.text('SON: ' + this.numeroALetrasGs(total), 18, y + 12);
+
+      // 5. Liquidación del IVA (Exentas, 5%, 10% y Total IVA)
+      y += 16;
+      doc.setFillColor(241, 245, 249);
+      doc.rect(14, y, 182, 10, 'FD');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.text('LIQUIDACIÓN DEL IVA:', 18, y + 6.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('(5%): 0 Gs.', 65, y + 6.5);
+      doc.text(`(10%): ${new Intl.NumberFormat('es-PY').format(iva10)} Gs.`, 105, y + 6.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`TOTAL IVA: ${new Intl.NumberFormat('es-PY').format(iva10)} Gs.`, 150, y + 6.5);
+
+      // Firmas y sellos
+      y += 35;
+      doc.line(25, y, 85, y);
+      doc.line(125, y, 185, y);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Firma y Sello del Emisor (Hotel 3 Vagos)', 30, y + 5);
+      doc.text('Firma / Aceptación del Cliente', 135, y + 5);
+
+      // Pie fiscal
+      doc.setFontSize(6.8);
+      doc.setTextColor(...slate);
+      doc.text('Original: Cliente • Duplicado: Archivo Tributario • Constancia emitida conforme a las normas de la DNIT / SET Paraguay', 105, 285, { align: 'center' });
+
+      return doc;
+    },
+
+    /**
+     * Genera el Ticket / Recibo Térmico continuo de 80mm para POS y App Móvil
+     * @param {Object} data Datos del comprobante
+     * @returns {jsPDF}
+     */
+    generateTicketReciboPdf(data) {
+      const jsPdfConstructor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : (typeof jsPDF !== 'undefined' ? jsPDF : null);
+      if (!jsPdfConstructor) throw new Error('jsPDF no disponible');
+
+      // Formato continuo estándar 80mm x 180mm
+      const doc = new jsPdfConstructor({ orientation: 'portrait', unit: 'mm', format: [80, 180] });
+
+      const total = Number(data.monto_total || data.monto || 576000);
+      const iva10 = Math.round(total / 11);
+      const client = data.razon_social || data.full_name || 'Consumidor Final';
+      const ruc = data.ruc_ci || data.cedula || '44444401-7';
+      const comprobante = data.numero_factura || data.comprobante || `TK-${Date.now().toString().slice(-6)}`;
+      const metodo = data.metodo_pago || 'Tarjeta Débito (App)';
+
+      let y = 10;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.text('HOTEL 3 VAGOS S.A.', 40, y, { align: 'center' });
+      y += 5;
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('RUC: 80092341-2 • Timbrado: 16789423', 40, y, { align: 'center' });
+      y += 4;
+      doc.text('Asunción, Paraguay • Tel: +595 21 555-0199', 40, y, { align: 'center' });
+      y += 4;
+      doc.text('---------------------------------------------------------', 40, y, { align: 'center' });
+      y += 5;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('TICKET DE COBRO & RECIBO OFICIAL', 40, y, { align: 'center' });
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`Ticket N°: ${comprobante}`, 8, y);
+      y += 4;
+      doc.text(`Fecha/Hora: ${new Date().toLocaleString('es-PY')}`, 8, y);
+      y += 4;
+      doc.text(`Cliente: ${client}`, 8, y);
+      y += 4;
+      doc.text(`RUC / C.I.: ${ruc}`, 8, y);
+      y += 4;
+      doc.text(`Medio de Pago: ${metodo}`, 8, y);
+      y += 4;
+      doc.text('---------------------------------------------------------', 40, y, { align: 'center' });
+      y += 6;
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('DETALLE DEL SERVICIO:', 8, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.text('1x Alojamiento & Consumos Hoteleros', 8, y);
+      y += 4;
+      doc.text(`Subtotal Gravado (IVA 10%): ${new Intl.NumberFormat('es-PY').format(total - iva10)} Gs.`, 8, y);
+      y += 4;
+      doc.text(`Liquidación IVA 10%: ${new Intl.NumberFormat('es-PY').format(iva10)} Gs.`, 8, y);
+      y += 5;
+      doc.text('=========================================================', 40, y, { align: 'center' });
+      y += 6;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(`TOTAL COBRADO:`, 8, y);
+      doc.text(`${new Intl.NumberFormat('es-PY').format(total)} Gs.`, 72, y, { align: 'right' });
+      y += 6;
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(this.numeroALetrasGs(total), 40, y, { align: 'center' });
+      y += 10;
+
+      doc.text('¡Gracias por elegir Hotel 3 Vagos!', 40, y, { align: 'center' });
+      y += 4;
+      doc.text('Conserve este comprobante de pago.', 40, y, { align: 'center' });
+
+      return doc;
+    },
+
+    /**
      * Retorna el string base64 puro (sin prefijo data:application/pdf;base64,) para adjuntar en Brevo
      * @param {Object} booking 
      * @param {Object} folio 
