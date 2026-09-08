@@ -244,93 +244,86 @@ const CashBillingModule = {
     const efectivoEnCajon = apertura + totalEfec - totalEg;
 
     const shortId = session.id ? String(session.id).slice(0, 8) : 'ACT';
-    const responsable = sanitizeInput(session.responsable || session.users?.full_name || localStorage.getItem('caja_responsable') || 'Marcos Rolón (Recepcionista)');
+    
+    // Vincular responsable estrictamente al rol de Admin o Recepcionista
+    let rawResp = localStorage.getItem('caja_responsable') || session.responsable || session.users?.full_name || '';
+    let responsable = 'Marcos Rolón (Recepcionista Front Desk)';
+    if (rawResp.toLowerCase().includes('kevin')) {
+      responsable = 'Kevin Santacruz (Administrador General)';
+    } else if (rawResp.toLowerCase().includes('marcos') || rawResp.toLowerCase().includes('recep')) {
+      responsable = 'Marcos Rolón (Recepcionista Front Desk)';
+    } else {
+      const uName = (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name.toLowerCase() : '';
+      const uRole = (typeof AppState !== 'undefined' && AppState.currentUser?.role) ? AppState.currentUser.role.toLowerCase() : '';
+      responsable = (uName.includes('kevin') || uRole === 'admin')
+        ? 'Kevin Santacruz (Administrador General)'
+        : 'Marcos Rolón (Recepcionista Front Desk)';
+    }
     const turno = sanitizeInput(localStorage.getItem('caja_turno') || 'Turno Mañana (06:00 - 14:00)');
 
     box.innerHTML = `
-      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%); border-radius: var(--radius-lg); border: 1px solid rgba(255, 255, 255, 0.08); padding: 20px 22px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);">
+      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%); border-radius: var(--radius-lg); border: 1px solid rgba(255, 255, 255, 0.08); padding: 20px 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); margin-bottom: 20px;">
         
-        <!-- Fila Superior: Identidad de Caja & Botonera Principal Desplazada -->
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 14px; margin-bottom: 14px;">
-          <div>
-            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <span class="status-dot"></span>
-              <strong style="color: #34D399; font-size: 16px; letter-spacing: -0.2px;">Caja Principal de Recepción Abierta</strong>
-              <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.35); font-size: 11px; font-weight: 700; padding: 2px 8px;">
-                <i class="fas fa-check-circle"></i> Turno Activo
-              </span>
-              <span style="font-family: monospace; font-size: 11px; color: #94A3B8; background: rgba(255, 255, 255, 0.05); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
-                #${shortId}
-              </span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: #94A3B8;">
-              <span><i class="fas fa-user-tie" style="color: var(--primary-gold);"></i> Responsable: <strong style="color: #F8FAFC;">${responsable}</strong></span>
-              <span><i class="fas fa-clock" style="color: #60A5FA;"></i> Turno: <strong style="color: #F8FAFC;">${turno}</strong></span>
-              <span class="badge" style="background: rgba(37, 99, 235, 0.18); color: #93C5FD; border: 1px solid rgba(96, 165, 250, 0.3); font-size: 11px; padding: 2px 8px;">
-                <i class="fas fa-shield-alt"></i> App Móvil: Tarjetas 24/7 (Bancaria)
-              </span>
-            </div>
+        <!-- Fila 1: Cabecera de Estado e Identidad (Izq) + Botonera de Acciones (Der) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 16px; margin-bottom: 14px;">
+          
+          <!-- Identidad de Caja Activa -->
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <span class="status-dot"></span>
+            <strong style="color: #34D399; font-size: 16.5px; letter-spacing: -0.2px;">Caja Principal de Recepción Abierta</strong>
+            <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.35); font-size: 11px; font-weight: 700; padding: 3px 10px;">
+              <i class="fas fa-check-circle"></i> Turno Activo
+            </span>
+            <span style="font-family: monospace; font-size: 11px; color: #94A3B8; background: rgba(255, 255, 255, 0.05); padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
+              #${shortId}
+            </span>
           </div>
 
-          <!-- Botonera de Acciones Desplazada a la Derecha con Jerarquía Visual -->
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <button class="btn" style="background: #10B981; color: #fff; border: 1px solid #059669; font-weight: 700; font-size: 12.5px; padding: 7px 14px; display: inline-flex; align-items: center; gap: 6px;" onclick="CashBillingModule.openCobroModal()" title="Registrar cobro de saldo pendiente de reserva o folio">
+          <!-- Botonera Agrupada a la Derecha (Sin Arqueo Rápido) -->
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <button class="btn" style="background: #10B981; color: #fff; border: 1px solid #059669; font-weight: 700; font-size: 12.5px; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);" onclick="CashBillingModule.openCobroModal()" title="Registrar cobro de saldo pendiente de reserva o folio">
               <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo de Reserva
             </button>
-            <button class="btn" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 600; font-size: 12.5px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px;" onclick="CashBillingModule.openEgresoModal()" title="Registrar un retiro de dinero para pago a proveedores o vales">
+            <button class="btn" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 600; font-size: 12.5px; padding: 8px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" onclick="CashBillingModule.openEgresoModal()" title="Registrar un retiro de dinero para pago a proveedores o vales">
               <i class="fas fa-receipt"></i> Registrar Egreso / Vale
             </button>
-            <button class="btn btn-outline" style="border-color: rgba(255, 255, 255, 0.2); color: #E2E8F0; font-size: 12.5px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px;" onclick="CashBillingModule.openArqueoModal()" title="Ver auditoría preliminar del turno">
-              <i class="fas fa-calculator"></i> Arqueo Rápido
-            </button>
-            <button class="btn btn-danger" style="font-size: 12.5px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 6px;" onclick="CashBillingModule.openCierreModal()" title="Realizar el recuento de efectivo y cerrar el turno">
+            <button class="btn btn-danger" style="font-size: 12.5px; padding: 8px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600;" onclick="CashBillingModule.openCierreModal()" title="Realizar el recuento de efectivo y cerrar el turno">
               <i class="fas fa-lock"></i> Cierre de Turno / Arqueo
             </button>
           </div>
+
         </div>
 
-        <!-- Fila Inferior: Cuadrícula Coherente y Balanceada de Flujo de Efectivo -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
-          <!-- 1. Fondo Apertura -->
-          <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 10px; padding: 12px 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <span style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700;">Fondo Fijo Apertura</span>
-              <i class="fas fa-wallet" style="color: #94A3B8; font-size: 13px;"></i>
-            </div>
-            <div style="font-size: 17px; font-weight: 800; color: #F8FAFC;">${formatGs(apertura)}</div>
-            <div style="font-size: 11px; color: #64748B; margin-top: 2px;">Monto base de cambio inicial</div>
+        <!-- Fila 2: Franja Separada y Ordenada de Responsable, Turno y Balances Físicos -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+          
+          <!-- Responsable y Turno (Vinculados a Admin o Recepcionista) -->
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 12.5px; color: #94A3B8;">
+            <span><i class="fas fa-user-shield" style="color: var(--primary-gold);"></i> Responsable: <strong style="color: #F8FAFC;">${responsable}</strong></span>
+            <span><i class="fas fa-clock" style="color: #60A5FA;"></i> Turno: <strong style="color: #F8FAFC;">${turno}</strong></span>
+            <span class="badge" style="background: rgba(37, 99, 235, 0.18); color: #93C5FD; border: 1px solid rgba(96, 165, 250, 0.3); font-size: 11px; padding: 3px 9px;">
+              <i class="fas fa-shield-alt"></i> App Móvil: Tarjetas 24/7 (Bancaria)
+            </span>
           </div>
 
-          <!-- 2. Entradas Efectivo -->
-          <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; padding: 12px 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <span style="font-size: 11px; text-transform: uppercase; color: #34D399; font-weight: 700;">(+) Cobros Efectivo</span>
-              <i class="fas fa-arrow-down" style="color: #34D399; font-size: 13px;"></i>
-            </div>
-            <div style="font-size: 17px; font-weight: 800; color: #34D399;">+${formatGs(totalEfec)}</div>
-            <div style="font-size: 11px; color: #10B981; margin-top: 2px;">Ingresos en efectivo del turno</div>
+          <!-- Píldoras de Auditoría Físicas de Caja -->
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px;">
+            <span style="background: rgba(255, 255, 255, 0.05); color: #CBD5E1; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
+              Fondo Apertura: <strong style="color: #F8FAFC;">${formatGs(apertura)}</strong>
+            </span>
+            <span style="background: rgba(16, 185, 129, 0.1); color: #34D399; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(52, 211, 153, 0.25);">
+              <i class="fas fa-arrow-down"></i> Cobros: <strong>+${formatGs(totalEfec)}</strong>
+            </span>
+            <span style="background: rgba(239, 68, 68, 0.1); color: #F87171; padding: 4px 10px; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.25);">
+              <i class="fas fa-arrow-up"></i> Egresos: <strong>-${formatGs(totalEg)}</strong>
+            </span>
+            <span style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(180, 83, 9, 0.15)); color: #FDE68A; padding: 4px 12px; border-radius: 6px; border: 1px solid rgba(245, 158, 11, 0.5); font-weight: 700;">
+              <i class="fas fa-cash-register" style="color: #FBBF24;"></i> Efectivo en Cajón: <strong>${formatGs(efectivoEnCajon)}</strong>
+            </span>
           </div>
 
-          <!-- 3. Salidas / Egresos -->
-          <div style="background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 10px; padding: 12px 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <span style="font-size: 11px; text-transform: uppercase; color: #F87171; font-weight: 700;">(-) Egresos / Vales</span>
-              <i class="fas fa-arrow-up" style="color: #F87171; font-size: 13px;"></i>
-            </div>
-            <div style="font-size: 17px; font-weight: 800; color: #F87171;">-${formatGs(totalEg)}</div>
-            <div style="font-size: 11px; color: #EF4444; margin-top: 2px;">Pagos de pañol, compras o vales</div>
-          </div>
-
-          <!-- 4. Saldo Teórico en Cajón -->
-          <div style="background: linear-gradient(135deg, rgba(212, 175, 55, 0.12), rgba(180, 83, 9, 0.08)); border: 1px solid rgba(245, 158, 11, 0.45); border-radius: 10px; padding: 12px 14px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-              <span style="font-size: 11px; text-transform: uppercase; color: #FBBF24; font-weight: 700;">Efectivo en Cajón</span>
-              <i class="fas fa-cash-register" style="color: #FBBF24; font-size: 13px;"></i>
-            </div>
-            <div style="font-size: 19px; font-weight: 800; color: #FDE68A;">${formatGs(efectivoEnCajon)}</div>
-            <div style="font-size: 11px; color: #F59E0B; font-weight: 600; margin-top: 2px;">Saldo físico teórico auditable</div>
-          </div>
         </div>
+
       </div>
     `;
   },
@@ -340,21 +333,18 @@ const CashBillingModule = {
     if (!box) return;
 
     box.innerHTML = `
-      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98)); border-radius: var(--radius-lg); border: 1px solid rgba(255, 255, 255, 0.08); padding: 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.98) 100%); border-radius: var(--radius-lg); border: 1px solid rgba(255, 255, 255, 0.08); padding: 22px 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 20px;">
         <div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span style="width: 10px; height: 10px; border-radius: 50%; background: #EF4444; display: inline-block;"></span>
-            <strong style="color: #F87171; font-size: 16px;">Caja Principal de Recepción Cerrada</strong>
+            <strong style="color: #F87171; font-size: 16.5px;">Caja Principal de Recepción Cerrada</strong>
           </div>
           <p style="font-size: 12.5px; color: #94A3B8; margin-top: 6px;">
             El turno físico de mostrador está cerrado. Los cobros online de la <strong>App Móvil</strong> (Tarjetas Débito/Crédito) ingresan y se concilian 24/7 en la cuenta bancaria.
           </p>
         </div>
         <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-          <button class="btn" style="background: #10B981; color: #fff; border: 1px solid #059669; font-weight: 700; font-size: 12.5px; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" onclick="CashBillingModule.openCobroModal()" title="Registrar cobro de saldo de reserva (POS o Transferencia)">
-            <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo de Reserva
-          </button>
-          <button class="btn btn-primary" style="font-size: 12.5px; padding: 8px 16px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;" onclick="CashBillingModule.openAperturaModal()">
+          <button class="btn btn-primary" style="font-size: 13px; padding: 10px 18px; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px; font-weight: 700;" onclick="CashBillingModule.openAperturaModal()">
             <i class="fas fa-key"></i> Apertura de Turno de Caja
           </button>
         </div>
@@ -987,23 +977,41 @@ const CashBillingModule = {
   },
 
   openAperturaModal() {
+    const respSelect = document.getElementById('caja-responsable');
+    if (respSelect) {
+      const uName = (typeof AppState !== 'undefined' && AppState.currentUser?.name) ? AppState.currentUser.name.toLowerCase() : '';
+      const uRole = (typeof AppState !== 'undefined' && AppState.currentUser?.role) ? AppState.currentUser.role.toLowerCase() : '';
+      if (uName.includes('kevin') || uRole === 'admin') {
+        respSelect.value = 'Kevin Santacruz (Administrador General)';
+      } else {
+        respSelect.value = 'Marcos Rolón (Recepcionista Front Desk)';
+      }
+    }
     openModal('modal-apertura-caja');
   },
 
   async confirmAperturaCaja() {
     try {
       const monto = Number(document.getElementById('caja-monto-inicial').value) || 0;
-      const resp = document.getElementById('caja-responsable').value.trim() || 'Marcos Rolón (Recepcionista)';
+      const respEl = document.getElementById('caja-responsable');
+      const resp = respEl ? respEl.value.trim() : 'Marcos Rolón (Recepcionista Front Desk)';
       const turno = document.getElementById('caja-turno-select')?.value || 'Turno Mañana (06:00 - 14:00)';
 
       // Almacenar metadatos para UI y auditoría legal
       localStorage.setItem('caja_responsable', resp);
       localStorage.setItem('caja_turno', turno);
 
-      // Obtener usuario_id válido (FK obligatoria a users)
-      const validUserId = (typeof AppState !== 'undefined' && AppState.currentUser?.id && AppState.currentUser.id.length > 20)
-        ? AppState.currentUser.id
-        : '44635480-0093-4c8f-930c-6d4a12c1d5fe'; // Laura Benítez (Recepción)
+      // Vincular usuario_id estrictamente al Admin o Recepcionista
+      let validUserId = '44635480-0093-4c8f-930c-6d4a12c1d5fe'; // Marcos Rolón (Recepcionista Front Desk)
+      if (respEl && respEl.selectedIndex >= 0) {
+        const selectedOpt = respEl.options[respEl.selectedIndex];
+        const attrId = selectedOpt?.getAttribute('data-userid');
+        if (attrId) {
+          validUserId = attrId;
+        }
+      } else if (resp.toLowerCase().includes('kevin')) {
+        validUserId = '77b24d82-fc05-4782-862a-dcc63c44431d'; // Kevin Santacruz (Admin)
+      }
 
       const { error } = await supabaseClient.from('sesiones_caja').insert({
         usuario_id: validUserId,
@@ -1450,9 +1458,14 @@ const CashBillingModule = {
               ${statusBadge}
             </td>
             <td style="text-align: center;">
-              <button class="btn btn-sm btn-primary" onclick="CashBillingModule.openCobroModal('${b.id}')" style="background: #10B981; border-color: #10B981; font-weight: 700; padding: 5px 12px; font-size: 12px;" title="Cobrar saldo pendiente en mostrador">
-                <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo
-              </button>
+              ${this.currentSession
+                ? `<button class="btn btn-sm btn-primary" onclick="CashBillingModule.openCobroModal('${b.id}')" style="background: #10B981; border-color: #10B981; font-weight: 700; padding: 5px 12px; font-size: 12px;" title="Cobrar saldo pendiente en mostrador">
+                    <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo
+                  </button>`
+                : `<span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1; font-size: 11px; padding: 4px 8px;" title="Abra el turno de caja para habilitar cobranza física">
+                    <i class="fas fa-lock"></i> Requiere Apertura
+                  </span>`
+              }
             </td>
           </tr>
         `;
@@ -1467,6 +1480,10 @@ const CashBillingModule = {
   },
 
   openCobroModal(reservaId = null) {
+    if (!this.currentSession) {
+      showToast('La Caja de Recepción se encuentra cerrada. Debe realizar la Apertura de Turno antes de cobrar.', 'warning');
+      return;
+    }
     const select = document.getElementById('cobro-reserva-select');
     if (!select) return;
 
