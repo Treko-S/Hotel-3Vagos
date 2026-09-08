@@ -66,10 +66,28 @@ function formatGs(amount) {
 }
 
 /**
+ * Retorna fecha local en formato YYYY-MM-DD sin desfase UTC
+ */
+function getLocalDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/**
  * Formateador de fechas estándar (DD/MM/YYYY)
+ * Inmune a desfases de zona horaria UTC (e.g. UTC-3 Paraguay) al recibir YYYY-MM-DD
  */
 function formatDate(dateStr) {
   if (!dateStr) return '-';
+  if (typeof dateStr === 'string') {
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, y, m, d] = match;
+      return `${d}/${m}/${y}`;
+    }
+  }
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString('es-PY', {

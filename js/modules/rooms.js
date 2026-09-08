@@ -97,7 +97,7 @@ const RoomsModule = {
 
       const { data, error } = await supabaseClient
         .from('habitaciones')
-        .select('*, tipos_habitacion(*)')
+        .select('*, tipos_habitacion(*), reservas(*)')
         .order('numero', { ascending: true });
 
       if (error) throw error;
@@ -183,46 +183,117 @@ const RoomsModule = {
           </td>
           <td>
             ${(() => {
+              const roomReservations = (r.reservas && Array.isArray(r.reservas)) ? r.reservas : [];
               const allB = (typeof ReservationsModule !== 'undefined' && ReservationsModule.currentBookings) ? ReservationsModule.currentBookings : [];
-              const roomB = allB.filter(x => x.habitacion_id == r.id && x.estado !== 'Cancelada' && x.estado !== 'Finalizada');
+              const fallbackB = allB.filter(x => x.habitacion_id == r.id);
               
-              // Determinar estado real cruzando con reservas activas
+              // Unir reservas sin duplicados
+              const combinedMap = new Map();
+              [...roomReservations, ...fallbackB].forEach(b => {
+                if (b && (b.id || b.codigo_reserva)) {
+                  combinedMap.set(b.id || b.codigo_reserva, b);
+                }
+              });
+              
+              const activeBookings = Array.from(combinedMap.values()).filter(x => {
+                const st = (x.estado || '').toLowerCase().trim();
+                return st !== 'cancelada' && st !== 'finalizada';
+              });
+
+              // Ordenar por fecha de check-in ascendente
+              activeBookings.sort((a, b) => {
+                const dateA = (a.check_in_previsto || a.fecha_entrada || '').split('T')[0];
+                const dateB = (b.check_in_previsto || b.fecha_entrada || '').split('T')[0];
+                return dateA.localeCompare(dateB);
+              });
+
+              const todayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr() : new Date().toISOString().split('T')[0];
+              const tomorrow = new Date();
+              tomorrow.setDate(tomorrow.getDate() + 1);
+              const tomorrowStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(tomorrow) : tomorrow.toISOString().split('T')[0];
+
               let realEstado = r.estado || 'Disponible';
               let extraInfo = '';
-              
+
               if (r.estado.toLowerCase() === 'ocupada') {
-                const active = roomB.find(x => x.estado === 'Check-in' || x.estado === 'En estadía' || x.estado === 'Ocupada') || roomB[0];
-                if (active && active.check_out_previsto) {
-                  extraInfo = `<div style="font-size: 10px; color: #b45309; margin-top: 3px; font-weight: 500;"><i class="far fa-calendar-alt"></i> Libre: ${formatDate(active.check_out_previsto)}</div>`;
+                const active = activeBookings.find(x => {
+                  const st = (x.estado || '').toLowerCase();
+                  return st === 'check-in' || st === 'en estadía' || st === 'en estadia' || st === 'ocupada';
+                }) || activeBookings[0];
+                if (active) {
+                  const outDate = active.check_out_previsto || active.fecha_salida;
+                  if (outDate) {
+                    extraInfo = `<div style="font-size: 10px; color: #b45309; margin-top: 3px; font-weight: 500;"><i class="far fa-calendar-alt"></i> Libre: ${formatDate(outDate)}</div>`;
+                  }
                 }
-              } else if (r.estado.toLowerCase() === 'disponible' || r.estado.toLowerCase() === 'limpieza') {
-                // CORRECCIÓN CRÍTICA: Si la habitación dice "Disponible" pero tiene
-                // una reserva activa (Confirmada, Garantizada, Pendiente), el estado
-                // real es "Reservada" — exactamente como se muestra en la App Móvil.
-                const activeReservation = roomB.find(x => 
-                  x.estado === 'Confirmada' || 
-                  x.estado === 'Garantizada' || 
-                  x.estado === 'Pendiente' ||
-                  x.estado === 'Reservada'
-                );
-                if (activeReservation) {
-                  realEstado = 'Reservada';
-                  const checkIn = activeReservation.check_in_previsto || activeReservation.fecha_entrada;
-                  const checkOut = activeReservation.check_out_previsto || activeReservation.fecha_salida;
+              } else {
+                // A. Buscar si hay una reserva activa durante el día de hoy
+                const currentBooking = activeBookings.find(x => {
+                  const inDate = (x.check_in_previsto || x.fecha_entrada || '').split('T')[0];
+                  const outDate = (x.check_out_previsto || x.fecha_salida || '').split('T')[0];
+                  return inDate <= todayStr && todayStr < outDate;
+                });
+
+                // B. Buscar si hay una reserva inminente (ingreso hoy o mañana)
+                const imminentBooking = currentBooking || activeBookings.find(x => {
+                  const inDate = (x.check_in_previsto || x.fecha_entrada || '').split('T')[0];
+                  return inDate <= tomorrowStr;
+                });
+
+                if (currentBooking) {
+                  const st = (currentBooking.estado || '').toLowerCase();
+                  if (st === 'check-in' || st === 'en estadía' || st === 'en estadia') {
+                    realEstado = 'Ocupada';
+                  } else {
+                    realEstado = 'Reservada';
+                  }
+                  const inDate = currentBooking.check_in_previsto || currentBooking.fecha_entrada;
+                  const outDate = currentBooking.check_out_previsto || currentBooking.fecha_salida;
+                  const isArrivalToday = (inDate || '').split('T')[0] === todayStr;
                   extraInfo = `
-                    <div style="font-size: 10px; color: #7C3AED; margin-top: 3px; font-weight: 600;">
-                      <i class="far fa-calendar-check"></i> ${formatDate(checkIn)} → ${formatDate(checkOut)}
+                    <div style="font-size: 10px; color: #2563eb; margin-top: 3px; font-weight: 600;">
+                      <i class="far fa-calendar-check"></i> ${formatDate(inDate)} → ${formatDate(outDate)} ${isArrivalToday ? '<span style="color: #dc2626; font-weight: 700;">(Llegada hoy)</span>' : ''}
                     </div>
                     <div style="font-size: 9.5px; color: #10B981; margin-top: 1px; font-weight: 500;">
-                      <i class="fas fa-calendar-day"></i> Disponible desde el ${formatDate(checkOut)}
+                      <i class="fas fa-calendar-day"></i> Disponible desde el ${formatDate(outDate)}
                     </div>
                   `;
-                } else {
-                  // Sin reserva activa, chequear si hay una próxima futura
-                  const upcoming = [...roomB].sort((a,b) => (a.check_in_previsto||'').localeCompare(b.check_in_previsto||''))[0];
-                  if (upcoming && upcoming.check_in_previsto) {
-                    extraInfo = `<div style="font-size: 10px; color: #2563eb; margin-top: 3px; font-weight: 500;" title="Reserva programada"><i class="far fa-calendar-check"></i> Próx: ${formatDate(upcoming.check_in_previsto)}</div>`;
+                } else if (imminentBooking) {
+                  realEstado = 'Reservada';
+                  const inDate = imminentBooking.check_in_previsto || imminentBooking.fecha_entrada;
+                  const outDate = imminentBooking.check_out_previsto || imminentBooking.fecha_salida;
+                  extraInfo = `
+                    <div style="font-size: 10px; color: #2563eb; margin-top: 3px; font-weight: 600;">
+                      <i class="far fa-calendar-check"></i> ${formatDate(inDate)} → ${formatDate(outDate)}
+                    </div>
+                    <div style="font-size: 9.5px; color: #10B981; margin-top: 1px; font-weight: 500;">
+                      <i class="fas fa-calendar-day"></i> Disponible desde el ${formatDate(outDate)}
+                    </div>
+                  `;
+                } else if (r.estado.toLowerCase() === 'reservada') {
+                  realEstado = 'Reservada';
+                  const nextBooking = activeBookings[0];
+                  if (nextBooking) {
+                    const inDate = nextBooking.check_in_previsto || nextBooking.fecha_entrada;
+                    const outDate = nextBooking.check_out_previsto || nextBooking.fecha_salida;
+                    extraInfo = `
+                      <div style="font-size: 10px; color: #2563eb; margin-top: 3px; font-weight: 600;">
+                        <i class="far fa-calendar-check"></i> ${formatDate(inDate)} → ${formatDate(outDate)}
+                      </div>
+                      <div style="font-size: 9.5px; color: #10B981; margin-top: 1px; font-weight: 500;">
+                        <i class="fas fa-calendar-day"></i> Disponible desde el ${formatDate(outDate)}
+                      </div>
+                    `;
                   }
+                } else if (r.estado.toLowerCase() === 'disponible') {
+                  realEstado = 'Disponible';
+                  const nextBooking = activeBookings[0];
+                  if (nextBooking) {
+                    const inDate = nextBooking.check_in_previsto || nextBooking.fecha_entrada;
+                    extraInfo = `<div style="font-size: 10px; color: #2563eb; margin-top: 3px; font-weight: 500;" title="Reserva programada"><i class="far fa-calendar-check"></i> Próx: ${formatDate(inDate)}</div>`;
+                  }
+                } else {
+                  realEstado = r.estado;
                 }
               }
               

@@ -279,26 +279,32 @@ const ReservationsModule = {
   },
 
   updateFrontDeskKPIs(list) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = (typeof getLocalDateStr === 'function') ? getLocalDateStr() : new Date().toISOString().split('T')[0];
     let checkinsToday = 0;
     let inHouse = 0;
     let totalPagosRecaudados = 0;
     let totalSaldoPendiente = 0;
 
-    list.forEach(b => {
+    (list || []).forEach(b => {
       const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
       const montoTotal = Number(b.monto_total || 0);
       const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(b.anticipo_pagado || 0);
       const saldo = folio.saldo_pendiente !== undefined ? Number(folio.saldo_pendiente) : Math.max(0, montoTotal - anticipo);
 
-      if (b.check_in_previsto === today && (b.estado === 'Confirmada' || b.estado === 'Garantizada')) {
+      const checkInDate = (b.check_in_previsto || b.fecha_entrada || '').split('T')[0];
+      const checkOutDate = (b.check_out_previsto || b.fecha_salida || '').split('T')[0];
+      const estadoLower = (b.estado || '').toLowerCase().trim();
+
+      // Check-in previsto para hoy (o pendiente de ingreso si ya inició la estadía pero no ha hecho check-in)
+      if ((checkInDate === today || (checkInDate <= today && today < checkOutDate)) && 
+          (estadoLower === 'confirmada' || estadoLower === 'garantizada' || estadoLower === 'pendiente' || estadoLower === 'reservada')) {
         checkinsToday++;
       }
-      if (b.estado === 'Check-in' || b.estado === 'En estadía') {
+      if (estadoLower === 'check-in' || estadoLower === 'en estadía' || estadoLower === 'en estadia' || estadoLower === 'ocupada') {
         inHouse++;
       }
       totalPagosRecaudados += anticipo;
-      if (b.estado === 'Confirmada' || b.estado === 'Check-in' || b.estado === 'En estadía') {
+      if (estadoLower === 'confirmada' || estadoLower === 'garantizada' || estadoLower === 'check-in' || estadoLower === 'en estadía' || estadoLower === 'en estadia') {
         totalSaldoPendiente += saldo;
       }
     });
@@ -2257,6 +2263,16 @@ const ReservationsModule = {
         .single();
 
       if (bookErr) throw bookErr;
+
+      // Actualizar estado operativo de la habitación a 'Reservada'
+      try {
+        await supabaseClient
+          .from('habitaciones')
+          .update({ estado: 'Reservada' })
+          .eq('id', roomId);
+      } catch (e) {
+        console.warn('No se pudo actualizar estado de habitacion a Reservada:', e);
+      }
 
       // Crear Folio de cuenta inicial
       try {
