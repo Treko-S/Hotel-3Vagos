@@ -545,6 +545,8 @@ body {
 .badge-limpieza { background: #fef08a; color: #854d0e; }
 .badge-mantenimiento { background: var(--danger-bg); color: #991b1b; }
 .badge-confirmada { background: var(--purple-bg); color: #6b21a8; }
+.badge-reservada { background: #EDE9FE; color: #7C3AED; }
+.badge-garantizada { background: #DBEAFE; color: #1D4ED8; }
 .badge-abierto { background: #dbeafe; color: #1e40af; }
 .badge-cerrado { background: #e2e8f0; color: #475569; }
 

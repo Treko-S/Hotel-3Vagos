@@ -1146,6 +1146,54 @@
         </div>
 
         <!-- =====================================================
+             NUEVO APARTADO: CANCELACIONES & REEMBOLSOS PENDIENTES
+             ===================================================== -->
+        <div id="cash-cancellations-panel" class="card-panel" style="margin-bottom: 24px; border-left: 4px solid #DC2626; box-shadow: var(--shadow-sm); display: none;">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 34px; height: 34px; border-radius: 8px; background: rgba(220, 38, 38, 0.12); color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                  <i class="fas fa-undo-alt"></i>
+                </span>
+                <span style="color: #991B1B;">Reembolsos Pendientes por Cancelación (Tarifa Flexible)</span>
+              </h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                Reservas canceladas a tiempo que requieren reintegro del anticipo al cliente para cuadrar el arqueo de caja
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <span id="cash-cancellations-badge-count" class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-weight: 800;">
+                0 Pendientes
+              </span>
+              <button class="btn btn-outline" style="padding: 7px 14px; font-size: 12px;" onclick="CashBillingModule.loadCancellationRefunds()" title="Actualizar lista de reembolsos">
+                <i class="fas fa-sync-alt"></i> Actualizar
+              </button>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Código / Reserva</th>
+                  <th>Habitación</th>
+                  <th>Huésped Titular</th>
+                  <th>Plan de Tarifa</th>
+                  <th>Fecha Cancelación</th>
+                  <th style="text-align: right;">Anticipo Pagado</th>
+                  <th style="text-align: right;">Reembolso a Devolver</th>
+                  <th style="text-align: center;">Estado Reembolso</th>
+                  <th style="text-align: center;">Acción de Caja</th>
+                </tr>
+              </thead>
+              <tbody id="cash-cancellations-tbody">
+                <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">Consultando reembolsos pendientes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- =====================================================
              NUEVO APARTADO: RESERVAS CON SALDOS PENDIENTES DE COBRO
              ===================================================== -->
         <div class="card-panel" style="margin-bottom: 24px; border-left: 4px solid var(--accent-gold); box-shadow: var(--shadow-sm);">
@@ -2963,6 +3011,89 @@
         <button class="btn btn-outline" onclick="closeModal('modal-cobrar-reserva')">Cancelar</button>
         <button id="btn-confirmar-cobro-reserva" class="btn btn-primary" onclick="CashBillingModule.confirmarCobroReserva()" style="background: #10B981; border-color: #10B981; font-weight: 700;">
           <i class="fas fa-check-circle"></i> Confirmar Cobro & Registrar en Caja
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Procesar Reembolso / Egreso de Caja por Cancelación de Reserva -->
+  <div id="modal-procesar-reembolso" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 580px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 18px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fas fa-undo-alt"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 19px; color: var(--primary-navy); font-family: var(--font-heading);">Procesar Reembolso / Egreso de Caja</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Devolución por Tarifa Flexible con cancelación a tiempo (> 24 hs)</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-procesar-reembolso')">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="reembolso-reserva-id">
+
+        <!-- Tarjetas de Información Financiera de la Cancelación -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Anticipo Abonado</div>
+            <div id="reembolso-info-abonado" style="font-size: 14px; font-weight: 800; color: var(--primary-navy); margin-top: 4px;">0 Gs.</div>
+          </div>
+          <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 10px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: #991B1B; font-weight: 700;">Penalidad (0%)</div>
+            <div style="font-size: 14px; font-weight: 800; color: #16A34A; margin-top: 4px;">0 Gs.</div>
+          </div>
+          <div style="background: #DCFCE7; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: #166534; font-weight: 700;">A Devolver (100%)</div>
+            <div id="reembolso-info-monto" style="font-size: 15px; font-weight: 800; color: #15803D; margin-top: 4px;">0 Gs.</div>
+          </div>
+        </div>
+
+        <div style="background: #F8FAFC; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; display: flex; justify-content: space-between; align-items: center;">
+          <div id="reembolso-info-huesped">Huésped: -</div>
+          <div id="reembolso-info-reserva" style="font-weight: 700; color: var(--primary-navy);">Reserva: -</div>
+        </div>
+
+        <!-- Indicador de Efectivo de Caja -->
+        <div id="reembolso-caja-status-alert" style="margin-bottom: 14px;"></div>
+
+        <!-- Método de Reembolso -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--primary-navy);"><i class="fas fa-money-bill-wave"></i> Vía de Devolución / Egreso *</label>
+          <select id="reembolso-metodo-select" class="form-control" onchange="CashBillingModule.onReembolsoMetodoChanged()">
+            <option value="Efectivo" selected>Efectivo en Cajón (Egreso Físico de Recepción)</option>
+            <option value="Transferencia Bancaria">Transferencia Bancaria / SIPAP (Reintegro Bancario)</option>
+            <option value="Reversión Tarjeta">Reversión de Tarjeta / Pasarela Online</option>
+          </select>
+        </div>
+
+        <!-- Monto del Egreso -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin-bottom: 4px;">
+            <i class="fas fa-coins" style="color: #DC2626;"></i> Importe del Egreso / Reembolso (Gs.) *
+          </label>
+          <input type="number" id="reembolso-monto-input" class="form-control" placeholder="0" style="font-size: 16px; font-weight: 800; color: #DC2626;" readonly>
+        </div>
+
+        <!-- Comprobante / Nro Transacción -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 13px; font-weight: 600;"><i class="fas fa-receipt"></i> N° Comprobante de Egreso / Vale de Caja / Ref. Bancaria</label>
+          <input type="text" id="reembolso-comprobante-input" class="form-control" placeholder="Ej: VALE-DEV-001 o SIPAP-88129">
+        </div>
+
+        <!-- Motivo Contable -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label style="font-size: 13px; font-weight: 600;"><i class="fas fa-comment-dots"></i> Observaciones de Auditoría Contable</label>
+          <input type="text" id="reembolso-motivo-input" class="form-control" placeholder="Reembolso de anticipo por cancelación anticipada (> 24 hs)">
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-procesar-reembolso')">Cancelar</button>
+        <button id="btn-confirmar-reembolso" class="btn btn-primary" onclick="CashBillingModule.confirmarProcesarReembolso()" style="background: #DC2626; border-color: #DC2626; font-weight: 700;">
+          <i class="fas fa-check-circle"></i> Confirmar Egreso & Registrar en Caja
         </button>
       </div>
     </div>

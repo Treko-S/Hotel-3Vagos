@@ -80,6 +80,21 @@ const RoomsModule = {
 
       tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 28px;"><i class="fas fa-spinner fa-spin"></i> Cargando inventario de habitaciones desde Supabase...</td></tr>`;
 
+      // Pre-cargar reservas activas para cruzar el estado real de cada habitación
+      // (Confirmada, Garantizada → Reservada) si no fueron cargadas previamente
+      if (typeof ReservationsModule !== 'undefined' && (!ReservationsModule.currentBookings || ReservationsModule.currentBookings.length === 0)) {
+        try {
+          const { data: bookings } = await supabaseClient
+            .from('reservas')
+            .select('id, habitacion_id, estado, check_in_previsto, check_out_previsto, fecha_entrada, fecha_salida')
+            .not('estado', 'in', '("Cancelada","Finalizada")')
+            .order('id', { ascending: false });
+          ReservationsModule.currentBookings = bookings || [];
+        } catch (e) {
+          console.warn('Pre-carga de reservas para inventario falló:', e);
+        }
+      }
+
       const { data, error } = await supabaseClient
         .from('habitaciones')
         .select('*, tipos_habitacion(*)')
@@ -167,25 +182,58 @@ const RoomsModule = {
             </div>
           </td>
           <td>
-            <span class="badge badge-${statusClass}">
-              <span class="status-dot"></span>
-              ${sanitizeInput(r.estado)}
-            </span>
             ${(() => {
               const allB = (typeof ReservationsModule !== 'undefined' && ReservationsModule.currentBookings) ? ReservationsModule.currentBookings : [];
               const roomB = allB.filter(x => x.habitacion_id == r.id && x.estado !== 'Cancelada' && x.estado !== 'Finalizada');
+              
+              // Determinar estado real cruzando con reservas activas
+              let realEstado = r.estado || 'Disponible';
+              let extraInfo = '';
+              
               if (r.estado.toLowerCase() === 'ocupada') {
                 const active = roomB.find(x => x.estado === 'Check-in' || x.estado === 'En estadía' || x.estado === 'Ocupada') || roomB[0];
                 if (active && active.check_out_previsto) {
-                  return `<div style="font-size: 10px; color: #b45309; margin-top: 3px; font-weight: 500;"><i class="far fa-calendar-alt"></i> Libre: ${formatDate(active.check_out_previsto)}</div>`;
+                  extraInfo = `<div style="font-size: 10px; color: #b45309; margin-top: 3px; font-weight: 500;"><i class="far fa-calendar-alt"></i> Libre: ${formatDate(active.check_out_previsto)}</div>`;
                 }
-              } else if (r.estado.toLowerCase() === 'disponible') {
-                const upcoming = [...roomB].sort((a,b) => (a.check_in_previsto||'').localeCompare(b.check_in_previsto||''))[0];
-                if (upcoming && upcoming.check_in_previsto) {
-                  return `<div style="font-size: 10px; color: #2563eb; margin-top: 3px; font-weight: 500;" title="Reserva programada"><i class="far fa-calendar-check"></i> Próx: ${formatDate(upcoming.check_in_previsto)}</div>`;
+              } else if (r.estado.toLowerCase() === 'disponible' || r.estado.toLowerCase() === 'limpieza') {
+                // CORRECCIÓN CRÍTICA: Si la habitación dice "Disponible" pero tiene
+                // una reserva activa (Confirmada, Garantizada, Pendiente), el estado
+                // real es "Reservada" — exactamente como se muestra en la App Móvil.
+                const activeReservation = roomB.find(x => 
+                  x.estado === 'Confirmada' || 
+                  x.estado === 'Garantizada' || 
+                  x.estado === 'Pendiente' ||
+                  x.estado === 'Reservada'
+                );
+                if (activeReservation) {
+                  realEstado = 'Reservada';
+                  const checkIn = activeReservation.check_in_previsto || activeReservation.fecha_entrada;
+                  const checkOut = activeReservation.check_out_previsto || activeReservation.fecha_salida;
+                  extraInfo = `
+                    <div style="font-size: 10px; color: #7C3AED; margin-top: 3px; font-weight: 600;">
+                      <i class="far fa-calendar-check"></i> ${formatDate(checkIn)} → ${formatDate(checkOut)}
+                    </div>
+                    <div style="font-size: 9.5px; color: #10B981; margin-top: 1px; font-weight: 500;">
+                      <i class="fas fa-calendar-day"></i> Disponible desde el ${formatDate(checkOut)}
+                    </div>
+                  `;
+                } else {
+                  // Sin reserva activa, chequear si hay una próxima futura
+                  const upcoming = [...roomB].sort((a,b) => (a.check_in_previsto||'').localeCompare(b.check_in_previsto||''))[0];
+                  if (upcoming && upcoming.check_in_previsto) {
+                    extraInfo = `<div style="font-size: 10px; color: #2563eb; margin-top: 3px; font-weight: 500;" title="Reserva programada"><i class="far fa-calendar-check"></i> Próx: ${formatDate(upcoming.check_in_previsto)}</div>`;
+                  }
                 }
               }
-              return '';
+              
+              const statusClass = realEstado.toLowerCase().replace(/\s+/g, '-');
+              return `
+                <span class="badge badge-${statusClass}">
+                  <span class="status-dot"></span>
+                  ${sanitizeInput(realEstado)}
+                </span>
+                ${extraInfo}
+              `;
             })()}
           </td>
           <td>

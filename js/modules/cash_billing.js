@@ -9,12 +9,14 @@ const CashBillingModule = {
   payments: [],
   egresos: [],
   pendingReservations: [],
+  pendingCancellationRefunds: [],
 
   async init() {
     await this.loadInvoices();
     await this.loadActiveSession();
     await this.loadPaymentsFlow();
     await this.loadPendingBalances();
+    await this.loadCancellationRefunds();
     this.startMidnightWatcher();
   },
 
@@ -361,7 +363,7 @@ const CashBillingModule = {
 
       const { data: rawPayments, error } = await supabaseClient
         .from('pagos_folio')
-        .select('*, folios(id, reserva_id, total_pagos, saldo_pendiente, reservas(id, codigo_reserva, canal_venta, users(id, full_name, email, document_number)))')
+        .select('*, folios(id, reserva_id, total_pagos, saldo_pendiente, reservas(*, users(id, full_name, email, document_number)))')
         .order('id', { ascending: false });
 
       if (error) throw error;
@@ -372,6 +374,7 @@ const CashBillingModule = {
       let totalAppPasarela = 0;
       let totalDigital = 0;
       let totalConsolidado = 0;
+      let totalPenalidadesRetenidas = 0;
 
       this.payments.forEach(p => {
         const monto = Number(p.monto) || 0;
@@ -398,9 +401,21 @@ const CashBillingModule = {
         } else {
           totalDigital += monto;
         }
+
+        // Reclasificación contable de penalidades de cancelación
+        const estadoReserva = (reserva.estado || '').toLowerCase();
+        const planReserva = (reserva.rate_plan_type || '').toLowerCase();
+        const cancelStatus = (reserva.cancellation_status || '').toLowerCase();
+        const isCancelada = estadoReserva === 'cancelada';
+        const isPenalidad = cancelStatus === 'penalizado' || 
+                            (isCancelada && (planReserva.includes('no reembolsable') || planReserva.includes('promo'))) ||
+                            (isCancelada && cancelStatus !== 'reembolsado' && cancelStatus !== 'pendiente');
+        if (isPenalidad) {
+          totalPenalidadesRetenidas += monto;
+        }
       });
 
-      // Render KPIs de Ingresos por Método de Pago
+      // Render KPIs de Ingresos por Método de Pago y Auditoría de Cancelaciones
       if (containerKpis) {
         containerKpis.innerHTML = `
           <div class="kpi-card" style="border-left: 4px solid #16A34A;">
@@ -442,12 +457,25 @@ const CashBillingModule = {
             </div>
           </div>
 
+          <div class="kpi-card" style="border-left: 4px solid #DC2626;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <p style="font-size: 11px; text-transform: uppercase; color: #DC2626; font-weight: 700; margin: 0;">Penalidades Cancelación</p>
+                <h3 style="font-size: 20px; font-weight: 800; color: #991B1B; margin: 6px 0 2px;">${formatGs(totalPenalidadesRetenidas)}</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Ingreso retenido por política</p>
+              </div>
+              <div style="width: 38px; height: 38px; border-radius: 10px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                <i class="fas fa-gavel"></i>
+              </div>
+            </div>
+          </div>
+
           <div class="kpi-card" style="border-left: 4px solid var(--primary-gold);">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ganancia Total Consolidada</p>
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ganancia Consolidada</p>
                 <h3 style="font-size: 20px; font-weight: 800; color: var(--primary-dark); margin: 6px 0 2px;">${formatGs(totalConsolidado)}</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Ingresos reales registrados en el sistema</p>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Total percibido en el hotel</p>
               </div>
               <div style="width: 38px; height: 38px; border-radius: 10px; background: #FEF3C7; color: #B45309; display: flex; align-items: center; justify-content: center; font-size: 16px;">
                 <i class="fas fa-vault"></i>
@@ -492,6 +520,32 @@ const CashBillingModule = {
                 ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 11px;"><i class="fas fa-cash-register"></i> Caja Mostrador</span>`
                 : `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 11px;"><i class="fas fa-university"></i> Banco / POS Mostrador</span>`);
 
+          // Reclasificación contable del concepto
+          const estadoReserva = (reserva.estado || '').toLowerCase();
+          const planReserva = (reserva.rate_plan_type || '').toLowerCase();
+          const cancelStatus = (reserva.cancellation_status || '').toLowerCase();
+          const isCancelada = estadoReserva === 'cancelada';
+          const isPenalidad = cancelStatus === 'penalizado' || 
+                              (isCancelada && (planReserva.includes('no reembolsable') || planReserva.includes('promo'))) ||
+                              (isCancelada && cancelStatus !== 'reembolsado' && cancelStatus !== 'pendiente');
+          const isReembolsado = cancelStatus === 'reembolsado';
+
+          let conceptoHtml = `<span style="font-family: monospace; font-size: 11.5px; color: var(--text-muted);">${sanitizeInput(p.referencia_transaccion || 'Abono Registrado')}</span>`;
+          if (isPenalidad) {
+            conceptoHtml = `
+              <span class="badge" style="background: rgba(220, 38, 38, 0.12); color: #DC2626; border: 1px solid rgba(220, 38, 38, 0.35); font-size: 11px; font-weight: 700; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fas fa-gavel"></i> Ingreso por Penalidad de Cancelación
+              </span>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">${sanitizeInput(p.referencia_transaccion || 'Retenido s/ política No Reembolsable')}</div>
+            `;
+          } else if (isReembolsado) {
+            conceptoHtml = `
+              <span class="badge" style="background: rgba(100, 116, 139, 0.12); color: #64748B; border: 1px solid rgba(100, 116, 139, 0.3); font-size: 11px; font-weight: 600; padding: 3px 8px;">
+                <i class="fas fa-undo"></i> Reserva Cancelada (Reembolsada)
+              </span>
+            `;
+          }
+
           // Estado de Facturación Legal (SET Paraguay)
           const matchedInv = this.invoices.find(inv => inv.folio_id === p.folio_id || (inv.ruc_ci && Number(inv.monto_total) == Number(p.monto)));
           const isFacturado = Boolean(matchedInv || p.facturado || p.factura_id);
@@ -526,7 +580,7 @@ const CashBillingModule = {
                 ${badgeMetodo}
               </td>
               <td>
-                <span style="font-family: monospace; font-size: 11.5px; color: var(--text-muted);">${sanitizeInput(p.referencia_transaccion || 'Abono Registrado')}</span>
+                ${conceptoHtml}
               </td>
               <td style="text-align: right;">
                 <strong style="color: #15803D; font-size: 13.5px;">+${formatGs(p.monto)}</strong>
@@ -1487,6 +1541,322 @@ const CashBillingModule = {
     } catch (err) {
       console.error('Error al cargar saldos pendientes de cobro:', err);
       tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--danger);">Error al cargar saldos pendientes: ${err.message}</td></tr>`;
+    }
+  },
+
+  /* =========================================================
+     GESTIÓN DE REEMBOLSOS POR CANCELACIÓN (TARIFA FLEXIBLE)
+     ========================================================= */
+  async loadCancellationRefunds() {
+    const panel = document.getElementById('cash-cancellations-panel');
+    const tbody = document.getElementById('cash-cancellations-tbody');
+    const countBadge = document.getElementById('cash-cancellations-badge-count');
+    if (!tbody) return;
+
+    try {
+      // 1. Consultar reservas canceladas
+      const { data, error } = await supabaseClient
+        .from('reservas')
+        .select('*, habitaciones(*, tipos_habitacion(*)), folios(*, pagos_folio(*)), users(*)')
+        .eq('estado', 'Cancelada')
+        .order('id', { ascending: false });
+
+      if (error) {
+        console.warn('loadCancellationRefunds query error:', error);
+        return;
+      }
+
+      const list = data || [];
+      this.pendingCancellationRefunds = [];
+
+      list.forEach(b => {
+        // Chequear estado de cancelación
+        const cStatus = (b.cancellation_status || '').toLowerCase();
+        const plan = (b.rate_plan_type || '').toLowerCase();
+
+        // Calcular anticipo pagado
+        const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
+        let totalAbonado = 0;
+        if (folio.pagos_folio && Array.isArray(folio.pagos_folio) && folio.pagos_folio.length > 0) {
+          totalAbonado = folio.pagos_folio.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+        } else if (folio.total_pagos !== undefined && Number(folio.total_pagos) > 0) {
+          totalAbonado = Number(folio.total_pagos);
+        } else {
+          totalAbonado = Number(b.anticipo_pagado || 0);
+        }
+
+        // Si ya fue reembolsado o penalizado, o no hubo pago alguno (0 Gs.)
+        if (cStatus === 'reembolsado' || cStatus === 'penalizado' || totalAbonado <= 0) {
+          return;
+        }
+
+        // Si la reserva fue cancelada bajo Tarifa Flexible y tiene anticipo, o cStatus es 'pendiente'
+        const isFlexible = plan.includes('flexible') || plan === '' || (!plan.includes('no reembolsable') && !plan.includes('promo'));
+        const montoReembolso = Number(b.refund_amount) > 0 ? Number(b.refund_amount) : totalAbonado;
+
+        if (cStatus === 'pendiente' || (isFlexible && cStatus !== 'penalizado')) {
+          this.pendingCancellationRefunds.push({
+            ...b,
+            calcAbonado: totalAbonado,
+            calcReembolso: montoReembolso,
+            folioObj: folio
+          });
+        }
+      });
+
+      // Actualizar contador y visibilidad del panel
+      const count = this.pendingCancellationRefunds.length;
+      if (countBadge) {
+        countBadge.innerText = `${count} ${count === 1 ? 'Pendiente' : 'Pendientes'}`;
+      }
+
+      if (count > 0) {
+        if (panel) panel.style.display = 'block';
+      } else {
+        if (panel) panel.style.display = 'none';
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);"><i class="fas fa-check-circle" style="color: #10B981;"></i> No hay reembolsos de cancelación pendientes.</td></tr>`;
+        return;
+      }
+
+      // Renderizar filas de la tabla
+      let html = '';
+      this.pendingCancellationRefunds.forEach(b => {
+        const user = Array.isArray(b.users) ? (b.users[0] || {}) : (b.users || {});
+        const hab = Array.isArray(b.habitaciones) ? (b.habitaciones[0] || {}) : (b.habitaciones || {});
+        const numHab = hab.numero || hab.numero_habitacion || 'S/A';
+        const cancelDate = b.cancelled_at || b.updated_at || b.created_at;
+
+        html += `
+          <tr>
+            <td>
+              <strong style="color: var(--primary-navy); font-size: 13px;">${sanitizeInput(b.codigo_reserva || 'RES-#' + b.id)}</strong>
+              <div style="font-size: 11px; color: var(--text-muted);">ID #${b.id}</div>
+            </td>
+            <td>
+              <span class="badge" style="background: rgba(37, 99, 235, 0.1); color: #2563EB; font-weight: 700;">
+                Hab. ${sanitizeInput(numHab)}
+              </span>
+            </td>
+            <td>
+              <div style="font-weight: 600; color: var(--primary-dark); font-size: 13px;">${sanitizeInput(user.full_name || 'Huésped')}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(user.document_number || user.email || '')}</div>
+            </td>
+            <td>
+              <span class="badge" style="background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; font-size: 11px; font-weight: 700;">
+                <i class="fas fa-undo"></i> Flexible Estándar
+              </span>
+            </td>
+            <td>
+              <div style="font-size: 12px; font-weight: 600;">${formatDate(cancelDate)}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${new Date(cancelDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} hs</div>
+            </td>
+            <td style="text-align: right;">
+              <strong style="color: var(--primary-navy); font-size: 13px;">${formatGs(b.calcAbonado)}</strong>
+            </td>
+            <td style="text-align: right;">
+              <strong style="color: #DC2626; font-size: 14px; font-weight: 800;">${formatGs(b.calcReembolso)}</strong>
+            </td>
+            <td style="text-align: center;">
+              <span class="badge" style="background: #FEF3C7; color: #B45309; border: 1px solid #FCD34D; font-size: 11px; font-weight: 700;">
+                <i class="fas fa-clock"></i> Pendiente Devolución
+              </span>
+            </td>
+            <td style="text-align: center;">
+              <button class="btn" style="background: #DC2626; color: #fff; border: 1px solid #B91C1C; padding: 6px 14px; font-size: 11.5px; border-radius: 7px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(220, 38, 38, 0.25);" onclick="CashBillingModule.openProcesarReembolsoModal('${b.id}')" title="Procesar Egreso y Devolución">
+                <i class="fas fa-hand-holding-usd"></i> Procesar Reembolso
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    } catch (err) {
+      console.warn('loadCancellationRefunds error:', err);
+    }
+  },
+
+  openProcesarReembolsoModal(reservaId) {
+    const item = this.pendingCancellationRefunds.find(b => String(b.id) === String(reservaId));
+    if (!item) {
+      showToast('Reserva no encontrada en la cola de reembolsos', 'warning');
+      return;
+    }
+
+    const user = Array.isArray(item.users) ? (item.users[0] || {}) : (item.users || {});
+    const inputId = document.getElementById('reembolso-reserva-id');
+    const infoAbonado = document.getElementById('reembolso-info-abonado');
+    const infoMonto = document.getElementById('reembolso-info-monto');
+    const infoHuesped = document.getElementById('reembolso-info-huesped');
+    const infoReserva = document.getElementById('reembolso-info-reserva');
+    const inputMonto = document.getElementById('reembolso-monto-input');
+    const inputComp = document.getElementById('reembolso-comprobante-input');
+    const inputMotivo = document.getElementById('reembolso-motivo-input');
+    const metodoSelect = document.getElementById('reembolso-metodo-select');
+
+    if (inputId) inputId.value = item.id;
+    if (infoAbonado) infoAbonado.innerText = formatGs(item.calcAbonado);
+    if (infoMonto) infoMonto.innerText = formatGs(item.calcReembolso);
+    if (infoHuesped) infoHuesped.innerHTML = `<strong>Huésped:</strong> ${sanitizeInput(user.full_name || 'Huésped')} (${sanitizeInput(user.document_number || 'S/D')})`;
+    if (infoReserva) infoReserva.innerHTML = `<strong>Reserva:</strong> #${sanitizeInput(item.codigo_reserva || item.id)}`;
+    if (inputMonto) inputMonto.value = item.calcReembolso;
+    if (inputComp) inputComp.value = `VALE-DEV-${Date.now().toString().slice(-4)}`;
+    if (inputMotivo) inputMotivo.value = `Reembolso 100% Cancelación Reserva #${item.codigo_reserva || item.id} (Tarifa Flexible)`;
+    if (metodoSelect) metodoSelect.value = 'Efectivo';
+
+    this.onReembolsoMetodoChanged();
+    openModal('modal-procesar-reembolso');
+  },
+
+  onReembolsoMetodoChanged() {
+    const select = document.getElementById('reembolso-metodo-select');
+    const alertBox = document.getElementById('reembolso-caja-status-alert');
+    const compInput = document.getElementById('reembolso-comprobante-input');
+    if (!select || !alertBox) return;
+
+    const val = select.value;
+    if (val === 'Efectivo') {
+      if (compInput && (!compInput.value || compInput.value.includes('SIPAP') || compInput.value.includes('REV'))) {
+        compInput.value = `VALE-DEV-${Date.now().toString().slice(-4)}`;
+      }
+      if (!this.isCashOpen()) {
+        alertBox.innerHTML = `
+          <div style="background: #FEF2F2; color: #991B1B; padding: 10px 14px; border-radius: 8px; font-size: 12px; border: 1px solid #FECACA; display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 16px;"></i>
+            <div><strong>Atención:</strong> La caja de recepción está cerrada. Para entregar efectivo del cajón físico, primero debe abrir turno de caja.</div>
+          </div>
+        `;
+      } else {
+        const apertura = Number(this.currentSession.monto_apertura) || 0;
+        const cobros = this.getTotalEfectivoCobrado();
+        const egresos = this.getTotalEgresos();
+        const disponible = apertura + cobros - egresos;
+        alertBox.innerHTML = `
+          <div style="background: #F0FDF4; color: #166534; padding: 10px 14px; border-radius: 8px; font-size: 12px; border: 1px solid #BBF7D0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-cash-register" style="font-size: 16px; color: #16A34A;"></i>
+              <div>Se registrará un <strong>Vale de Egreso en la sesión de caja activa</strong> para deducir del efectivo y cuadrar el arqueo.</div>
+            </div>
+            <span style="font-weight: 700; color: #15803D;">Saldo cajón: ${formatGs(disponible)}</span>
+          </div>
+        `;
+      }
+    } else if (val === 'Transferencia Bancaria') {
+      if (compInput && (!compInput.value || compInput.value.includes('VALE') || compInput.value.includes('REV'))) {
+        compInput.value = `SIPAP-DEV-${Date.now().toString().slice(-4)}`;
+      }
+      alertBox.innerHTML = `
+        <div style="background: #EFF6FF; color: #1D4ED8; padding: 10px 14px; border-radius: 8px; font-size: 12px; border: 1px solid #BFDBFE; display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-university" style="font-size: 16px;"></i>
+          <div>Reintegro bancario vía SIPAP. Se registrará la referencia contable sin afectar el cajón físico de efectivo.</div>
+        </div>
+      `;
+    } else {
+      if (compInput && (!compInput.value || compInput.value.includes('VALE') || compInput.value.includes('SIPAP'))) {
+        compInput.value = `REV-APP-${Date.now().toString().slice(-4)}`;
+      }
+      alertBox.innerHTML = `
+        <div style="background: #EEF2FF; color: #4338CA; padding: 10px 14px; border-radius: 8px; font-size: 12px; border: 1px solid #C7D2FE; display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-undo" style="font-size: 16px;"></i>
+          <div>Reversión directa en pasarela de pagos online de la App Móvil.</div>
+        </div>
+      `;
+    }
+  },
+
+  async confirmarProcesarReembolso() {
+    const reservaId = document.getElementById('reembolso-reserva-id')?.value;
+    const monto = Number(document.getElementById('reembolso-monto-input')?.value) || 0;
+    const metodo = document.getElementById('reembolso-metodo-select')?.value || 'Efectivo';
+    const comp = document.getElementById('reembolso-comprobante-input')?.value.trim() || `VALE-DEV-${Date.now().toString().slice(-4)}`;
+    const motivo = document.getElementById('reembolso-motivo-input')?.value.trim() || 'Reembolso por Cancelación de Reserva';
+
+    if (!reservaId) {
+      showToast('Error: Reserva no identificada', 'error');
+      return;
+    }
+
+    if (monto <= 0) {
+      showToast('El monto a reembolsar debe ser mayor a 0 Gs.', 'warning');
+      return;
+    }
+
+    const btn = document.getElementById('btn-confirmar-reembolso');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Procesando Egreso...`;
+    }
+
+    try {
+      // 1. Si es Efectivo, registrar egreso en la sesión activa
+      if (metodo === 'Efectivo') {
+        if (!this.isCashOpen()) {
+          showToast('No se puede egresar efectivo si la caja está cerrada. Abra turno primero o elija Transferencia.', 'error');
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-check-circle"></i> Confirmar Egreso & Registrar en Caja`;
+          }
+          return;
+        }
+
+        this.loadEgresos();
+        const egreso = {
+          id: Date.now(),
+          monto: monto,
+          motivo: `${motivo} (Comp: ${comp})`,
+          responsable: localStorage.getItem('caja_responsable') || 'Recepcionista Front Desk',
+          comprobante: comp,
+          reservaId: reservaId,
+          tipo: 'Reembolso Cancelación',
+          fecha: new Date().toLocaleString()
+        };
+
+        this.egresos.push(egreso);
+        this.saveEgresos();
+      }
+
+      // 2. Actualizar la reserva en Supabase a 'Reembolsado'
+      try {
+        await supabaseClient
+          .from('reservas')
+          .update({
+            cancellation_status: 'Reembolsado',
+            refund_amount: monto
+          })
+          .eq('id', reservaId);
+      } catch (dbErr) {
+        console.warn('Error actualizando cancellation_status en supabase (posiblemente falta migracion):', dbErr);
+      }
+
+      closeModal('modal-procesar-reembolso');
+
+      if (typeof CustomDialog !== 'undefined' && CustomDialog.alert) {
+        CustomDialog.alert({
+          title: 'Reembolso Registrado Exitosamente',
+          subtitle: metodo === 'Efectivo' ? 'Egreso Asentado en Caja Mostrador' : 'Reintegro Bancario Contabilizado',
+          message: `Se ha procesado la devolución de ${formatGs(monto)} bajo comprobante #${comp}.\n${metodo === 'Efectivo' ? 'El monto fue descontado del cajón de efectivo y el arqueo de caja se mantendrá exacto.' : 'La reserva quedó asentada como Reembolsada sin alterar el cajón físico.'}`,
+          icon: 'check',
+          confirmText: 'Aceptar'
+        });
+      } else {
+        showToast(`Reembolso de ${formatGs(monto)} registrado con éxito (#${comp})`, 'success');
+      }
+
+      // 3. Actualizar vistas
+      if (this.currentSession) {
+        this.renderActiveSessionUI(this.currentSession);
+      }
+      await this.loadCancellationRefunds();
+      await this.loadPaymentsFlow();
+
+    } catch (err) {
+      console.error('Error al procesar reembolso:', err);
+      showToast('Ocurrió un error al procesar el reembolso: ' + (err.message || err), 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-check-circle"></i> Confirmar Egreso & Registrar en Caja`;
+      }
     }
   },
 
