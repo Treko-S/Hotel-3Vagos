@@ -1424,6 +1424,10 @@ const ReservationsModule = {
     return this.viewFolioDetail(bookingId);
   },
 
+  openFolioModal(bookingId) {
+    return this.viewFolioDetail(bookingId);
+  },
+
   viewFolioDetail(bookingId) {
     const booking = this.currentBookings.find(b => b.id === bookingId);
     if (!booking) return;
