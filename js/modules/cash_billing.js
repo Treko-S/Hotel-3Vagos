@@ -8,11 +8,158 @@ const CashBillingModule = {
   invoices: [],
   payments: [],
   egresos: [],
+  pendingReservations: [],
 
   async init() {
     await this.loadInvoices();
     await this.loadActiveSession();
     await this.loadPaymentsFlow();
+    await this.loadPendingBalances();
+    this.startMidnightWatcher();
+  },
+
+  isCashOpen() {
+    return !!(this.currentSession && this.currentSession.estado === 'Abierta');
+  },
+
+  isSessionExpiredAtMidnight(fechaAperturaStr) {
+    if (!fechaAperturaStr) return false;
+    try {
+      const apertura = new Date(fechaAperturaStr);
+      const now = new Date();
+
+      // Fecha en día/mes/año (hora local)
+      const apDate = new Date(apertura.getFullYear(), apertura.getMonth(), apertura.getDate());
+      const curDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+      // Si la fecha actual supera el día de apertura, ya pasaron las 00:00 hs (cambio de jornada)
+      if (curDate > apDate) {
+        return true;
+      }
+
+      // O si han transcurrido más de 24 horas continuas
+      if ((now.getTime() - apertura.getTime()) >= 24 * 60 * 60 * 1000) {
+        return true;
+      }
+    } catch (e) {
+      console.warn('isSessionExpiredAtMidnight error:', e);
+    }
+    return false;
+  },
+
+  async autoCloseExpiredSession(session) {
+    try {
+      this.currentSession = session;
+      this.loadEgresos();
+
+      const apertura = Number(session.monto_apertura) || 0;
+      const totalEfec = this.getTotalEfectivoCobrado();
+      const totalEg = this.getTotalEgresos();
+      const efectivoTeorico = Math.max(0, apertura + totalEfec - totalEg);
+
+      // Cerrar la sesión en Supabase
+      await supabaseClient
+        .from('sesiones_caja')
+        .update({
+          estado: 'Cerrada',
+          fecha_cierre: new Date().toISOString(),
+          monto_cierre: efectivoTeorico,
+          monto_diferencia: 0
+        })
+        .eq('id', session.id);
+
+      this.currentSession = null;
+      this.egresos = [];
+      this.renderNoSessionUI();
+
+      if (typeof CustomDialog !== 'undefined' && CustomDialog.alert) {
+        CustomDialog.alert({
+          title: 'Cierre Automático de Caja (00:00 hs)',
+          subtitle: 'Seguridad Financiera y Cambio de Jornada',
+          message: `La sesión de caja del turno anterior (#${String(session.id).substring(0,8)}) fue cerrada automáticamente por el sistema al superarse el horario de las 00:00 hs para evitar omisiones por descuido.\n\nEfectivo registrado al cierre: ${formatGs(efectivoTeorico)}.\nPor favor, realice la apertura del nuevo turno para continuar operando.`,
+          icon: 'clock',
+          confirmText: 'Entendido'
+        });
+      } else {
+        showToast('Caja cerrada automáticamente a las 00:00 hs por cambio de jornada', 'warning');
+      }
+
+      await this.loadSessionsHistory();
+    } catch (err) {
+      console.error('Error en autoCloseExpiredSession:', err);
+    }
+  },
+
+  startMidnightWatcher() {
+    if (this._midnightInterval) clearInterval(this._midnightInterval);
+    this._midnightInterval = setInterval(() => {
+      if (this.currentSession && this.currentSession.estado === 'Abierta') {
+        if (this.isSessionExpiredAtMidnight(this.currentSession.fecha_apertura)) {
+          this.autoCloseExpiredSession(this.currentSession);
+        }
+      }
+    }, 30000); // Chequeo cada 30 segundos
+  },
+
+  async registrarEgresoMantenimiento({ monto, motivo, responsable, comprobante, ordenId }) {
+    if (!this.isCashOpen()) {
+      return { success: false, error: 'Caja cerrada' };
+    }
+
+    this.loadEgresos();
+    const egreso = {
+      id: Date.now(),
+      monto: Number(monto) || 0,
+      motivo: motivo || 'Mantenimiento & Reparaciones',
+      responsable: responsable || 'Técnico Mantenimiento',
+      comprobante: comprobante || `MNT-${Date.now().toString().slice(-4)}`,
+      ordenId: ordenId,
+      fecha: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    this.egresos.push(egreso);
+    this.saveEgresos();
+
+    // Actualizar UI activa si el panel está en pantalla
+    this.renderActiveSessionUI(this.currentSession);
+
+    return { success: true, egreso };
+  },
+
+  async loadActiveSession() {
+    try {
+      const { data, error } = await supabaseClient
+        .from('sesiones_caja')
+        .select('*, users(full_name)')
+        .eq('estado', 'Abierta')
+        .order('id', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const session = data[0];
+
+        // Verificación de Cierre Automático a las 00:00 hs
+        if (this.isSessionExpiredAtMidnight(session.fecha_apertura)) {
+          console.warn('⚠️ Sesión de caja abierta en fecha anterior. Ejecutando cierre automático de las 00:00 hs...');
+          await this.autoCloseExpiredSession(session);
+          return;
+        }
+
+        this.currentSession = session;
+        this.loadEgresos();
+        this.renderActiveSessionUI(this.currentSession);
+      } else {
+        this.currentSession = null;
+        this.egresos = [];
+        this.renderNoSessionUI();
+      }
+    } catch (err) {
+      console.warn('loadActiveSession error or table empty:', err);
+      this.currentSession = null;
+      this.renderNoSessionUI();
+    }
   },
 
   loadEgresos() {
@@ -121,6 +268,9 @@ const CashBillingModule = {
           </div>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn" style="background: #10B981; color: #fff; border: 1px solid #059669; font-weight: 700;" onclick="CashBillingModule.openCobroModal()" title="Registrar cobro de saldo pendiente de reserva o folio">
+            <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo de Reserva
+          </button>
           <button class="btn" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-weight: 600;" onclick="CashBillingModule.openEgresoModal()" title="Registrar un retiro de dinero para pago a proveedores, hielo o urgencias">
             <i class="fas fa-receipt"></i> Registrar Egreso / Vale de Caja
           </button>
@@ -150,9 +300,14 @@ const CashBillingModule = {
             El turno físico de mostrador está cerrado. Los pagos realizados por huéspedes en la <strong>App Móvil</strong> ingresan y se acreditan automáticamente 24/7 en la cuenta bancaria.
           </p>
         </div>
-        <button class="btn btn-primary" onclick="CashBillingModule.openAperturaModal()">
-          <i class="fas fa-key"></i> Apertura de Turno de Caja
-        </button>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn" style="background: #10B981; color: #fff; border: 1px solid #059669; font-weight: 700;" onclick="CashBillingModule.openCobroModal()" title="Registrar cobro de saldo de reserva (POS o Transferencia)">
+            <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo de Reserva
+          </button>
+          <button class="btn btn-primary" onclick="CashBillingModule.openAperturaModal()">
+            <i class="fas fa-key"></i> Apertura de Turno de Caja
+          </button>
+        </div>
       </div>
     `;
   },
@@ -181,7 +336,7 @@ const CashBillingModule = {
         totalConsolidado += monto;
         const metodo = (p.metodo_pago || '').toLowerCase();
         const folio = p.folios || {};
-        const reserva = folio.reservas || {};
+        const reserva = Array.isArray(folio.reservas) ? (folio.reservas[0] || {}) : (folio.reservas || {});
         const canal = reserva.canal_venta || 'App Móvil';
         const isApp = canal === 'App Móvil';
 
@@ -264,11 +419,11 @@ const CashBillingModule = {
 
         let html = '';
         this.payments.forEach(p => {
-          const folio = p.folios || {};
-          const reserva = folio.reservas || {};
-          const user = reserva.users || {};
-          const canal = reserva.canal_venta || 'App Móvil';
-          const isApp = canal === 'App Móvil';
+        const folio = p.folios || {};
+        const reserva = Array.isArray(folio.reservas) ? (folio.reservas[0] || {}) : (folio.reservas || {});
+        const user = Array.isArray(reserva.users) ? (reserva.users[0] || {}) : (reserva.users || {});
+        const canal = reserva.canal_venta || 'App Móvil';
+        const isApp = canal === 'App Móvil';
 
           const badgeMetodo = this.getMethodBadge(p.metodo_pago);
           const destinoFinanciero = (p.metodo_pago || '').toLowerCase().includes('efectivo')
@@ -1105,6 +1260,387 @@ const CashBillingModule = {
     } catch (err) {
       console.error('Error al cerrar caja:', err);
       showToast('Error al cerrar caja: ' + err.message, 'error');
+    }
+  },
+
+  /**
+   * Carga y lista todas las reservas activas con saldos pendientes por cobrar
+   */
+  async loadPendingBalances() {
+    const tbody = document.getElementById('cash-pending-reservations-tbody');
+    if (!tbody) return;
+
+    try {
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px;"><i class="fas fa-spinner fa-spin"></i> Consultando reservas con saldos pendientes...</td></tr>`;
+
+      const { data, error } = await supabaseClient
+        .from('reservas')
+        .select('*, habitaciones(*, tipos_habitacion(*)), folios(*, pagos_folio(*)), users(*)')
+        .neq('estado', 'Cancelada')
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+
+      const list = data || [];
+      this.pendingReservations = [];
+
+      list.forEach(b => {
+        const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
+        const totalAlojamiento = Number(b.monto_total || 0);
+        const totalConsumos = Number(folio.total_consumos || 0);
+        const granTotal = totalAlojamiento + totalConsumos;
+
+        let totalPagos = 0;
+        if (folio.total_pagos !== undefined && Number(folio.total_pagos) > 0) {
+          totalPagos = Number(folio.total_pagos);
+        } else if (folio.pagos_folio && Array.isArray(folio.pagos_folio) && folio.pagos_folio.length > 0) {
+          totalPagos = folio.pagos_folio.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+        } else {
+          totalPagos = Number(b.anticipo_pagado || 0);
+        }
+
+        let saldoPendiente = 0;
+        if (folio.saldo_pendiente !== undefined) {
+          saldoPendiente = Number(folio.saldo_pendiente);
+        } else {
+          saldoPendiente = Math.max(0, granTotal - totalPagos);
+        }
+
+        if (saldoPendiente > 0 && (b.estado || '').toLowerCase() !== 'finalizada') {
+          this.pendingReservations.push({
+            ...b,
+            calcGranTotal: granTotal,
+            calcTotalPagos: totalPagos,
+            calcSaldoPendiente: saldoPendiente,
+            folioObj: folio
+          });
+        }
+      });
+
+      if (this.pendingReservations.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" style="text-align: center; padding: 32px; color: var(--text-muted);">
+              <i class="fas fa-check-circle" style="color: #10B981; font-size: 24px; margin-bottom: 8px; display: block;"></i>
+              ¡Al día! No hay reservas con saldos pendientes por cobrar en este momento.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      let html = '';
+      this.pendingReservations.forEach(b => {
+        const hab = b.habitaciones || {};
+        const tipo = hab.tipos_habitacion || {};
+        const user = b.users || {};
+        const nights = Math.max(1, Math.round((new Date(b.check_out_previsto) - new Date(b.check_in_previsto)) / (1000 * 60 * 60 * 24)));
+        const statusBadge = (typeof ReservationsModule !== 'undefined' && ReservationsModule.getStatusBadge)
+          ? ReservationsModule.getStatusBadge(b.estado)
+          : `<span class="badge badge-confirmada">${b.estado}</span>`;
+
+        html += `
+          <tr>
+            <td>
+              <strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(b.codigo_reserva || 'S/C')}</strong>
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 1px;">
+                <i class="fas fa-tag" style="color: var(--primary-blue);"></i> ${sanitizeInput(b.canal_venta || 'Recepción')}
+              </div>
+            </td>
+            <td>
+              <div style="font-weight: 700; color: var(--primary-dark);">Habitación ${sanitizeInput(hab.numero || '-')}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(tipo.nombre || 'Estándar')}</div>
+            </td>
+            <td>
+              <strong style="color: var(--primary-navy);">${sanitizeInput(user.full_name || 'Huésped')}</strong>
+              <div style="font-size: 11px; color: var(--text-muted);">
+                ${sanitizeInput(user.document_type || 'CI')}: ${sanitizeInput(user.document_number || 'S/D')}
+              </div>
+            </td>
+            <td>
+              <div style="font-size: 12px;"><i class="far fa-calendar-alt" style="color: var(--primary-blue);"></i> ${formatDate(b.check_in_previsto)}</div>
+              <div style="font-size: 12px;"><i class="far fa-calendar-check" style="color: var(--danger);"></i> ${formatDate(b.check_out_previsto)} (${nights}n)</div>
+            </td>
+            <td style="text-align: right; font-weight: 700; color: var(--primary-navy); font-size: 13.5px;">
+              ${formatGs(b.calcGranTotal)}
+            </td>
+            <td style="text-align: right; color: #16A34A; font-weight: 600;">
+              ${formatGs(b.calcTotalPagos)}
+            </td>
+            <td style="text-align: right;">
+              <span class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-size: 12.5px; font-weight: 800; padding: 4px 10px;">
+                ${formatGs(b.calcSaldoPendiente)}
+              </span>
+            </td>
+            <td style="text-align: center;">
+              ${statusBadge}
+            </td>
+            <td style="text-align: center;">
+              <button class="btn btn-sm btn-primary" onclick="CashBillingModule.openCobroModal('${b.id}')" style="background: #10B981; border-color: #10B981; font-weight: 700; padding: 5px 12px; font-size: 12px;" title="Cobrar saldo pendiente en mostrador">
+                <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+
+    } catch (err) {
+      console.error('Error al cargar saldos pendientes de cobro:', err);
+      tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--danger);">Error al cargar saldos pendientes: ${err.message}</td></tr>`;
+    }
+  },
+
+  openCobroModal(reservaId = null) {
+    const select = document.getElementById('cobro-reserva-select');
+    if (!select) return;
+
+    if (!this.pendingReservations || this.pendingReservations.length === 0) {
+      showToast('No hay reservas activas con saldos pendientes por cobrar', 'info');
+      return;
+    }
+
+    select.innerHTML = this.pendingReservations.map(b => {
+      const hab = b.habitaciones?.numero ? `Hab. ${b.habitaciones.numero}` : 'Sin hab.';
+      const guest = b.users?.full_name || 'Huésped';
+      return `<option value="${b.id}" data-saldo="${b.calcSaldoPendiente}">
+        ${b.codigo_reserva} - ${guest} (${hab}) - Saldo: ${formatGs(b.calcSaldoPendiente)}
+      </option>`;
+    }).join('');
+
+    if (reservaId) {
+      select.value = reservaId;
+    }
+
+    this.onCobroReservaSelected();
+    openModal('modal-cobrar-reserva');
+  },
+
+  onCobroReservaSelected() {
+    const select = document.getElementById('cobro-reserva-select');
+    const reservaId = select?.value;
+    const b = this.pendingReservations.find(r => String(r.id) === String(reservaId)) || this.pendingReservations[0];
+    if (!b) return;
+
+    const elTotal = document.getElementById('cobro-info-total');
+    const elPagado = document.getElementById('cobro-info-pagado');
+    const elSaldo = document.getElementById('cobro-info-saldo');
+    const elHuesped = document.getElementById('cobro-info-huesped');
+    const elHabitacion = document.getElementById('cobro-info-habitacion');
+    const inputMonto = document.getElementById('cobro-monto-input');
+    const inputRuc = document.getElementById('cobro-factura-ruc');
+    const inputRazon = document.getElementById('cobro-factura-razon');
+    const inputComp = document.getElementById('cobro-comprobante-input');
+
+    if (elTotal) elTotal.innerText = formatGs(b.calcGranTotal);
+    if (elPagado) elPagado.innerText = formatGs(b.calcTotalPagos);
+    if (elSaldo) elSaldo.innerText = formatGs(b.calcSaldoPendiente);
+    
+    const user = b.users || {};
+    const hab = b.habitaciones || {};
+    if (elHuesped) elHuesped.innerHTML = `<strong>Huésped:</strong> ${sanitizeInput(user.full_name || 'Huésped')} (Doc: ${sanitizeInput(user.document_number || 'S/D')})`;
+    if (elHabitacion) elHabitacion.innerText = `Habitación ${hab.numero || '-'}`;
+
+    if (inputMonto) inputMonto.value = b.calcSaldoPendiente;
+    if (inputRuc) inputRuc.value = user.document_number || '';
+    if (inputRazon) inputRazon.value = user.full_name || '';
+    if (inputComp) inputComp.value = `VOUCHER-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    this.onCobroMetodoChanged();
+  },
+
+  setCobroFullAmount() {
+    const select = document.getElementById('cobro-reserva-select');
+    const b = this.pendingReservations.find(r => String(r.id) === String(select?.value));
+    if (b) {
+      const input = document.getElementById('cobro-monto-input');
+      if (input) input.value = b.calcSaldoPendiente;
+    }
+  },
+
+  setCobroHalfAmount() {
+    const select = document.getElementById('cobro-reserva-select');
+    const b = this.pendingReservations.find(r => String(r.id) === String(select?.value));
+    if (b) {
+      const input = document.getElementById('cobro-monto-input');
+      if (input) input.value = Math.round(b.calcSaldoPendiente / 2);
+    }
+  },
+
+  onCobroMetodoChanged() {
+    const metodo = document.getElementById('cobro-metodo-select')?.value || 'Efectivo';
+    const indicator = document.getElementById('cobro-cash-indicator');
+    if (!indicator) return;
+
+    if (metodo.includes('Efectivo')) {
+      if (this.isCashOpen()) {
+        const sesId = this.currentSession?.id || 1;
+        indicator.innerHTML = `
+          <div style="background: #DCFCE7; border: 1px solid #86EFAC; border-radius: 8px; padding: 10px 14px; color: #166534; font-size: 12px; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-cash-register" style="font-size: 16px; color: #16A34A;"></i>
+            <div><strong>Caja Abierta (Turno #${sesId}):</strong> El efectivo ingresará directamente al cajón de mostrador e incrementará el saldo físico del arqueo.</div>
+          </div>
+        `;
+      } else {
+        indicator.innerHTML = `
+          <div style="background: #FEE2E2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 10px 14px; color: #991B1B; font-size: 12px; display: flex; align-items: center; gap: 10px;">
+            <i class="fas fa-lock" style="font-size: 16px; color: #DC2626;"></i>
+            <div><strong>Caja Cerrada:</strong> No es posible recibir pagos en efectivo con la caja física cerrada. Debe realizar la apertura de turno primero o cobrar con <em>Tarjeta POS / Transferencia</em>.</div>
+          </div>
+        `;
+      }
+    } else if (metodo.includes('Tarjeta')) {
+      indicator.innerHTML = `
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 10px 14px; color: #1E40AF; font-size: 12px; display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-credit-card" style="font-size: 16px; color: #3B82F6;"></i>
+          <div><strong>Cobro POS Mostrador:</strong> Ingrese el número de voucher o comprobante emitido por el POS físico Bancard / Dinelco.</div>
+        </div>
+      `;
+    } else {
+      indicator.innerHTML = `
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 14px; color: #166534; font-size: 12px; display: flex; align-items: center; gap: 10px;">
+          <i class="fas fa-qrcode" style="font-size: 16px; color: #10B981;"></i>
+          <div><strong>Transferencia / QR SIPAP:</strong> Verifique la acreditación en la cuenta bancaria del hotel antes de confirmar.</div>
+        </div>
+      `;
+    }
+  },
+
+  async confirmarCobroReserva() {
+    try {
+      const select = document.getElementById('cobro-reserva-select');
+      const reservaId = select?.value;
+      const b = this.pendingReservations.find(r => String(r.id) === String(reservaId));
+      if (!b) {
+        showToast('Seleccione una reserva válida', 'warning');
+        return;
+      }
+
+      const monto = Number(document.getElementById('cobro-monto-input')?.value) || 0;
+      const metodo = document.getElementById('cobro-metodo-select')?.value || 'Efectivo';
+      const comprobante = (document.getElementById('cobro-comprobante-input')?.value || '').trim() || `COB-${Date.now().toString().slice(-4)}`;
+      const emitirFactura = document.getElementById('cobro-emitir-factura')?.checked;
+      const ruc = (document.getElementById('cobro-factura-ruc')?.value || '').trim() || b.users?.document_number || '44444401-7';
+      const razon = (document.getElementById('cobro-factura-razon')?.value || '').trim() || b.users?.full_name || 'Consumidor Final';
+
+      if (monto <= 0) {
+        showToast('El monto a cobrar debe ser mayor a 0 Gs.', 'warning');
+        return;
+      }
+
+      if (monto > b.calcSaldoPendiente + 1000) {
+        showToast(`El monto no puede superar el saldo pendiente (${formatGs(b.calcSaldoPendiente)})`, 'warning');
+        return;
+      }
+
+      // Validación de Caja Cerrada si es Efectivo
+      if (metodo.includes('Efectivo')) {
+        if (!this.isCashOpen()) {
+          CustomDialog.alert({
+            title: 'Caja Cerrada - Cobro en Efectivo Bloqueado',
+            subtitle: 'Auditoría & Arqueo de Caja',
+            message: 'No es posible registrar un cobro en <strong>EFECTIVO</strong> porque no hay un turno de caja abierto en este momento.<br><br>Por favor, realice primero la <strong>Apertura de Turno de Caja</strong> o seleccione otro medio de pago (Tarjeta POS o Transferencia Bancaria).',
+            icon: 'fa-lock',
+            confirmText: 'Entendido'
+          });
+          return;
+        }
+      }
+
+      showToast('Procesando cobro en el sistema...', 'info');
+
+      // 1. Obtener o crear Folio para esta reserva
+      let folioId = b.folioObj?.id;
+      let folioTotalAlojamiento = Number(b.folioObj?.total_alojamiento) || b.calcGranTotal;
+      let folioTotalConsumos = Number(b.folioObj?.total_consumos) || 0;
+      let folioTotalPagos = Number(b.folioObj?.total_pagos) || Number(b.anticipo_pagado || 0);
+
+      if (!folioId) {
+        const { data: newFolio, error: folErr } = await supabaseClient.from('folios').insert({
+          reserva_id: b.id,
+          guest_id: b.guest_id,
+          total_alojamiento: b.calcGranTotal,
+          total_consumos: 0,
+          total_pagos: Number(b.anticipo_pagado || 0),
+          saldo_pendiente: Math.max(0, b.calcGranTotal - Number(b.anticipo_pagado || 0)),
+          estado: 'Abierto'
+        }).select().single();
+
+        if (folErr) throw folErr;
+        folioId = newFolio.id;
+        folioTotalAlojamiento = newFolio.total_alojamiento;
+        folioTotalConsumos = newFolio.total_consumos;
+        folioTotalPagos = newFolio.total_pagos;
+      }
+
+      // 2. Registrar Pago en pagos_folio vinculado al folio y transacción
+      const { error: pagoErr } = await supabaseClient.from('pagos_folio').insert({
+        folio_id: folioId,
+        monto: monto,
+        metodo_pago: metodo,
+        referencia_transaccion: comprobante,
+        fecha_pago: new Date().toISOString()
+      });
+
+      if (pagoErr) throw pagoErr;
+
+      // 3. Actualizar Folio con los nuevos totales
+      const newTotalPagos = folioTotalPagos + monto;
+      const newSaldo = Math.max(0, (folioTotalAlojamiento + folioTotalConsumos) - newTotalPagos);
+      const newEstado = newSaldo === 0 ? 'Cerrado' : 'Abierto';
+
+      await supabaseClient.from('folios').update({
+        total_pagos: newTotalPagos,
+        saldo_pendiente: newSaldo,
+        estado: newEstado
+      }).eq('id', folioId);
+
+      // 4. Actualizar anticipo_pagado en reservas
+      await supabaseClient.from('reservas').update({
+        anticipo_pagado: newTotalPagos
+      }).eq('id', b.id);
+
+      // 5. Emitir Factura Legal SET si está seleccionado
+      if (emitirFactura) {
+        try {
+          const numFactura = '001-001-' + String(Math.floor(1000000 + Math.random() * 9000000));
+          const iva10 = Math.round(monto / 11);
+          const gravada10 = monto - iva10;
+
+          await supabaseClient.from('facturas').insert({
+            folio_id: folioId,
+            numero_factura: numFactura,
+            ruc_ci: ruc,
+            razon_social: razon,
+            monto_subtotal: gravada10,
+            monto_iva: iva10,
+            monto_total: monto,
+            fecha_emision: new Date().toISOString()
+          });
+        } catch (facErr) {
+          console.warn('Nota en facturas insert:', facErr);
+        }
+      }
+
+      closeModal('modal-cobrar-reserva');
+      showToast(`✓ Cobro de ${formatGs(monto)} registrado con éxito (${metodo})`, 'success');
+
+      // 6. Recargar vistas y datos financieros
+      await this.loadPaymentsFlow();
+      await this.loadPendingBalances();
+      if (this.currentSession) {
+        this.renderActiveSessionUI(this.currentSession);
+      }
+      await this.loadInvoices();
+
+      if (typeof ReservationsModule !== 'undefined' && ReservationsModule.loadReservations) {
+        ReservationsModule.loadReservations();
+      }
+
+    } catch (err) {
+      console.error('Error al confirmar cobro de reserva:', err);
+      showToast('Error al procesar cobro: ' + err.message, 'error');
     }
   }
 };

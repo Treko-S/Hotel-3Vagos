@@ -12,14 +12,27 @@ const CustomDialog = {
    * @param {Object} options
    * @returns {Promise<boolean>}
    */
-  confirm({
-    title = 'Confirmación Requerida',
-    message = '¿Está seguro de realizar esta acción?',
-    icon = 'fa-question-circle',
-    confirmText = 'Confirmar',
-    cancelText = 'Cancelar',
-    isDanger = false
-  } = {}) {
+  confirm(opts = {}, maybeMsg = '', maybeIcon = 'fa-question-circle') {
+    let title = 'Confirmación Requerida';
+    let message = '¿Está seguro de realizar esta acción?';
+    let icon = 'fa-question-circle';
+    let confirmText = 'Confirmar';
+    let cancelText = 'Cancelar';
+    let isDanger = false;
+
+    if (typeof opts === 'string') {
+      title = opts;
+      message = maybeMsg || message;
+      if (maybeIcon) icon = maybeIcon.startsWith('fa-') ? maybeIcon : `fa-${maybeIcon}`;
+    } else if (typeof opts === 'object' && opts !== null) {
+      if (opts.title) title = opts.title;
+      if (opts.message) message = opts.message;
+      if (opts.icon) icon = opts.icon.startsWith('fa-') ? opts.icon : `fa-${opts.icon}`;
+      if (opts.confirmText) confirmText = opts.confirmText;
+      if (opts.cancelText) cancelText = opts.cancelText;
+      if (opts.isDanger !== undefined) isDanger = opts.isDanger;
+    }
+
     return new Promise((resolve) => {
       this._currentResolve = resolve;
 
@@ -72,16 +85,28 @@ const CustomDialog = {
 
   /**
    * Muestra un diálogo de alerta o auditoría personalizado con soporte HTML
-   * @param {Object} options
+   * @param {Object|string} opts
    * @returns {Promise<boolean>}
    */
-  alert({
-    title = 'Información',
-    message = '',
-    subtitle = 'Auditoría & Control PMS',
-    icon = 'fa-info-circle',
-    confirmText = 'Entendido'
-  } = {}) {
+  alert(opts = {}, maybeMsg = '', maybeIcon = 'fa-info-circle') {
+    let title = 'Información';
+    let message = '';
+    let subtitle = 'Auditoría & Control PMS';
+    let icon = 'fa-info-circle';
+    let confirmText = 'Entendido';
+
+    if (typeof opts === 'string') {
+      title = opts;
+      message = maybeMsg || '';
+      if (maybeIcon) icon = maybeIcon.startsWith('fa-') ? maybeIcon : `fa-${maybeIcon}`;
+    } else if (typeof opts === 'object' && opts !== null) {
+      if (opts.title) title = opts.title;
+      if (opts.message) message = opts.message;
+      if (opts.subtitle) subtitle = opts.subtitle;
+      if (opts.icon) icon = opts.icon.startsWith('fa-') ? opts.icon : `fa-${opts.icon}`;
+      if (opts.confirmText) confirmText = opts.confirmText;
+    }
+
     return new Promise((resolve) => {
       this._alertResolve = resolve;
 

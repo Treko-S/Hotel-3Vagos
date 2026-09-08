@@ -1,6 +1,6 @@
 /**
- * Maintenance & Technical Incident Management Module
- * AC, Plumbing, Electrical & Infrastructure work orders
+ * Maintenance & Technical Incident Management Module - Hotel 3 Vagos
+ * AC, Plumbing, Electrical & Infrastructure work orders with Cash Drawer Linkage
  */
 
 const MaintenanceModule = {
@@ -112,11 +112,11 @@ const MaintenanceModule = {
             </span>
           </td>
           <td>${sanitizeInput(tech)}</td>
-          <td>${formatGs(cost)}</td>
+          <td><strong style="color: ${cost > 0 ? 'var(--primary-navy)' : 'var(--text-muted)'};">${formatGs(cost)}</strong></td>
           <td>
             <div class="action-btn-group">
               ${isPending ? `
-                <button class="btn-action btn-action-reserve" onclick="MaintenanceModule.resolveOrder('${ord.id}', '${roomNum}')" title="Marcar orden como resuelta">
+                <button class="btn-action btn-action-reserve" onclick="MaintenanceModule.resolveOrder('${ord.id}', '${roomNum}')" title="Liquidar costo y resolver mantenimiento">
                   <i class="fas fa-check"></i> Resolver
                 </button>
               ` : `<span class="badge badge-disponible"><i class="fas fa-check-double"></i> Resuelto</span>`}
@@ -174,22 +174,184 @@ const MaintenanceModule = {
     }
   },
 
-  async resolveOrder(orderId, roomId) {
+  resolveOrder(orderId, roomNum) {
+    this.openResolveModal(orderId, roomNum);
+  },
+
+  openResolveModal(orderId, roomNum) {
+    const ord = this.orders.find(o => String(o.id) === String(orderId)) || {};
+    const roomId = ord.habitacion_id || ord.habitaciones?.id || (isNaN(Number(roomNum)) ? 1 : Number(roomNum));
+
+    const orderIdInput = document.getElementById('maint-resolve-order-id');
+    const roomIdInput = document.getElementById('maint-resolve-room-id');
+    const roomNumInput = document.getElementById('maint-resolve-room-num');
+
+    if (orderIdInput) orderIdInput.value = orderId;
+    if (roomIdInput) roomIdInput.value = roomId;
+    if (roomNumInput) roomNumInput.value = roomNum;
+
+    const shortId = typeof orderId === 'string' && orderId.length > 8 ? orderId.substring(0, 8).toUpperCase() : orderId;
+    const subEl = document.getElementById('maint-resolve-subtitle');
+    const roomEl = document.getElementById('maint-resolve-info-room');
+    const descEl = document.getElementById('maint-resolve-info-desc');
+    const prioEl = document.getElementById('maint-resolve-info-priority');
+
+    if (subEl) subEl.innerText = `Liquidación técnica & costeo de Orden #MNT-${shortId}`;
+    if (roomEl) roomEl.innerText = `Habitación ${roomNum}`;
+    if (descEl) descEl.innerText = ord.titulo || ord.descripcion || 'Incidencia técnica de infraestructura';
+
+    if (prioEl) {
+      prioEl.innerText = ord.prioridad || 'Media';
+      prioEl.className = `badge ${ord.prioridad === 'Alta' ? 'badge-mantenimiento' : 'badge-limpieza'}`;
+    }
+
+    const costInput = document.getElementById('maint-resolve-cost');
+    if (costInput) {
+      costInput.value = ord.costo_reparacion || ord.costo_estimado || 0;
+      costInput.disabled = false;
+    }
+
+    const conceptInput = document.getElementById('maint-resolve-concept');
+    if (conceptInput) {
+      conceptInput.value = `Reparación: ${ord.titulo || 'Servicio Técnico'}`;
+    }
+
+    const payeeInput = document.getElementById('maint-resolve-payee');
+    if (payeeInput) {
+      payeeInput.value = ord.tecnico_asignado || 'Mario Gómez (Mantenimiento)';
+    }
+
+    const invInput = document.getElementById('maint-resolve-invoice');
+    if (invInput) {
+      invInput.value = `REC-${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
+    const methodSelect = document.getElementById('maint-resolve-method');
+    if (methodSelect) {
+      methodSelect.value = 'efectivo';
+    }
+
+    this.onPaymentMethodChange();
+    openModal('modal-maint-resolve');
+  },
+
+  onPaymentMethodChange() {
+    const method = document.getElementById('maint-resolve-method')?.value || 'efectivo';
+    const costInput = document.getElementById('maint-resolve-cost');
+    const indicator = document.getElementById('maint-cash-status-indicator');
+    if (!indicator) return;
+
+    if (method === 'sin_costo') {
+      if (costInput) {
+        costInput.value = 0;
+        costInput.disabled = true;
+      }
+    } else {
+      if (costInput) costInput.disabled = false;
+    }
+
+    const isCashOpen = typeof CashBillingModule !== 'undefined' && CashBillingModule.isCashOpen();
+
+    if (method === 'efectivo') {
+      if (!isCashOpen) {
+        indicator.innerHTML = `
+          <div style="background: #FEE2E2; border: 1px solid #FCA5A5; border-radius: 8px; padding: 12px 14px; color: #991B1B; font-size: 12.5px; display: flex; align-items: flex-start; gap: 10px;">
+            <i class="fas fa-lock" style="font-size: 16px; margin-top: 2px; color: #DC2626;"></i>
+            <div>
+              <strong style="display: block; font-size: 13px; margin-bottom: 2px;">Caja Cerrada - Pago en Efectivo Bloqueado</strong>
+              No hay una sesión de caja activa en recepción. No podrá liquidar el pago en efectivo a menos que abra la caja primero en <em>Caja & Facturación</em> o seleccione <em>"Transferencia Bancaria"</em>.
+            </div>
+          </div>
+        `;
+      } else {
+        const sesId = CashBillingModule.currentSession?.id || 1;
+        indicator.innerHTML = `
+          <div style="background: #DCFCE7; border: 1px solid #86EFAC; border-radius: 8px; padding: 12px 14px; color: #166534; font-size: 12.5px; display: flex; align-items: flex-start; gap: 10px;">
+            <i class="fas fa-cash-register" style="font-size: 16px; margin-top: 2px; color: #16A34A;"></i>
+            <div>
+              <strong style="display: block; font-size: 13px; margin-bottom: 2px;">Caja Abierta (Turno #${sesId})</strong>
+              El costo en efectivo se deducirá automáticamente como un egreso de la sesión activa de caja en recepción.
+            </div>
+          </div>
+        `;
+      }
+    } else if (method === 'transferencia') {
+      indicator.innerHTML = `
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px 14px; color: #1E40AF; font-size: 12.5px; display: flex; align-items: flex-start; gap: 10px;">
+          <i class="fas fa-university" style="font-size: 16px; margin-top: 2px; color: #3B82F6;"></i>
+          <div>
+            <strong style="display: block; font-size: 13px; margin-bottom: 2px;">Pago por Transferencia Bancaria</strong>
+            El gasto se registrará en el costo de la orden de mantenimiento pero no afectará el arqueo de efectivo físico de caja.
+          </div>
+        </div>
+      `;
+    } else {
+      indicator.innerHTML = `
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px; color: #475569; font-size: 12.5px; display: flex; align-items: flex-start; gap: 10px;">
+          <i class="fas fa-shield-alt" style="font-size: 16px; margin-top: 2px; color: var(--accent-gold);"></i>
+          <div>
+            <strong style="display: block; font-size: 13px; margin-bottom: 2px;">Garantía / Mantenimiento Sin Costo</strong>
+            No se generarán asientos de egreso contable en la caja.
+          </div>
+        </div>
+      `;
+    }
+  },
+
+  async confirmResolveWithCost() {
     try {
-      // 1. Marcar orden como resuelta en Supabase si no es puramente local
+      const orderId = document.getElementById('maint-resolve-order-id')?.value;
+      const roomId = document.getElementById('maint-resolve-room-id')?.value;
+      const roomNum = document.getElementById('maint-resolve-room-num')?.value;
+      const method = document.getElementById('maint-resolve-method')?.value || 'efectivo';
+      const cost = Number(document.getElementById('maint-resolve-cost')?.value) || 0;
+      const concept = (document.getElementById('maint-resolve-concept')?.value || '').trim();
+      const payee = (document.getElementById('maint-resolve-payee')?.value || 'Mario Gómez').trim();
+      const invoice = (document.getElementById('maint-resolve-invoice')?.value || '').trim();
+
+      // Validación estricta de Caja: si paga en efectivo y la caja está cerrada
+      if (method === 'efectivo' && cost > 0) {
+        if (!CashBillingModule.isCashOpen()) {
+          CustomDialog.alert({
+            title: 'Caja Cerrada - No se puede pagar en efectivo',
+            subtitle: 'Validación de Seguridad y Arqueo',
+            message: 'No es posible liquidar el costo del mantenimiento en <strong>EFECTIVO</strong> porque no hay un turno de caja abierto en este momento.<br><br>Por favor, realice primero la <strong>Apertura de Caja</strong> en el módulo de <em>Recepción / Arqueo de Caja</em> o seleccione la modalidad <strong>"Transferencia Bancaria"</strong>.',
+            icon: 'fa-lock',
+            confirmText: 'Entendido'
+          });
+          return;
+        }
+
+        // Si la caja está abierta, registrar egreso en el arqueo
+        const res = await CashBillingModule.registrarEgresoMantenimiento({
+          monto: cost,
+          motivo: `[MNT Hab. ${roomNum}]: ${concept || 'Servicio Técnico'}`,
+          responsable: payee,
+          comprobante: invoice || `REC-${Date.now().toString().slice(-4)}`,
+          ordenId: orderId
+        });
+
+        if (!res.success) {
+          showToast('Error al registrar egreso en caja: ' + (res.error || 'Caja cerrada'), 'error');
+          return;
+        }
+      }
+
+      // Actualizar orden en Supabase si no es puramente local
       if (!String(orderId).startsWith('HK-')) {
         await supabaseClient.from('ordenes_mantenimiento').update({
-          estado: 'Resuelto'
+          estado: 'Resuelto',
+          costo_reparacion: cost
         }).eq('id', orderId);
       }
 
-      // 2. Sincronizar bidireccionalmente con la bitácora de Housekeeping
+      // Sincronizar bidireccionalmente con la bitácora de Housekeeping
       try {
         const rawHk = localStorage.getItem('hotel_hk_incidents');
         if (rawHk) {
           let hkIncidents = JSON.parse(rawHk);
           hkIncidents = hkIncidents.map(inc => {
-            if (String(inc.id) === String(orderId) || String(inc.roomNumber) === String(roomId)) {
+            if (String(inc.id) === String(orderId) || String(inc.roomNumber) === String(roomNum)) {
               return { ...inc, status: 'Resuelto por Mantenimiento' };
             }
             return inc;
@@ -198,15 +360,21 @@ const MaintenanceModule = {
         }
       } catch (e) {}
 
-      // 3. Pasar habitación a 'Sucia' para inspección/limpieza final
+      // Pasar habitación a 'Sucia' para inspección/limpieza final
       if (roomId && !isNaN(Number(roomId))) {
         await supabaseClient.from('habitaciones').update({
           estado: 'Sucia',
-          observaciones: 'Mantenimiento finalizado. Requiere limpieza previa a liberación.'
+          observaciones: `Mantenimiento resuelto (${concept || 'Reparación'} - Costo: ${formatGs(cost)}). Requiere limpieza final previa a liberación.`
         }).eq('id', roomId);
       }
 
-      showToast('¡Mantenimiento resuelto! Habitación enviada a Housekeeping para limpieza', 'success');
+      closeModal('modal-maint-resolve');
+
+      const msgExito = cost > 0 && method === 'efectivo'
+        ? `✓ Mantenimiento resuelto. Egreso de ${formatGs(cost)} registrado en Caja. Habitación ${roomNum} enviada a Housekeeping (Sucia).`
+        : `✓ Mantenimiento resuelto exitosamente. Habitación ${roomNum} enviada a Housekeeping (Sucia).`;
+
+      showToast(msgExito, 'success');
 
       await this.loadOrders();
       await DashboardModule.loadKPIs();
@@ -214,8 +382,8 @@ const MaintenanceModule = {
       await HousekeepingModule.loadHousekeepingBoard();
 
     } catch (err) {
-      console.error('Error al resolver orden:', err);
-      showToast('Error: ' + err.message, 'error');
+      console.error('Error al resolver orden con costeo:', err);
+      showToast('Error al resolver orden: ' + err.message, 'error');
     }
   }
 };

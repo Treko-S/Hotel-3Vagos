@@ -513,6 +513,9 @@
               <button class="btn btn-outline" onclick="HousekeepingModule.loadHousekeepingBoard()">
                 <i class="fas fa-sync-alt"></i> Actualizar
               </button>
+              <button id="btn-hk-dispatch-order" class="btn btn-primary" onclick="HousekeepingModule.openDispatchModal()">
+                <i class="fas fa-plus-circle"></i> Despachar Nueva Orden
+              </button>
             </div>
           </div>
 
@@ -579,6 +582,7 @@
                     <option value="Rosa Almada">Rosa Almada</option>
                     <option value="Elena Morales">Elena Morales</option>
                     <option value="Carmen Duarte">Carmen Duarte</option>
+                    <option value="Miriam González">Miriam González (Gobernanta)</option>
                   </select>
                 </div>
               </div>
@@ -940,6 +944,54 @@
           <!-- Dinámico: Efectivo, Tarjetas (POS Mostrador), QR / Billetera, Consolidado -->
         </div>
 
+        <!-- =====================================================
+             NUEVO APARTADO: RESERVAS CON SALDOS PENDIENTES DE COBRO
+             ===================================================== -->
+        <div class="card-panel" style="margin-bottom: 24px; border-left: 4px solid var(--accent-gold); box-shadow: var(--shadow-sm);">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                <span style="width: 34px; height: 34px; border-radius: 8px; background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                  <i class="fas fa-hand-holding-usd"></i>
+                </span>
+                <span>Reservas con Saldos Pendientes de Cobro</span>
+              </h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                Liquidación de folios, check-in, check-out y cobros de mostrador para recepción (Efectivo, Tarjetas POS y QR)
+              </p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <button class="btn btn-outline" style="padding: 7px 12px; font-size: 12px;" onclick="CashBillingModule.loadPendingBalances()" title="Actualizar saldos">
+                <i class="fas fa-sync-alt"></i> Actualizar
+              </button>
+              <button class="btn btn-primary" style="padding: 7px 14px; font-size: 12px; background: #10B981; border-color: #10B981; font-weight: 700;" onclick="CashBillingModule.openCobroModal()" title="Registrar nuevo cobro de mostrador">
+                <i class="fas fa-plus-circle"></i> Cobrar Saldo
+              </button>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Código / Reserva</th>
+                  <th>Habitación</th>
+                  <th>Huésped Titular</th>
+                  <th>Fechas Estadía</th>
+                  <th style="text-align: right;">Total Estadía</th>
+                  <th style="text-align: right;">Abonado</th>
+                  <th style="text-align: right;">Saldo Pendiente</th>
+                  <th style="text-align: center;">Estado</th>
+                  <th style="text-align: center;">Acción de Cobro</th>
+                </tr>
+              </thead>
+              <tbody id="cash-pending-reservations-tbody">
+                <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Cargando reservas con saldos pendientes...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Auditoría de Ingresos & Cobros (Folios y Señas) -->
         <div class="card-panel" style="margin-bottom: 24px;">
           <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
@@ -1012,11 +1064,25 @@
            ===================================================== -->
       <section id="view-guests" class="view-section">
         <div class="card-panel">
-          <div class="panel-header">
-            <h3 class="panel-title">Directorio de Huéspedes Registrados</h3>
-            <div class="search-box">
-              <i class="fas fa-search"></i>
-              <input type="text" id="search-guests" placeholder="Buscar por CI, nombre o correo...">
+          <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
+            <div>
+              <h3 class="panel-title"><i class="fas fa-users" style="color: var(--primary-gold);"></i> Directorio de Huéspedes & CRM</h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Gestión de fichas de pasajeros, documentación oficial, historial de estadías y fidelización</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-guests" placeholder="Buscar por CI, nombre o correo...">
+              </div>
+              <button class="btn btn-outline" onclick="GuestsModule.exportGuestsPdf()" title="Exportar directorio oficial en PDF">
+                <i class="fas fa-file-pdf" style="color: #EF4444;"></i> Exportar PDF
+              </button>
+              <button class="btn btn-outline" onclick="GuestsModule.syncAllGuestsToBrevo()" title="Sincronizar contactos con Brevo CRM">
+                <i class="fas fa-sync-alt" style="color: var(--primary-blue);"></i> Sincronizar CRM
+              </button>
+              <button class="btn btn-primary" onclick="GuestsModule.openNewGuestModal()" style="background: var(--primary-navy); border-color: var(--primary-navy);">
+                <i class="fas fa-user-plus"></i> Registrar Huésped
+              </button>
             </div>
           </div>
 
@@ -1761,7 +1827,10 @@
           </div>
         </div>
 
-        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; align-items: center; gap: 10px;">
+          <button type="button" id="btn-delete-dispatch-order" class="btn btn-danger" style="margin-right: auto; display: none;" onclick="HousekeepingModule.cancelDispatchOrder()">
+            <i class="fas fa-trash-alt"></i> Eliminar / Desasignar Orden
+          </button>
           <button type="button" class="btn btn-outline" onclick="closeModal('modal-dispatch-cleaning')">Cancelar</button>
           <button type="submit" id="btn-confirm-dispatch-order" class="btn btn-primary">
             <i class="fas fa-paper-plane"></i> Emitir Orden a Mucama
@@ -2343,6 +2412,255 @@
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-new-maintenance')">Cancelar</button>
         <button class="btn btn-primary" onclick="MaintenanceModule.createOrder()">Registrar & Bloquear Habitación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Resolver Mantenimiento con Costeo & Arqueo de Caja -->
+  <div id="modal-maint-resolve" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 540px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="display: flex; align-items: center; gap: 8px;"><i class="fas fa-check-circle" style="color: #10B981;"></i> Resolver Orden de Mantenimiento</h3>
+          <p id="maint-resolve-subtitle" style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Liquidación técnica y costeo de reparaciones</p>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-maint-resolve')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="maint-resolve-order-id">
+        <input type="hidden" id="maint-resolve-room-id">
+        <input type="hidden" id="maint-resolve-room-num">
+
+        <div style="background: var(--bg-light); border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 16px; border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div id="maint-resolve-info-room" style="font-weight: 700; color: var(--primary-navy); font-size: 14px;">Habitación -</div>
+            <div id="maint-resolve-info-desc" style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">Incidencia</div>
+          </div>
+          <span id="maint-resolve-info-priority" class="badge badge-mantenimiento">Alta</span>
+        </div>
+
+        <!-- Indicador Dinámico de Estado de Caja -->
+        <div id="maint-cash-status-indicator" style="margin-bottom: 16px;"></div>
+
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-money-bill-wave" style="color: var(--primary-gold);"></i> Costo Real de Reparación / Repuestos (Gs.) *</label>
+          <input type="number" id="maint-resolve-cost" class="form-control" placeholder="0" min="0" step="5000" style="font-size: 15px; font-weight: 700; color: var(--primary-navy);">
+          <small style="color: var(--text-muted); font-size: 11px;">Ingrese 0 si fue mantenimiento interno o resuelto bajo garantía sin costo.</small>
+        </div>
+
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-credit-card"></i> Modalidad de Pago del Gasto *</label>
+          <select id="maint-resolve-method" class="form-control" onchange="MaintenanceModule.onPaymentMethodChange()">
+            <option value="efectivo" selected>Efectivo de Caja Recepción (Impacta Caja Chica / Turno)</option>
+            <option value="transferencia">Transferencia Bancaria / Pago Centralizado (Sin impacto en caja física)</option>
+            <option value="sin_costo">Sin Costo Adicional / Garantía Técnica</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-clipboard-list"></i> Concepto / Detalle de la Reparación</label>
+          <input type="text" id="maint-resolve-concept" class="form-control" placeholder="Ej: Reemplazo de capacitor de aire y carga de gas">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-user-cog"></i> Técnico / Receptor</label>
+            <input type="text" id="maint-resolve-payee" class="form-control" placeholder="Ej: Mario Gómez">
+          </div>
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-file-invoice"></i> N° Factura / Recibo</label>
+            <input type="text" id="maint-resolve-invoice" class="form-control" placeholder="Ej: FAC-001-002-1249">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-maint-resolve')">Cancelar</button>
+        <button id="btn-maint-confirm-resolve" class="btn btn-primary" onclick="MaintenanceModule.confirmResolveWithCost()" style="background: #10B981; border-color: #10B981;">
+          <i class="fas fa-check-double"></i> Confirmar Resolución & Pago
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Registrar Nuevo Huésped -->
+  <div id="modal-new-guest" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 8px;"><i class="fas fa-user-plus" style="color: var(--primary-gold);"></i> Registrar Nuevo Huésped</h3>
+        <button class="modal-close" onclick="closeModal('modal-new-guest')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-user"></i> Nombre Completo *</label>
+          <input type="text" id="new-guest-fullname" class="form-control" placeholder="Ej: Rodrigo Valdez Cardozo" required>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-id-card"></i> Tipo de Documento</label>
+            <select id="new-guest-doctype" class="form-control">
+              <option value="CI" selected>Cédula de Identidad (CI)</option>
+              <option value="Pasaporte">Pasaporte Internacional</option>
+              <option value="DNI">DNI Extranjero</option>
+              <option value="RUC">RUC / Fiscal</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-hashtag"></i> N° de Documento *</label>
+            <input type="text" id="new-guest-docnum" class="form-control" placeholder="Ej: 4892104" required>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-globe-americas"></i> Nacionalidad</label>
+            <input type="text" id="new-guest-nationality" class="form-control" value="Paraguaya">
+          </div>
+          <div class="form-group">
+            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-phone"></i> Teléfono / WhatsApp</label>
+            <input type="text" id="new-guest-phone" class="form-control" placeholder="Ej: +595 981 654321">
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-envelope"></i> Correo Electrónico</label>
+          <input type="email" id="new-guest-email" class="form-control" placeholder="Ej: rodrigo.valdez@gmail.com (opcional)">
+          <small style="color: var(--text-muted); font-size: 11px;">Si se deja vacío, el sistema generará una cuenta oficial con el documento.</small>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-new-guest')">Cancelar</button>
+        <button class="btn btn-primary" onclick="GuestsModule.saveNewGuest()" style="background: var(--primary-navy); border-color: var(--primary-navy);">
+          <i class="fas fa-save"></i> Guardar Huésped
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Historial de Estadías de Huésped -->
+  <div id="modal-guest-history" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 780px;">
+      <div class="modal-header">
+        <div>
+          <h3 id="guest-history-title" style="display: flex; align-items: center; gap: 8px;"><i class="fas fa-history" style="color: var(--primary-gold);"></i> Historial de Estadías</h3>
+          <p id="guest-history-subtitle" style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;"></p>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-guest-history')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="guest-history-content" style="overflow-x: auto; max-height: 420px;">
+          <!-- Dinámico -->
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end;">
+        <button class="btn btn-outline" onclick="closeModal('modal-guest-history')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Cobrar Saldo Pendiente de Reserva / Folio -->
+  <div id="modal-cobrar-reserva" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 580px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; margin-bottom: 18px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: #DCFCE7; color: #16A34A; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fas fa-hand-holding-usd"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 19px; color: var(--primary-navy); font-family: var(--font-heading);">Registrar Cobro de Reserva</h3>
+            <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Liquidación de mostrador, seña anticipada o saldo de estadía</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-cobrar-reserva')">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Selector de Reserva -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--primary-navy);"><i class="fas fa-calendar-check" style="color: var(--primary-blue);"></i> Seleccionar Reserva con Saldo Pendiente *</label>
+          <select id="cobro-reserva-select" class="form-control" onchange="CashBillingModule.onCobroReservaSelected()" style="font-weight: 600;">
+            <!-- Dinámico -->
+          </select>
+        </div>
+
+        <!-- Tarjetas de Información Financiera de la Reserva -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Total Estadía</div>
+            <div id="cobro-info-total" style="font-size: 14px; font-weight: 800; color: var(--primary-navy); margin-top: 4px;">0 Gs.</div>
+          </div>
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: #166534; font-weight: 700;">Ya Abonado</div>
+            <div id="cobro-info-pagado" style="font-size: 14px; font-weight: 800; color: #16A34A; margin-top: 4px;">0 Gs.</div>
+          </div>
+          <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 10px; text-align: center;">
+            <div style="font-size: 11px; text-transform: uppercase; color: #991B1B; font-weight: 700;">Saldo Pendiente</div>
+            <div id="cobro-info-saldo" style="font-size: 15px; font-weight: 800; color: #DC2626; margin-top: 4px;">0 Gs.</div>
+          </div>
+        </div>
+
+        <div id="cobro-info-huesped-box" style="background: var(--bg-light); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 12.5px; display: flex; justify-content: space-between; align-items: center;">
+          <div id="cobro-info-huesped">Huésped: -</div>
+          <div id="cobro-info-habitacion" style="font-weight: 700; color: var(--primary-navy);">Habitación -</div>
+        </div>
+
+        <!-- Alerta Dinámica de Estado de Caja -->
+        <div id="cobro-cash-indicator" style="margin-bottom: 16px;"></div>
+
+        <!-- Monto a Cobrar -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin: 0;">
+              <i class="fas fa-coins" style="color: var(--accent-gold);"></i> Monto a Cobrar (Gs.) *
+            </label>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn btn-outline" onclick="CashBillingModule.setCobroFullAmount()" style="font-size: 11px; padding: 3px 8px;">Totalidad</button>
+              <button type="button" class="btn btn-outline" onclick="CashBillingModule.setCobroHalfAmount()" style="font-size: 11px; padding: 3px 8px;">50%</button>
+            </div>
+          </div>
+          <input type="number" id="cobro-monto-input" class="form-control" placeholder="0" min="1000" step="1000" style="font-size: 16px; font-weight: 800; color: var(--primary-navy);">
+        </div>
+
+        <!-- Método de Pago -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--primary-navy);"><i class="fas fa-wallet"></i> Medio de Pago *</label>
+          <select id="cobro-metodo-select" class="form-control" onchange="CashBillingModule.onCobroMetodoChanged()">
+            <option value="Efectivo" selected>Efectivo en Cajón (Mostrador Recepción)</option>
+            <option value="Tarjeta de Débito">Tarjeta de Débito (POS Físico Mostrador)</option>
+            <option value="Tarjeta de Crédito">Tarjeta de Crédito (POS Físico Mostrador)</option>
+            <option value="Transferencia Bancaria">Transferencia Bancaria / QR SIPAP</option>
+          </select>
+        </div>
+
+        <!-- Referencia / Comprobante -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 13px; font-weight: 600;"><i class="fas fa-receipt"></i> N° de Comprobante / Voucher / Transacción</label>
+          <input type="text" id="cobro-comprobante-input" class="form-control" placeholder="Ej: POS-48912 o REC-1029">
+        </div>
+
+        <!-- Bloque Facturación SET -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px; margin-top: 14px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <input type="checkbox" id="cobro-emitir-factura" checked style="cursor: pointer; width: 16px; height: 16px;">
+            <label for="cobro-emitir-factura" style="font-size: 12.5px; font-weight: 700; color: var(--primary-navy); margin: 0; cursor: pointer;">
+              Emitir Factura Legal SET y generar Comprobante PDF oficial
+            </label>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label style="font-size: 11.5px; color: var(--text-muted); font-weight: 600;">RUC / CI del Titular</label>
+              <input type="text" id="cobro-factura-ruc" class="form-control" style="padding: 6px 10px; font-size: 12px;" placeholder="Ej: 3842190">
+            </div>
+            <div>
+              <label style="font-size: 11.5px; color: var(--text-muted); font-weight: 600;">Razón Social / Nombre</label>
+              <input type="text" id="cobro-factura-razon" class="form-control" style="padding: 6px 10px; font-size: 12px;" placeholder="Ej: María Elena Romero">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-cobrar-reserva')">Cancelar</button>
+        <button id="btn-confirmar-cobro-reserva" class="btn btn-primary" onclick="CashBillingModule.confirmarCobroReserva()" style="background: #10B981; border-color: #10B981; font-weight: 700;">
+          <i class="fas fa-check-circle"></i> Confirmar Cobro & Registrar en Caja
+        </button>
       </div>
     </div>
   </div>

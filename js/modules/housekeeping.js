@@ -20,16 +20,19 @@ const HousekeepingModule = {
   getOrders() {
     try {
       const data = localStorage.getItem('hotel_hk_orders');
-      if (data) return JSON.parse(data);
+      if (data !== null) return JSON.parse(data);
     } catch (e) {}
 
-    // Datos iniciales de demostración operativa
-    return {
+    // Semilla inicial solo si nunca antes se ha iniciado
+    const initialSeed = {
       "1": { priority: 1, maid: "Rosa Almada", notes: "Early Check-in: Huésped esperando en recepción. Cama extra armada.", status: "Pendiente", assignedAt: "08:15" },
       "2": { priority: 2, maid: "Elena Morales", notes: "Check-out realizado a las 10:00. Dejar impecable para venta.", status: "En limpieza", assignedAt: "09:30" },
-      "3": { priority: 3, maid: "Carmen Duarte", notes: "Huésped salió de excursión. Repaso diario y cambio de toallas.", status: "Pendiente", assignedAt: "10:00" },
-      "4": { priority: 2, maid: "Rosa Almada", notes: "Revisar especialmente desagüe de bañera.", status: "Pendiente", assignedAt: "10:45" }
+      "3": { priority: 3, maid: "Carmen Duarte", notes: "Huésped salió de excursión. Repaso diario y cambio de toallas.", status: "Pendiente", assignedAt: "10:00" }
     };
+    try {
+      localStorage.setItem('hotel_hk_orders', JSON.stringify(initialSeed));
+    } catch (e) {}
+    return initialSeed;
   },
 
   saveOrders(orders) {
@@ -161,13 +164,41 @@ const HousekeepingModule = {
       if (error) throw error;
       this.currentRooms = data || [];
 
-      // 1. Normalización y Consistencia Estricta de Estados (Flechas Verdes):
+      // 0. Sincronizar órdenes activas desde Supabase tareas_limpieza si existen
+      try {
+        const { data: dbTasks } = await supabaseClient
+          .from('tareas_limpieza')
+          .select('*')
+          .neq('estado', 'Finalizada');
+
+        if (dbTasks && dbTasks.length > 0) {
+          const orders = this.getOrders();
+          dbTasks.forEach(t => {
+            const chk = t.checklist || {};
+            if (t.habitacion_id) {
+              orders[String(t.habitacion_id)] = {
+                id: t.id,
+                priority: chk.priority || (t.tipo_tarea === 'Limpieza Diaria' ? 3 : 2),
+                maid: chk.maid || 'Rosa Almada',
+                notes: chk.notes || t.notas || 'Limpieza y preparación asignada',
+                status: t.estado === 'En proceso' ? 'En limpieza' : 'Pendiente',
+                assignedAt: chk.assignedAt || 'Hoy'
+              };
+            }
+          });
+          this.saveOrders(orders);
+        }
+      } catch (e) {
+        console.warn('Sync dbTasks skip:', e);
+      }
+
+      // 1. Normalización y Consistencia Estricta de Estados:
       // Una habitación NO puede estar 'Disponible' si tiene orden activa de limpieza o repaso.
       const orders = this.getOrders();
       const stateUpdates = [];
 
       this.currentRooms.forEach(room => {
-        const ord = orders[room.id];
+        const ord = orders[String(room.id)];
         if (ord) {
           if (ord.priority === 1 || ord.priority === 2) {
             if (room.estado === 'Disponible') {
@@ -291,8 +322,8 @@ const HousekeepingModule = {
 
     // Ordenar habitaciones: primero las con órdenes asignadas por prioridad (1, 2, 3) y luego el resto
     const sortedRooms = [...this.currentRooms].sort((a, b) => {
-      const orderA = orders[a.id];
-      const orderB = orders[b.id];
+      const orderA = orders[String(a.id)];
+      const orderB = orders[String(b.id)];
 
       const prioA = orderA ? orderA.priority : (a.estado === 'Sucia' ? 2 : (a.estado === 'En limpieza' ? 2 : 99));
       const prioB = orderB ? orderB.priority : (b.estado === 'Sucia' ? 2 : (b.estado === 'En limpieza' ? 2 : 99));
@@ -303,7 +334,7 @@ const HousekeepingModule = {
     let html = '';
     sortedRooms.forEach(room => {
       const tipo = room.tipos_habitacion || {};
-      const order = orders[room.id] || null;
+      const order = orders[String(room.id)] || null;
 
       // Cálculo de Estado Efectivo para garantizar consistencia visual absoluta
       let effectiveStatus = room.estado;
@@ -356,7 +387,10 @@ const HousekeepingModule = {
             <div class="action-btn-group">
               ${order ? `
                 <button class="btn-action btn-action-edit" onclick="HousekeepingModule.openDispatchModal(${room.id}, true)" title="Editar o Reasignar Tarea de Limpieza">
-                  <i class="fas fa-edit"></i> Editar Tarea
+                  <i class="fas fa-edit"></i> Editar
+                </button>
+                <button class="btn-action" style="color: #DC2626; border-color: #FCA5A5; background: #FEF2F2;" onclick="HousekeepingModule.cancelDispatchOrder(${room.id})" title="Cancelar o Desasignar Orden">
+                  <i class="fas fa-trash-alt"></i>
                 </button>
               ` : `
                 <button class="btn-action btn-action-reserve" onclick="HousekeepingModule.openDispatchModal(${room.id}, false)" title="Asignar Nueva Tarea a Mucama">
@@ -393,26 +427,27 @@ const HousekeepingModule = {
       const myFirstName = myName.toLowerCase().split(' ')[0].replace(/[^a-z]/g, '');
 
       assignedList = this.currentRooms.filter(room => {
-        const ord = orders[room.id];
+        const ord = orders[String(room.id)];
         if (!ord) return false;
         const ordMaidFirst = (ord.maid || '').toLowerCase().split(' ')[0].replace(/[^a-z]/g, '');
         return ordMaidFirst === myFirstName;
       });
     } else {
-      // Jefa o Administrador pueden filtrar o ver todas
+      // Jefa o Administrador pueden filtrar o ver todas las tareas efectivamente asignadas
       const filterMaid = document.getElementById('filter-mucama-select')?.value || 'ALL';
       assignedList = this.currentRooms.filter(room => {
-        const ord = orders[room.id];
-        if (!ord) return room.estado === 'Sucia' || room.estado === 'En limpieza';
+        const ord = orders[String(room.id)];
+        // ¡Únicamente habitaciones que tengan una orden real asignada!
+        if (!ord) return false;
         if (filterMaid === 'ALL') return true;
-        return ord.maid.toLowerCase().includes(filterMaid.toLowerCase());
+        return (ord.maid || '').toLowerCase().includes(filterMaid.toLowerCase());
       });
     }
 
     // Ordenar estrictamente por prioridad 1, 2, 3
     assignedList.sort((a, b) => {
-      const prioA = orders[a.id]?.priority || 2;
-      const prioB = orders[b.id]?.priority || 2;
+      const prioA = orders[String(a.id)]?.priority || 2;
+      const prioB = orders[String(b.id)]?.priority || 2;
       return prioA - prioB;
     });
 
@@ -434,7 +469,8 @@ const HousekeepingModule = {
     let html = '';
     assignedList.forEach(room => {
       const tipo = room.tipos_habitacion || {};
-      const ord = orders[room.id] || { priority: 2, maid: 'Rosa Almada', notes: 'Limpieza de rutina' };
+      const ord = orders[String(room.id)];
+      if (!ord) return;
       
       // Cálculo de Estado Efectivo: Una habitación no puede estar 'Disponible' si requiere limpieza
       let effectiveStatus = room.estado;
@@ -841,15 +877,20 @@ const HousekeepingModule = {
     const titleEl = document.getElementById('dispatch-modal-title');
     const subtitleEl = document.getElementById('dispatch-modal-subtitle');
     const btnSubmit = document.getElementById('btn-confirm-dispatch-order');
+    const btnDelete = document.getElementById('btn-delete-dispatch-order');
     const roomSelect = document.getElementById('dispatch-room-select');
     const prioSelect = document.getElementById('dispatch-priority-select');
     const maidSelect = document.getElementById('dispatch-maid-select');
     const notesInput = document.getElementById('dispatch-notes');
 
-    if (isEditing && roomId && orders[roomId]) {
+    if (btnDelete) {
+      btnDelete.style.display = (isEditing && roomId && orders[String(roomId)]) ? 'inline-flex' : 'none';
+    }
+
+    if (isEditing && roomId && orders[String(roomId)]) {
       // MODO EDICIÓN DE TAREA EXISTENTE
-      const order = orders[roomId];
-      const room = this.currentRooms.find(r => r.id == roomId);
+      const order = orders[String(roomId)];
+      const room = this.currentRooms.find(r => String(r.id) === String(roomId));
       const roomNum = room ? room.numero : roomId;
 
       if (editingIdInput) editingIdInput.value = String(roomId);
@@ -870,7 +911,7 @@ const HousekeepingModule = {
       // MODO ASIGNACIÓN NUEVA
       if (editingIdInput) editingIdInput.value = '';
       if (titleEl) titleEl.innerHTML = `<i class="fas fa-clipboard-list" style="color: var(--primary-navy);"></i> Asignar Tarea de Limpieza`;
-      if (subtitleEl) subtitleEl.innerText = 'Seleccione una habitación disponible/sucia y asigne mucama y prioridad';
+      if (subtitleEl) subtitleEl.innerText = 'Seleccione una habitación y asigne mucama y prioridad de atención';
       if (btnSubmit) btnSubmit.innerHTML = '<i class="fas fa-paper-plane"></i> Emitir Orden a Mucama';
 
       if (roomSelect) {
@@ -879,12 +920,13 @@ const HousekeepingModule = {
         let firstAvailableId = null;
 
         this.currentRooms.forEach(r => {
-          const isAssigned = !!orders[r.id];
-          if (isAssigned) {
-            optionsHtml += `<option value="${r.id}" disabled style="color: #94A3B8; background: #F1F5F9;">Habitación ${r.numero} (Ya asignada a ${orders[r.id].maid} - P${orders[r.id].priority})</option>`;
+          const ord = orders[String(r.id)];
+          const isSelected = roomId ? (String(r.id) === String(roomId)) : false;
+          if (!firstAvailableId) firstAvailableId = r.id;
+
+          if (ord) {
+            optionsHtml += `<option value="${r.id}" ${isSelected ? 'selected' : ''}>Habitación ${r.numero} (Asignada a ${ord.maid} - P${ord.priority}) • ${r.estado}</option>`;
           } else {
-            if (!firstAvailableId) firstAvailableId = r.id;
-            const isSelected = roomId ? (r.id == roomId) : false;
             optionsHtml += `<option value="${r.id}" ${isSelected ? 'selected' : ''}>Habitación ${r.numero} (${r.tipos_habitacion?.nombre || 'Habitación'}) • ${r.estado}</option>`;
           }
         });
@@ -910,10 +952,15 @@ const HousekeepingModule = {
     const maid = document.getElementById('dispatch-maid-select').value;
     const notes = document.getElementById('dispatch-notes').value || 'Limpieza y preparación asignada';
 
-    const orders = this.getOrders();
-    const prevOrder = orders[roomId] || {};
+    if (!roomId) {
+      showToast('Por favor seleccione una habitación para despachar la orden.', 'warning');
+      return;
+    }
 
-    orders[roomId] = {
+    const orders = this.getOrders();
+    const prevOrder = orders[String(roomId)] || {};
+
+    orders[String(roomId)] = {
       priority: priority,
       maid: maid,
       notes: notes,
@@ -923,14 +970,16 @@ const HousekeepingModule = {
 
     this.saveOrders(orders);
 
-    const roomObj = this.currentRooms.find(r => r.id == roomId);
+    const roomObj = this.currentRooms.find(r => String(r.id) === String(roomId));
     const roomNum = roomObj ? roomObj.numero : roomId;
 
-    // Actualizar estado en Supabase
+    // 1. Actualizar estado y observaciones en habitaciones
     try {
+      const newStatus = (priority === 1 || priority === 2) ? (roomObj?.estado === 'Disponible' ? 'Sucia' : roomObj?.estado || 'Sucia') : roomObj?.estado;
       await supabaseClient
         .from('habitaciones')
         .update({
+          estado: newStatus,
           observaciones: `Orden P${priority} asignada a ${maid}: ${notes}`
         })
         .eq('id', roomId);
@@ -938,6 +987,33 @@ const HousekeepingModule = {
       console.warn('Skip supabase sync on order dispatch:', e);
     }
 
+    // 2. Sincronizar en tareas_limpieza (garantizar máxima 1 orden activa por habitación)
+    try {
+      await supabaseClient
+        .from('tareas_limpieza')
+        .delete()
+        .eq('habitacion_id', Number(roomId))
+        .neq('estado', 'Finalizada');
+
+      await supabaseClient
+        .from('tareas_limpieza')
+        .insert({
+          habitacion_id: Number(roomId),
+          tipo_tarea: priority === 3 ? 'Limpieza Diaria' : 'Limpieza Check-out',
+          estado: 'Pendiente',
+          notas: `[P${priority}] Asignada a ${maid}: ${notes}`,
+          checklist: {
+            priority: priority,
+            maid: maid,
+            notes: notes,
+            assignedAt: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' })
+          }
+        });
+    } catch (dbErr) {
+      console.warn('tareas_limpieza sync error:', dbErr);
+    }
+
+    if (editingIdInput) editingIdInput.value = '';
     closeModal('modal-dispatch-cleaning');
 
     if (isEditing) {
@@ -946,6 +1022,57 @@ const HousekeepingModule = {
       showToast(`¡Orden de limpieza de Habitación ${roomNum} emitida a ${maid} (P${priority})!`, 'success');
     }
 
+    await this.loadHousekeepingBoard();
+    if (typeof RoomsModule !== 'undefined') RoomsModule.loadRooms();
+  },
+
+  async cancelDispatchOrder(roomId) {
+    if (!roomId) {
+      const editingIdInput = document.getElementById('dispatch-editing-room-id');
+      roomId = editingIdInput ? editingIdInput.value : null;
+    }
+    if (!roomId) return;
+
+    const roomObj = this.currentRooms.find(r => String(r.id) === String(roomId));
+    const roomNum = roomObj ? roomObj.numero : roomId;
+
+    const confirmed = await CustomDialog.confirm({
+      title: 'Cancelar Orden de Limpieza',
+      message: `¿Desea desasignar y eliminar la orden de limpieza de la Habitación ${roomNum}? La habitación volverá a quedar sin asignar.`,
+      icon: 'trash-alt',
+      confirmText: 'Sí, desasignar',
+      cancelText: 'Volver'
+    });
+
+    if (!confirmed) return;
+
+    const orders = this.getOrders();
+    delete orders[String(roomId)];
+    this.saveOrders(orders);
+
+    // Cancelar en Supabase tareas_limpieza y limpiar observaciones
+    try {
+      await supabaseClient
+        .from('tareas_limpieza')
+        .delete()
+        .eq('habitacion_id', Number(roomId))
+        .neq('estado', 'Finalizada');
+
+      await supabaseClient
+        .from('habitaciones')
+        .update({
+          observaciones: 'Orden de limpieza cancelada. Sin asignar.'
+        })
+        .eq('id', roomId);
+    } catch (e) {
+      console.warn('cancelDispatchOrder db skip:', e);
+    }
+
+    const editingIdInput = document.getElementById('dispatch-editing-room-id');
+    if (editingIdInput) editingIdInput.value = '';
+    closeModal('modal-dispatch-cleaning');
+
+    showToast(`Orden de Habitación ${roomNum} desasignada y removida con éxito.`, 'info');
     await this.loadHousekeepingBoard();
     if (typeof RoomsModule !== 'undefined') RoomsModule.loadRooms();
   },
@@ -1074,13 +1201,13 @@ const HousekeepingModule = {
    * - Nombre de la mucama fijado en readonly por seguridad y autoría
    */
   openCleaningChecklist(roomId) {
-    const room = this.currentRooms.find(r => r.id === roomId);
+    const room = this.currentRooms.find(r => String(r.id) === String(roomId));
     if (!room) return;
 
     this.selectedRoom = room;
 
     const orders = this.getOrders();
-    const order = orders[room.id] || { priority: 2, maid: 'Rosa Almada (Mucama)' };
+    const order = orders[String(room.id)] || { priority: 2, maid: 'Rosa Almada (Mucama)' };
     const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
     const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
 
@@ -1140,6 +1267,13 @@ const HousekeepingModule = {
       // Actualizar custodia de llave a 'En Servicio Mucama'
       this.changeKeyStatus(String(this.selectedRoom.numero), 'En Servicio Mucama');
 
+      // Actualizar estado en orden local si existe
+      const orders = this.getOrders();
+      if (orders[String(this.selectedRoom.id)]) {
+        orders[String(this.selectedRoom.id)].status = 'En limpieza';
+        this.saveOrders(orders);
+      }
+
       showToast(`Habitación ${this.selectedRoom.numero} puesta en estado 'En limpieza'`, 'info');
       await this.loadHousekeepingBoard();
       if (typeof DashboardModule !== 'undefined') DashboardModule.loadKPIs();
@@ -1177,24 +1311,27 @@ const HousekeepingModule = {
 
       if (roomErr) throw roomErr;
 
-      // 2. Remover o marcar orden completada
+      // 2. Remover orden de tareas activas
       const orders = this.getOrders();
-      delete orders[this.selectedRoom.id];
+      delete orders[String(this.selectedRoom.id)];
       this.saveOrders(orders);
 
       // 3. Regresar custodia de llave a Recepción
       this.changeKeyStatus(String(this.selectedRoom.numero), 'En Recepción');
 
-      // 4. Registro de auditoría
+      // 4. Registro de auditoría y finalización en tareas_limpieza
       try {
-        await supabaseClient.from('tareas_limpieza').insert({
-          habitacion_id: this.selectedRoom.id,
-          responsable: cleaner,
-          estado: 'Completada',
-          observaciones: obs ? `Checklist 5/5 aprobado. Obs: ${obs}` : 'Checklist 5/5 verificado e inspeccionado'
-        });
+        await supabaseClient
+          .from('tareas_limpieza')
+          .update({
+            estado: 'Finalizada',
+            fecha_finalizacion: new Date().toISOString(),
+            notas: `[Checklist 5/5 por ${cleaner}]: ${obs || 'Inspección aprobada'}`
+          })
+          .eq('habitacion_id', Number(this.selectedRoom.id))
+          .neq('estado', 'Finalizada');
       } catch (e) {
-        console.warn('Skip tareas_limpieza log:', e);
+        console.warn('Skip tareas_limpieza update:', e);
       }
 
       closeModal('modal-housekeeping');

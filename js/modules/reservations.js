@@ -374,14 +374,20 @@ const ReservationsModule = {
                 <i class="fas fa-check-double"></i> 0 Gs. Saldado
               </span>
             ` : `
-              <span class="badge" style="background: rgba(239, 68, 68, 0.12); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px;">
-                <i class="fas fa-clock"></i> ${formatGs(saldoPendiente)}
+              <span class="badge" onclick="CashBillingModule.openCobroModal('${b.id}')" style="background: rgba(239, 68, 68, 0.12); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3); font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer;" title="Clic para cobrar saldo pendiente en Caja">
+                <i class="fas fa-clock"></i> ${formatGs(saldoPendiente)} <i class="fas fa-arrow-circle-right" style="font-size: 10px; margin-left: 2px;"></i>
               </span>
             `}
           </td>
           <td>${estadoBadge}</td>
           <td>
             <div class="action-btn-group">
+              ${saldoPendiente > 0 && (b.estado !== 'Finalizada' && b.estado !== 'Cancelada') ? `
+                <button class="btn-action" onclick="CashBillingModule.openCobroModal('${b.id}')" title="Cobrar saldo pendiente en caja" style="background: #10B981; color: #fff; border-color: #059669; font-weight: 700;">
+                  <i class="fas fa-hand-holding-usd"></i> Cobrar
+                </button>
+              ` : ''}
+
               ${b.estado !== 'Check-in' && b.estado !== 'Finalizada' && b.estado !== 'Cancelada' ? `
                 <button class="btn-action btn-action-checkin" onclick="ReservationsModule.openCheckInModal('${b.id}')" title="Realizar Check-in">
                   <i class="fas fa-sign-in-alt"></i> Check-in
