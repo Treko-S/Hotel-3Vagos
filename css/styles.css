@@ -447,12 +447,31 @@ body {
 .panel-tools {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.view-toggle-group {
+  display: flex;
+  background: #E2E8F0;
+  padding: 3px;
+  border-radius: 8px;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
 .search-box {
   position: relative;
-  min-width: 240px;
+  min-width: 220px;
+  max-width: 320px;
+  flex: 1 1 220px;
+}
+
+#filter-res-status {
+  min-width: 185px;
+  width: auto;
+  flex-shrink: 0;
+  height: 38px;
 }
 
 .search-box input {

@@ -33,7 +33,23 @@ const ReservationsModule = {
     if (historyContainer) historyContainer.style.display = viewType === 'history' ? 'block' : 'none';
 
     if (filterStatus) {
-      filterStatus.style.display = viewType === 'history' ? 'none' : 'inline-block';
+      filterStatus.style.display = 'inline-block';
+      if (viewType === 'history') {
+        filterStatus.innerHTML = `
+          <option value="ALL">Todos los Concluidos</option>
+          <option value="FINALIZADA">Finalizadas con Éxito</option>
+          <option value="CANCELADA">Canceladas / No Show</option>
+        `;
+      } else {
+        filterStatus.innerHTML = `
+          <option value="ALL">Todos los Estados Activos</option>
+          <option value="CONFIRMADA">Confirmadas</option>
+          <option value="GARANTIZADA">Garantizadas (con Seña/Pago)</option>
+          <option value="CHECK-IN">En Estadía (Check-in)</option>
+          <option value="CANCELADA">Canceladas</option>
+        `;
+      }
+      filterStatus.value = 'ALL';
     }
 
     if (viewType === 'rack') {
@@ -422,7 +438,14 @@ const ReservationsModule = {
     // Si estamos en la vista de Historial de Reservas
     if (this.currentSubView === 'history') {
       const historyFiltered = this.currentBookings.filter(b => {
-        if ((b.estado || '').toLowerCase() !== 'finalizada') return false;
+        const state = (b.estado || '').toUpperCase();
+        const isHistory = state === 'FINALIZADA' || state === 'CANCELADA';
+        if (!isHistory) return false;
+
+        if (statusFilter !== 'ALL' && state !== statusFilter.toUpperCase()) {
+          return false;
+        }
+
         if (!q) return true;
         const code = (b.codigo_reserva || '').toLowerCase();
         const hab = b.habitaciones ? (b.habitaciones.numero || '').toLowerCase() : '';

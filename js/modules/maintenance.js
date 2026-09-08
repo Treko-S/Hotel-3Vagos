@@ -23,6 +23,72 @@ const MaintenanceModule = {
     }
   },
 
+  // Gestión de Técnicos Registrados (Persistentes)
+  getTechnicians() {
+    try {
+      const saved = localStorage.getItem('hotel_maint_technicians');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    const defaults = [
+      { id: 1, name: 'Mario Gómez', specialty: 'Mantenimiento General & Climatización', phone: '0981 123 456' },
+      { id: 2, name: 'Carlos Benítez', specialty: 'Refrigeración & Split', phone: '0982 234 567' },
+      { id: 3, name: 'Esteban Rojas', specialty: 'Electricidad & Redes', phone: '0983 345 678' },
+      { id: 4, name: 'Darío Mendoza', specialty: 'Plomería & Hidromasaje', phone: '0984 456 789' }
+    ];
+    this.saveTechnicians(defaults);
+    return defaults;
+  },
+
+  saveTechnicians(list) {
+    try {
+      localStorage.setItem('hotel_maint_technicians', JSON.stringify(list));
+    } catch (e) {}
+  },
+
+  populateTechniciansSelect(selectId, selectedValue = '') {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const list = this.getTechnicians();
+    sel.innerHTML = list.map(t => {
+      const val = `${t.name} (${t.specialty})`;
+      const isSel = selectedValue ? (t.name === selectedValue || val.includes(selectedValue)) : false;
+      return `<option value="${val}" ${isSel ? 'selected' : ''}>${t.name} • ${t.specialty} ${t.phone ? '(' + t.phone + ')' : ''}</option>`;
+    }).join('');
+  },
+
+  newTechTargetContext: 'create',
+  openNewTechnicianModal(target = 'create') {
+    this.newTechTargetContext = target;
+    const nameInput = document.getElementById('new-tech-name');
+    const phoneInput = document.getElementById('new-tech-phone');
+    if (nameInput) nameInput.value = '';
+    if (phoneInput) phoneInput.value = '';
+    openModal('modal-new-technician');
+  },
+
+  saveNewTechnician() {
+    const name = document.getElementById('new-tech-name')?.value.trim();
+    const specialty = document.getElementById('new-tech-specialty')?.value || 'Mantenimiento General Integral';
+    const phone = document.getElementById('new-tech-phone')?.value.trim() || '';
+
+    if (!name) {
+      showToast('Por favor ingrese el nombre del técnico', 'warning');
+      return;
+    }
+
+    const techs = this.getTechnicians();
+    const newTech = { id: Date.now(), name, specialty, phone };
+    techs.push(newTech);
+    this.saveTechnicians(techs);
+
+    const newVal = `${name} (${specialty})`;
+    this.populateTechniciansSelect('maint-tech-select', newVal);
+    this.populateTechniciansSelect('maint-resolve-tech-select', newVal);
+
+    closeModal('modal-new-technician');
+    showToast(`✓ Técnico ${name} registrado y seleccionado con éxito`, 'success');
+  },
+
   async loadOrders() {
     try {
       const tbody = document.getElementById('maintenance-table-body');
@@ -38,40 +104,6 @@ const MaintenanceModule = {
       if (error) throw error;
 
       this.orders = data || [];
-
-      // Sincronizar bidireccionalmente con la bitácora de Housekeeping (hotel_hk_incidents)
-      let hkIncidents = [];
-      try {
-        const rawHk = localStorage.getItem('hotel_hk_incidents');
-        if (rawHk) hkIncidents = JSON.parse(rawHk);
-      } catch (e) {}
-
-      // Si hay incidencias en la bitácora de HK marcadas para mantenimiento, asegurar su presencia
-      hkIncidents.forEach(inc => {
-        if ((inc.nature || '').toLowerCase() === 'mantenimiento') {
-          const alreadyInOrders = this.orders.some(o => 
-            (o.descripcion && o.descripcion.includes(inc.description)) ||
-            (o.habitaciones && String(o.habitaciones.numero) === String(inc.roomNumber)) ||
-            String(o.habitacion_id) === String(inc.roomNumber)
-          );
-          if (!alreadyInOrders) {
-            this.orders.push({
-              id: inc.id || 'HK-104',
-              habitacion_id: inc.roomNumber,
-              roomNumberDisplay: inc.roomNumber,
-              titulo: 'Incidencia técnica reportada por Housekeeping',
-              descripcion: `[Reporte ${inc.reportedBy || 'Mucama'}]: ${inc.description}`,
-              prioridad: 'Alta',
-              estado: inc.status === 'Resuelto por Mantenimiento' ? 'Resuelto' : 'Pendiente',
-              costo_reparacion: 0,
-              tecnico_asignado: 'Mario Gómez (Mantenimiento Técnico)',
-              isLocalHk: true,
-              localHkId: inc.id
-            });
-          }
-        }
-      });
-
       this.renderTable(this.orders);
 
     } catch (err) {
@@ -85,7 +117,7 @@ const MaintenanceModule = {
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay órdenes de mantenimiento activas.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay órdenes de mantenimiento activas en el hotel.</td></tr>`;
       return;
     }
 
@@ -111,12 +143,16 @@ const MaintenanceModule = {
               ${sanitizeInput(ord.prioridad || 'Media')}
             </span>
           </td>
-          <td>${sanitizeInput(tech)}</td>
+          <td>
+            <div style="font-weight: 600; color: #1E293B; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-user-cog" style="color: var(--primary-blue);"></i> ${sanitizeInput(tech)}
+            </div>
+          </td>
           <td><strong style="color: ${cost > 0 ? 'var(--primary-navy)' : 'var(--text-muted)'};">${formatGs(cost)}</strong></td>
           <td>
             <div class="action-btn-group">
               ${isPending ? `
-                <button class="btn-action btn-action-reserve" onclick="MaintenanceModule.resolveOrder('${ord.id}', '${roomNum}')" title="Liquidar costo y resolver mantenimiento">
+                <button class="btn-action btn-action-reserve" onclick="MaintenanceModule.resolveOrder('${ord.id}', '${roomNum}')" title="Liquidar costo con Caja Mostrador y resolver mantenimiento">
                   <i class="fas fa-check"></i> Resolver
                 </button>
               ` : `<span class="badge badge-disponible"><i class="fas fa-check-double"></i> Resuelto</span>`}
@@ -130,6 +166,11 @@ const MaintenanceModule = {
   },
 
   openNewOrderModal() {
+    this.populateTechniciansSelect('maint-tech-select');
+    const costInput = document.getElementById('maint-cost');
+    if (costInput) costInput.value = '0';
+    const descInput = document.getElementById('maint-desc');
+    if (descInput) descInput.value = '';
     openModal('modal-new-maintenance');
   },
 
@@ -138,9 +179,9 @@ const MaintenanceModule = {
       const roomId = document.getElementById('maint-room-select').value;
       const type = document.getElementById('maint-type').value;
       const priority = document.getElementById('maint-priority').value;
-      const tech = document.getElementById('maint-tech').value || 'Mario Gómez (Mantenimiento Técnico)';
-      const cost = Number(document.getElementById('maint-cost').value) || 0;
-      const desc = document.getElementById('maint-desc').value.trim();
+      const tech = document.getElementById('maint-tech-select')?.value || 'Mario Gómez (Mantenimiento Técnico)';
+      const cost = Number(document.getElementById('maint-cost')?.value) || 0;
+      const desc = document.getElementById('maint-desc')?.value.trim() || 'Revisión técnica solicitada';
 
       // 1. Insertar orden en ordenes_mantenimiento con columnas compatibles con Supabase
       const { error: ordErr } = await supabaseClient.from('ordenes_mantenimiento').insert({
@@ -149,6 +190,7 @@ const MaintenanceModule = {
         prioridad: priority,
         costo_reparacion: cost,
         descripcion: desc,
+        tecnico_asignado: tech,
         estado: 'En Proceso'
       });
 
@@ -157,16 +199,16 @@ const MaintenanceModule = {
       // 2. Bloquear habitación a 'Mantenimiento'
       await supabaseClient.from('habitaciones').update({
         estado: 'Mantenimiento',
-        observaciones: `En mantenimiento técnico: ${type}. Prioridad ${priority}.`
+        observaciones: `En mantenimiento técnico: ${type}. Técnico: ${tech}. Prioridad ${priority}.`
       }).eq('id', roomId);
 
       closeModal('modal-new-maintenance');
-      showToast('Orden de mantenimiento registrada y habitación bloqueada', 'warning');
+      showToast(`✓ Orden de mantenimiento asignada a ${tech} y habitación bloqueada`, 'warning');
 
       await this.loadOrders();
-      await DashboardModule.loadKPIs();
-      await RoomsModule.loadRooms();
-      await HousekeepingModule.loadHousekeepingBoard();
+      if (typeof DashboardModule !== 'undefined') DashboardModule.loadKPIs();
+      if (typeof RoomsModule !== 'undefined') RoomsModule.loadRooms();
+      if (typeof HousekeepingModule !== 'undefined') HousekeepingModule.loadHousekeepingBoard();
 
     } catch (err) {
       console.error('Error al registrar mantenimiento:', err);
@@ -216,10 +258,7 @@ const MaintenanceModule = {
       conceptInput.value = `Reparación: ${ord.titulo || 'Servicio Técnico'}`;
     }
 
-    const payeeInput = document.getElementById('maint-resolve-payee');
-    if (payeeInput) {
-      payeeInput.value = ord.tecnico_asignado || 'Mario Gómez (Mantenimiento)';
-    }
+    this.populateTechniciansSelect('maint-resolve-tech-select', ord.tecnico_asignado || '');
 
     const invInput = document.getElementById('maint-resolve-invoice');
     if (invInput) {
@@ -231,6 +270,11 @@ const MaintenanceModule = {
       methodSelect.value = 'efectivo';
     }
 
+    const deductCashCheck = document.getElementById('maint-resolve-pay-from-cash');
+    if (deductCashCheck) {
+      deductCashCheck.checked = true;
+    }
+
     this.onPaymentMethodChange();
     openModal('modal-maint-resolve');
   },
@@ -239,7 +283,11 @@ const MaintenanceModule = {
     const method = document.getElementById('maint-resolve-method')?.value || 'efectivo';
     const costInput = document.getElementById('maint-resolve-cost');
     const indicator = document.getElementById('maint-cash-status-indicator');
-    if (!indicator) return;
+    const deductWrapper = document.getElementById('maint-cash-deduct-wrapper');
+
+    if (deductWrapper) {
+      deductWrapper.style.display = (method === 'efectivo') ? 'flex' : 'none';
+    }
 
     if (method === 'sin_costo') {
       if (costInput) {
@@ -250,7 +298,10 @@ const MaintenanceModule = {
       if (costInput) costInput.disabled = false;
     }
 
+    if (!indicator) return;
+
     const isCashOpen = typeof CashBillingModule !== 'undefined' && CashBillingModule.isCashOpen();
+    const availableCash = typeof CashBillingModule !== 'undefined' ? CashBillingModule.getEsperadoEfectivo() : 0;
 
     if (method === 'efectivo') {
       if (!isCashOpen) {
@@ -267,10 +318,15 @@ const MaintenanceModule = {
         const sesId = CashBillingModule.currentSession?.id || 1;
         indicator.innerHTML = `
           <div style="background: #DCFCE7; border: 1px solid #86EFAC; border-radius: 8px; padding: 12px 14px; color: #166534; font-size: 12.5px; display: flex; align-items: flex-start; gap: 10px;">
-            <i class="fas fa-cash-register" style="font-size: 16px; margin-top: 2px; color: #16A34A;"></i>
+            <i class="fas fa-cash-register" style="font-size: 18px; margin-top: 2px; color: #16A34A;"></i>
             <div>
-              <strong style="display: block; font-size: 13px; margin-bottom: 2px;">Caja Abierta (Turno #${sesId})</strong>
-              El costo en efectivo se deducirá automáticamente como un egreso de la sesión activa de caja en recepción.
+              <strong style="display: block; font-size: 13.5px; margin-bottom: 3px;">Caja Mostrador Abierta (Turno #${sesId})</strong>
+              <div style="font-size: 12px; color: #15803D;">
+                Fondos disponibles en cajón de efectivo: <strong style="font-size: 13.5px; color: #14532D;">${formatGs(availableCash)}</strong>
+              </div>
+              <span style="font-size: 11px; color: #166534; display: block; margin-top: 2px;">
+                El costo se liquidará como un egreso contable deduciéndose inmediatamente del arqueo activo.
+              </span>
             </div>
           </div>
         `;
@@ -305,27 +361,40 @@ const MaintenanceModule = {
       const roomNum = document.getElementById('maint-resolve-room-num')?.value;
       const method = document.getElementById('maint-resolve-method')?.value || 'efectivo';
       const cost = Number(document.getElementById('maint-resolve-cost')?.value) || 0;
-      const concept = (document.getElementById('maint-resolve-concept')?.value || '').trim();
-      const payee = (document.getElementById('maint-resolve-payee')?.value || 'Mario Gómez').trim();
+      const concept = (document.getElementById('maint-resolve-concept')?.value || '').trim() || 'Servicio Técnico';
+      const payee = (document.getElementById('maint-resolve-tech-select')?.value || 'Mario Gómez').trim();
       const invoice = (document.getElementById('maint-resolve-invoice')?.value || '').trim();
+      const payFromCash = document.getElementById('maint-resolve-pay-from-cash')?.checked !== false;
 
-      // Validación estricta de Caja: si paga en efectivo y la caja está cerrada
-      if (method === 'efectivo' && cost > 0) {
+      // Validación estricta de Caja Mostrador: si paga en efectivo y la caja está cerrada o sin fondos
+      if (method === 'efectivo' && cost > 0 && payFromCash) {
         if (!CashBillingModule.isCashOpen()) {
           CustomDialog.alert({
             title: 'Caja Cerrada - No se puede pagar en efectivo',
             subtitle: 'Validación de Seguridad y Arqueo',
-            message: 'No es posible liquidar el costo del mantenimiento en <strong>EFECTIVO</strong> porque no hay un turno de caja abierto en este momento.<br><br>Por favor, realice primero la <strong>Apertura de Caja</strong> en el módulo de <em>Recepción / Arqueo de Caja</em> o seleccione la modalidad <strong>"Transferencia Bancaria"</strong>.',
+            message: 'No es posible liquidar el costo del mantenimiento en <strong>EFECTIVO</strong> porque no hay un turno de caja abierto en este momento.<br><br>Por favor, realice primero la <strong>Apertura de Caja</strong> en el módulo de <em>Caja & Facturación</em> o seleccione la modalidad <strong>"Transferencia Bancaria"</strong>.',
             icon: 'fa-lock',
             confirmText: 'Entendido'
           });
           return;
         }
 
-        // Si la caja está abierta, registrar egreso en el arqueo
+        const cashAvailable = CashBillingModule.getEsperadoEfectivo();
+        if (cost > cashAvailable) {
+          CustomDialog.alert({
+            title: 'Fondos Insuficientes en Caja Mostrador',
+            subtitle: 'Límite de Efectivo en Cajón',
+            message: `El costo a liquidar (<strong>${formatGs(cost)}</strong>) supera el efectivo físico disponible en la caja activa (<strong>${formatGs(cashAvailable)}</strong>).<br><br>Por favor ajuste el importe o registre el pago por <strong>Transferencia Bancaria</strong>.`,
+            icon: 'fa-exclamation-triangle',
+            confirmText: 'Entendido'
+          });
+          return;
+        }
+
+        // Registrar egreso inmediato en la sesión activa de caja
         const res = await CashBillingModule.registrarEgresoMantenimiento({
           monto: cost,
-          motivo: `[MNT Hab. ${roomNum}]: ${concept || 'Servicio Técnico'}`,
+          motivo: `[MNT Hab. ${roomNum}]: ${concept}`,
           responsable: payee,
           comprobante: invoice || `REC-${Date.now().toString().slice(-4)}`,
           ordenId: orderId
@@ -370,9 +439,9 @@ const MaintenanceModule = {
 
       closeModal('modal-maint-resolve');
 
-      const msgExito = cost > 0 && method === 'efectivo'
-        ? `✓ Mantenimiento resuelto. Egreso de ${formatGs(cost)} registrado en Caja. Habitación ${roomNum} enviada a Housekeeping (Sucia).`
-        : `✓ Mantenimiento resuelto exitosamente. Habitación ${roomNum} enviada a Housekeeping (Sucia).`;
+      const msgExito = cost > 0 && method === 'efectivo' && payFromCash
+        ? `✓ Mantenimiento resuelto. Egreso de ${formatGs(cost)} registrado en Caja Mostrador a nombre de ${payee}. Habitación ${roomNum} derivada a Housekeeping (Sucia).`
+        : `✓ Mantenimiento resuelto exitosamente por ${payee}. Habitación ${roomNum} enviada a Housekeeping (Sucia).`;
 
       showToast(msgExito, 'success');
 

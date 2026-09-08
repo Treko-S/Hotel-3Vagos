@@ -379,11 +379,12 @@ const InventoryModule = {
     document.getElementById('sales-item-app').checked = item ? !!item.availableInApp : true;
     document.getElementById('sales-item-desc').value = item ? (item.description || '') : '';
 
-    const imgInput = document.getElementById('sales-item-image');
-    if (imgInput) {
-      imgInput.value = item ? (item.imageUrl || '') : '';
-      this.onSalesImageUrlInput();
-    }
+    const existingImg = item ? (item.imageUrl || '') : '';
+    this.updateSalesImageUI(existingImg, item ? `${item.name}.jpg` : '');
+    const urlInput = document.getElementById('sales-item-image-url-input');
+    if (urlInput) urlInput.value = existingImg;
+    const fileInput = document.getElementById('sales-item-file-input');
+    if (fileInput) fileInput.value = '';
 
     this.onPhysicalItemChange();
     openModal('modal-item-sales');
@@ -397,41 +398,98 @@ const InventoryModule = {
     }
   },
 
-  onSalesImageUrlInput() {
-    const input = document.getElementById('sales-item-image');
+  updateSalesImageUI(url, filename = '') {
+    const emptyView = document.getElementById('sales-item-empty-view');
+    const filledView = document.getElementById('sales-item-filled-view');
     const preview = document.getElementById('sales-item-image-preview');
-    const placeholder = document.getElementById('sales-item-image-placeholder');
-    const url = input ? input.value.trim() : '';
+    const filenameEl = document.getElementById('sales-item-filename');
+    const hiddenInput = document.getElementById('sales-item-image');
 
-    if (url && preview && placeholder) {
+    if (hiddenInput) hiddenInput.value = url || '';
+
+    if (url && preview) {
       preview.src = url;
-      preview.style.display = 'block';
-      placeholder.style.display = 'none';
-      preview.onerror = () => {
-        preview.style.display = 'none';
-        placeholder.style.display = 'block';
-      };
-    } else if (preview && placeholder) {
-      preview.src = '';
-      preview.style.display = 'none';
-      placeholder.style.display = 'block';
+      if (filenameEl) filenameEl.innerText = filename || 'Imagen asignada';
+      if (emptyView) emptyView.style.display = 'none';
+      if (filledView) filledView.style.display = 'flex';
+    } else {
+      if (preview) preview.src = '';
+      if (filenameEl) filenameEl.innerText = '';
+      if (emptyView) emptyView.style.display = 'block';
+      if (filledView) filledView.style.display = 'none';
     }
   },
 
-  onSalesImageFileSelected(event) {
+  onSalesImageUrlInput(customVal) {
+    const input = document.getElementById('sales-item-image-url-input');
+    const url = customVal !== undefined ? customVal : (input ? input.value.trim() : '');
+    this.updateSalesImageUI(url, 'URL Externa');
+  },
+
+  async onSalesImageFileSelected(event) {
     const file = event.target.files?.[0];
     if (!file) return;
+    await this.processLocalImageFile(file);
+  },
 
+  async onSalesImageDrop(event) {
+    event.preventDefault();
+    const zone = document.getElementById('sales-item-upload-zone');
+    if (zone) {
+      zone.style.borderColor = '#CBD5E1';
+      zone.style.background = '#FFFFFF';
+    }
+    const file = event.dataTransfer?.files?.[0];
+    if (!file || !file.type.startsWith('image/')) {
+      showToast('Por favor arrastre un archivo de imagen válido (JPG, PNG, WebP)', 'warning');
+      return;
+    }
+    await this.processLocalImageFile(file);
+  },
+
+  async processLocalImageFile(file) {
+    const cleanName = file.name || 'foto_local.jpg';
+    showToast('Procesando imagen local...', 'info');
+
+    // 1. Intentar subir al bucket de Supabase Storage ('hotel-rooms/items/')
+    try {
+      if (typeof supabaseClient !== 'undefined' && supabaseClient.storage) {
+        const ext = cleanName.split('.').pop() || 'jpg';
+        const filePath = `items/item_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+        const { data: uploadData, error: uploadErr } = await supabaseClient.storage
+          .from('hotel-rooms')
+          .upload(filePath, file, { upsert: true });
+
+        if (!uploadErr && uploadData) {
+          const { data: pubData } = supabaseClient.storage.from('hotel-rooms').getPublicUrl(filePath);
+          if (pubData && pubData.publicUrl) {
+            this.updateSalesImageUI(pubData.publicUrl, cleanName);
+            showToast('✓ Foto subida y vinculada con éxito', 'success');
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Fallback a Base64 local:', e);
+    }
+
+    // 2. Fallback transparente a FileReader (Base64)
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target.result;
-      const input = document.getElementById('sales-item-image');
-      if (input) {
-        input.value = dataUrl;
-        this.onSalesImageUrlInput();
-      }
+      this.updateSalesImageUI(dataUrl, cleanName);
+      showToast('✓ Imagen local cargada exitosamente', 'success');
     };
     reader.readAsDataURL(file);
+  },
+
+  removeSalesImage() {
+    const fileInput = document.getElementById('sales-item-file-input');
+    const urlInput = document.getElementById('sales-item-image-url-input');
+    if (fileInput) fileInput.value = '';
+    if (urlInput) urlInput.value = '';
+    this.updateSalesImageUI('', '');
+    showToast('Fotografía eliminada del producto', 'info');
   },
 
   setSalesImagePreset(type) {
@@ -443,10 +501,8 @@ const InventoryModule = {
       'hamburguesa': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800',
       'lavanderia': 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800'
     };
-    const input = document.getElementById('sales-item-image');
-    if (input && presets[type]) {
-      input.value = presets[type];
-      this.onSalesImageUrlInput();
+    if (presets[type]) {
+      this.updateSalesImageUI(presets[type], `Preset: ${type}`);
     }
   },
 

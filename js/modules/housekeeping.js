@@ -22,17 +22,7 @@ const HousekeepingModule = {
       const data = localStorage.getItem('hotel_hk_orders');
       if (data !== null) return JSON.parse(data);
     } catch (e) {}
-
-    // Semilla inicial solo si nunca antes se ha iniciado
-    const initialSeed = {
-      "1": { priority: 1, maid: "Rosa Almada", notes: "Early Check-in: Huésped esperando en recepción. Cama extra armada.", status: "Pendiente", assignedAt: "08:15" },
-      "2": { priority: 2, maid: "Elena Morales", notes: "Check-out realizado a las 10:00. Dejar impecable para venta.", status: "En limpieza", assignedAt: "09:30" },
-      "3": { priority: 3, maid: "Carmen Duarte", notes: "Huésped salió de excursión. Repaso diario y cambio de toallas.", status: "Pendiente", assignedAt: "10:00" }
-    };
-    try {
-      localStorage.setItem('hotel_hk_orders', JSON.stringify(initialSeed));
-    } catch (e) {}
-    return initialSeed;
+    return {};
   },
 
   saveOrders(orders) {
@@ -119,29 +109,7 @@ const HousekeepingModule = {
       const data = localStorage.getItem('hotel_hk_incidents');
       if (data) return JSON.parse(data);
     } catch (e) {}
-
-    return [
-      {
-        id: 1,
-        roomNumber: "104",
-        nature: "mantenimiento",
-        description: "Control remoto de aire split no enciende tras reemplazo de pilas. Requiere revisión técnica.",
-        photo: null,
-        reportedBy: "Rosa Almada (Mucama)",
-        reportedAt: "05/09/2026 11:20",
-        status: "Derivado a Mantenimiento"
-      },
-      {
-        id: 2,
-        roomNumber: "102",
-        nature: "inventario",
-        description: "Faltan 2 toallas de mano y 1 juego de batas de baño en placard. Reponer desde bodega central.",
-        photo: null,
-        reportedBy: "Elena Morales (Mucama)",
-        reportedAt: "05/09/2026 14:05",
-        status: "Derivado a Inventario"
-      }
-    ];
+    return [];
   },
 
   saveIncidents(incidents) {
@@ -190,35 +158,6 @@ const HousekeepingModule = {
         }
       } catch (e) {
         console.warn('Sync dbTasks skip:', e);
-      }
-
-      // 1. Normalización y Consistencia Estricta de Estados:
-      // Una habitación NO puede estar 'Disponible' si tiene orden activa de limpieza o repaso.
-      const orders = this.getOrders();
-      const stateUpdates = [];
-
-      this.currentRooms.forEach(room => {
-        const ord = orders[String(room.id)];
-        if (ord) {
-          if (ord.priority === 1 || ord.priority === 2) {
-            if (room.estado === 'Disponible') {
-              room.estado = (ord.status === 'En limpieza') ? 'En limpieza' : 'Sucia';
-              stateUpdates.push(
-                supabaseClient.from('habitaciones').update({ estado: room.estado }).eq('id', room.id)
-              );
-            }
-          } else if (ord.priority === 3) {
-            if (room.estado === 'Disponible') {
-              room.estado = 'Ocupada';
-              stateUpdates.push(
-                supabaseClient.from('habitaciones').update({ estado: 'Ocupada' }).eq('id', room.id)
-              );
-            }
-          }
-        }
-      });
-      if (stateUpdates.length > 0) {
-        Promise.all(stateUpdates).catch(e => console.warn('Sync room states background:', e));
       }
 
       // Poblar selector de incidencias
@@ -1241,15 +1180,142 @@ const HousekeepingModule = {
       cleanerInput.style.cursor = 'not-allowed';
     }
 
-    // Reset checkboxes
-    document.getElementById('chk-cama').checked = false;
-    document.getElementById('chk-bano').checked = false;
-    document.getElementById('chk-equipamiento').checked = false;
-    document.getElementById('chk-minibar').checked = false;
-    document.getElementById('chk-inspeccion').checked = false;
-    document.getElementById('hk-observations').value = '';
+    // Generación dinámica del Checklist según las especificaciones de la habitación
+    const container = document.getElementById('hk-dynamic-checklist-container');
+    if (container) {
+      const items = this.buildDynamicChecklist(room);
+      container.innerHTML = items.map((item, idx) => `
+        <div class="checklist-item" style="display: flex; align-items: flex-start; gap: 10px; background: #FFFFFF; padding: 10px 12px; border-radius: 8px; border: 1px solid #E2E8F0; transition: background 0.2s;">
+          <input type="checkbox" id="${item.id}" class="hk-dynamic-chk" onchange="HousekeepingModule.updateChecklistProgress()" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #10B981; cursor: pointer;">
+          <label for="${item.id}" style="cursor: pointer; margin: 0; flex: 1;">
+            <strong style="font-size: 13px; color: var(--primary-navy); display: flex; align-items: center; gap: 6px;">
+              <i class="fas ${item.icon}" style="color: ${item.color}; width: 16px; text-align: center;"></i> ${item.title}
+            </strong>
+            <span style="font-size: 11.5px; color: #64748B; display: block; margin-top: 2px; line-height: 1.3;">
+              ${item.desc}
+            </span>
+          </label>
+        </div>
+      `).join('');
+      this.updateChecklistProgress();
+    }
 
+    document.getElementById('hk-observations').value = '';
     openModal('modal-housekeeping');
+  },
+
+  buildDynamicChecklist(room) {
+    const c = room.caracteristicas || {};
+    const camas = c.camas || 'Camas preparadas';
+
+    const items = [
+      {
+        id: 'chk-cama',
+        icon: 'fa-bed',
+        color: '#2563EB',
+        title: `1. Dormitorio & Lencería (${camas})`,
+        desc: 'Sábanas blancas higienizadas sin arrugas, almohadas perfumadas y protectores limpios.'
+      },
+      {
+        id: 'chk-bano',
+        icon: 'fa-bath',
+        color: '#0D9488',
+        title: '2. Baño Completo & Sanitarios',
+        desc: 'Inodoro y grifería desinfectados con precinto higiénico, mampara seca y juego de toallas blancas (cuerpo, mano y pie).'
+      }
+    ];
+
+    if (c.jacuzzi) {
+      items.push({
+        id: 'chk-jacuzzi',
+        icon: 'fa-hot-tub',
+        color: '#7C3AED',
+        title: '3. Jacuzzi / Hidromasaje Privado',
+        desc: 'Desinfección profunda de tina y boquillas de hidromasaje con precinto de sanitización higiénica.'
+      });
+    }
+
+    if (c.ac !== false) {
+      items.push({
+        id: 'chk-ac',
+        icon: 'fa-snowflake',
+        color: '#0284C7',
+        title: '4. Climatización Split A/C',
+        desc: 'Filtros limpios de polvo, prueba de enfriamiento a 24°C, control remoto desinfectado con baterías operativas.'
+      });
+    }
+
+    if (c.minibar) {
+      items.push({
+        id: 'chk-minibar',
+        icon: 'fa-cocktail',
+        color: '#D97706',
+        title: '5. Frigobar & Minibar',
+        desc: 'Control de frío, inventario de bebidas/snacks consumidos anotados para el folio y precinto de frescura.'
+      });
+    }
+
+    if (c.balcon) {
+      items.push({
+        id: 'chk-balcon',
+        icon: 'fa-sun',
+        color: '#EA580C',
+        title: '6. Balcón Exterior & Ventanal Corredizo',
+        desc: 'Suelo barrido, barandas higienizadas y cristales del ventanal corredizo transparentes y sin marcas.'
+      });
+    }
+
+    if (c.tv !== false) {
+      items.push({
+        id: 'chk-tv',
+        icon: 'fa-tv',
+        color: '#4F46E5',
+        title: '7. Smart TV & Multimedia',
+        desc: 'Pantalla libre de huellas y polvo, control remoto desinfectado en funda y sintonización activa.'
+      });
+    }
+
+    if (c.caja_fuerte) {
+      items.push({
+        id: 'chk-caja',
+        icon: 'fa-lock',
+        color: '#059669',
+        title: '8. Caja Fuerte Electrónica',
+        desc: 'Puerta abierta y reseteada lista con código en blanco para el nuevo huésped.'
+      });
+    }
+
+    if (c.pava_electrica || c.room_service) {
+      items.push({
+        id: 'chk-pava',
+        icon: 'fa-mug-hot',
+        color: '#B45309',
+        title: '9. Set de Cafetería & Pava Eléctrica',
+        desc: 'Pava eléctrica limpia y sin sarro, tazas y cucharas higienizadas, reposición de café y té.'
+      });
+    }
+
+    items.push({
+      id: 'chk-inspeccion',
+      icon: 'fa-spray-can',
+      color: '#16A34A',
+      title: '10. Inspección Final & Aromatización',
+      desc: 'Piso aspirado/fregado, cortinas alineadas y aromatizante ambiental institucional de cortesía aplicado.'
+    });
+
+    return items;
+  },
+
+  updateChecklistProgress() {
+    const chks = Array.from(document.querySelectorAll('.hk-dynamic-chk'));
+    const checked = chks.filter(c => c.checked).length;
+    const total = chks.length;
+    const counter = document.getElementById('hk-checklist-counter');
+    if (counter) {
+      counter.innerText = `${checked} / ${total} verificados`;
+      counter.style.background = (checked === total && total > 0) ? '#DCFCE7' : '#E0F2FE';
+      counter.style.color = (checked === total && total > 0) ? '#166534' : '#0369A1';
+    }
   },
 
   async startCleaning() {
@@ -1286,16 +1352,14 @@ const HousekeepingModule = {
   async completeCleaningAndLiberate() {
     if (!this.selectedRoom) return;
 
-    const chkCama = document.getElementById('chk-cama').checked;
-    const chkBano = document.getElementById('chk-bano').checked;
-    const chkEquip = document.getElementById('chk-equipamiento').checked;
-    const chkMini = document.getElementById('chk-minibar').checked;
-    const chkInsp = document.getElementById('chk-inspeccion').checked;
-    const obs = document.getElementById('hk-observations').value;
-    const cleaner = document.getElementById('hk-cleaner-name').value || 'Rosa Almada';
+    const chks = Array.from(document.querySelectorAll('.hk-dynamic-chk'));
+    const checkedCount = chks.filter(c => c.checked).length;
+    const totalCount = chks.length;
+    const obs = document.getElementById('hk-observations')?.value || '';
+    const cleaner = document.getElementById('hk-cleaner-name')?.value || 'Rosa Almada';
 
-    if (!chkCama || !chkBano || !chkEquip || !chkMini || !chkInsp) {
-      showToast('Debe verificar y marcar los 5 puntos de inspección antes de liberar la habitación', 'warning');
+    if (checkedCount < totalCount) {
+      showToast(`Debe verificar y marcar todos los ${totalCount} puntos del protocolo antes de liberar la habitación (${checkedCount}/${totalCount} completados)`, 'warning');
       return;
     }
 
@@ -1305,7 +1369,7 @@ const HousekeepingModule = {
         .from('habitaciones')
         .update({
           estado: 'Disponible',
-          observaciones: 'Habitación limpia, inspeccionada 5/5 y lista para venta.'
+          observaciones: `Habitación limpia, inspeccionada al 100% (${totalCount}/${totalCount}) y lista para venta.`
         })
         .eq('id', this.selectedRoom.id);
 
@@ -1326,7 +1390,7 @@ const HousekeepingModule = {
           .update({
             estado: 'Finalizada',
             fecha_finalizacion: new Date().toISOString(),
-            notas: `[Checklist 5/5 por ${cleaner}]: ${obs || 'Inspección aprobada'}`
+            notas: `[Checklist ${totalCount}/${totalCount} por ${cleaner}]: ${obs || 'Inspección de calidad aprobada'}`
           })
           .eq('habitacion_id', Number(this.selectedRoom.id))
           .neq('estado', 'Finalizada');

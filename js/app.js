@@ -50,7 +50,18 @@ const RolePermissions = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // 0. Sincronización Inmediata Anti-FOUC (Aplica RBAC al instante en el frame 0)
+  // 0. Limpieza inicial garantizada de datos residuales de prueba
+  try {
+    const isResetDone = localStorage.getItem('hotel_system_reset_v2');
+    if (!isResetDone) {
+      localStorage.removeItem('hotel_hk_orders');
+      localStorage.removeItem('hotel_hk_incidents');
+      localStorage.removeItem('hotel_maint_orders');
+      localStorage.setItem('hotel_system_reset_v2', 'true');
+    }
+  } catch (e) {}
+
+  // 0.1 Sincronización Inmediata Anti-FOUC (Aplica RBAC al instante en el frame 0)
   try {
     const sessionStr = localStorage.getItem('hotel_admin_session');
     if (sessionStr) {

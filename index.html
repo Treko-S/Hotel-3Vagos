@@ -2067,27 +2067,17 @@
           <span id="hk-modal-priority-badge" class="badge-priority"></span>
         </div>
 
-        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 14px; border-radius: var(--radius-md); margin-bottom: 16px;">
-          <div class="checklist-item">
-            <input type="checkbox" id="chk-cama">
-            <label for="chk-cama">1. Cama & Ropa blanca (Sábanas higienizadas, fundas estiradas, almohadas aromatizadas)</label>
-          </div>
-          <div class="checklist-item">
-            <input type="checkbox" id="chk-bano">
-            <label for="chk-bano">2. Baño & Sanitarios (Inodoro desinfectado con precinto, mampara seca, amenities y toallas)</label>
-          </div>
-          <div class="checklist-item">
-            <input type="checkbox" id="chk-equipamiento">
-            <label for="chk-equipamiento">3. Climatización & Luces (A/C split a 24°C, TV y control remoto con pilas operativas)</label>
-          </div>
-          <div class="checklist-item">
-            <input type="checkbox" id="chk-minibar">
-            <label for="chk-minibar">4. Minibar & Frigobar (Bebidas completas según estándar y enfriando correctamente)</label>
-          </div>
-          <div class="checklist-item">
-            <input type="checkbox" id="chk-inspeccion">
-            <label for="chk-inspeccion">5. Suelos, Ventanas & Aromaterapia (Piso aspirado/trapeado, cortinas y desinfección final)</label>
-          </div>
+        <!-- Contenedor del Checklist Dinámico según características de la habitación -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 12px; font-weight: 700; color: var(--primary-navy); text-transform: uppercase; letter-spacing: 0.5px;">
+            <i class="fas fa-tasks" style="color: var(--primary-blue);"></i> Protocolo Operativo Personalizado
+          </span>
+          <span id="hk-checklist-counter" class="badge" style="background: #E0F2FE; color: #0369A1; font-size: 11.5px; font-weight: 700;">
+            0 / 0 verificados
+          </span>
+        </div>
+        <div id="hk-dynamic-checklist-container" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 12px 14px; border-radius: var(--radius-md); margin-bottom: 16px; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+          <!-- Generado dinámicamente según room.caracteristicas -->
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
@@ -2397,12 +2387,18 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Técnico Asignado</label>
-          <input type="text" id="maint-tech" class="form-control" placeholder="Ej: Mario Gómez">
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="margin: 0; font-weight: 600; font-size: 13px;">Técnico Asignado *</label>
+            <button type="button" class="btn btn-xs btn-outline" onclick="MaintenanceModule.openNewTechnicianModal('create')" style="font-size: 11px; padding: 2px 8px; color: var(--primary-navy); border-color: #CBD5E1;">
+              <i class="fas fa-user-plus"></i> + Registrar Nuevo Técnico
+            </button>
+          </div>
+          <select id="maint-tech-select" class="form-control"></select>
         </div>
         <div class="form-group">
-          <label>Costo Estimado (Gs.)</label>
-          <input type="number" id="maint-cost" class="form-control" value="0">
+          <label>Costo Estimado / Presupuesto (Gs.)</label>
+          <input type="number" id="maint-cost" class="form-control" value="0" min="0" step="5000">
         </div>
         <div class="form-group">
           <label>Descripción del Problema</label>
@@ -2412,6 +2408,51 @@
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-new-maintenance')">Cancelar</button>
         <button class="btn btn-primary" onclick="MaintenanceModule.createOrder()">Registrar & Bloquear Habitación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Registrar Nuevo Técnico de Mantenimiento -->
+  <div id="modal-new-technician" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 440px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(18, 59, 99, 0.1); display: flex; align-items: center; justify-content: center; color: var(--primary-navy);">
+            <i class="fas fa-user-plus" style="font-size: 18px;"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 17px; color: var(--primary-navy);">Registrar Nuevo Técnico</h3>
+            <p style="margin: 0; font-size: 11px; color: var(--text-muted);">Alta de profesional para mantenimiento hotelero</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-new-technician')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;">Nombre y Apellido del Técnico *</label>
+          <input type="text" id="new-tech-name" class="form-control" placeholder="Ej: Roberto Cáceres">
+        </div>
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;">Especialidad Principal *</label>
+          <select id="new-tech-specialty" class="form-control">
+            <option value="Refrigeración & Climatización (Split)">Refrigeración & Climatización (Split)</option>
+            <option value="Plomería, Grifería & Hidromasaje">Plomería, Grifería & Hidromasaje</option>
+            <option value="Electricidad, Tableros & Redes">Electricidad, Tableros & Redes</option>
+            <option value="Cerrajería & Cerraduras Electrónicas">Cerrajería & Cerraduras Electrónicas</option>
+            <option value="Pintura & Carpintería / Mobiliario">Pintura & Carpintería / Mobiliario</option>
+            <option value="Mantenimiento General Integral">Mantenimiento General Integral</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="font-weight: 600; font-size: 13px;">Teléfono / Contacto</label>
+          <input type="text" id="new-tech-phone" class="form-control" placeholder="Ej: 0981 456 789">
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-outline" onclick="closeModal('modal-new-technician')">Cancelar</button>
+        <button class="btn btn-primary" onclick="MaintenanceModule.saveNewTechnician()">
+          <i class="fas fa-save"></i> Guardar Técnico
+        </button>
       </div>
     </div>
   </div>
@@ -2451,10 +2492,18 @@
         <div class="form-group">
           <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-credit-card"></i> Modalidad de Pago del Gasto *</label>
           <select id="maint-resolve-method" class="form-control" onchange="MaintenanceModule.onPaymentMethodChange()">
-            <option value="efectivo" selected>Efectivo de Caja Recepción (Impacta Caja Chica / Turno)</option>
+            <option value="efectivo" selected>Efectivo de Caja Recepción (Impacta Caja Mostrador / Turno)</option>
             <option value="transferencia">Transferencia Bancaria / Pago Centralizado (Sin impacto en caja física)</option>
             <option value="sin_costo">Sin Costo Adicional / Garantía Técnica</option>
           </select>
+        </div>
+
+        <!-- Toggle explícito para pagar con fondos de caja -->
+        <div id="maint-cash-deduct-wrapper" style="margin-bottom: 14px; background: #ECFDF5; border: 1px solid #A7F3D0; padding: 10px 12px; border-radius: 8px; display: flex; align-items: center; gap: 10px;">
+          <input type="checkbox" id="maint-resolve-pay-from-cash" checked style="width: 18px; height: 18px; accent-color: #10B981; cursor: pointer;">
+          <label for="maint-resolve-pay-from-cash" style="margin: 0; font-size: 12.5px; font-weight: 600; color: #065F46; cursor: pointer;">
+            Pagar con fondos de Caja Mostrador (Registrar Egreso automático en Arqueo)
+          </label>
         </div>
 
         <div class="form-group">
@@ -2464,12 +2513,15 @@
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
-            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-user-cog"></i> Técnico / Receptor</label>
-            <input type="text" id="maint-resolve-payee" class="form-control" placeholder="Ej: Mario Gómez">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label style="font-weight: 600; font-size: 13px; margin: 0;"><i class="fas fa-user-cog"></i> Técnico Receptor</label>
+              <button type="button" class="btn btn-xs btn-outline" onclick="MaintenanceModule.openNewTechnicianModal('resolve')" style="font-size: 10.5px; padding: 1px 6px;">+ Nuevo</button>
+            </div>
+            <select id="maint-resolve-tech-select" class="form-control"></select>
           </div>
           <div class="form-group">
             <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-file-invoice"></i> N° Factura / Recibo</label>
-            <input type="text" id="maint-resolve-invoice" class="form-control" placeholder="Ej: FAC-001-002-1249">
+            <input type="text" id="maint-resolve-invoice" class="form-control" placeholder="Ej: REC-001-002-1249">
           </div>
         </div>
       </div>
@@ -3087,40 +3139,78 @@
           <input type="checkbox" id="sales-item-app" checked style="width: 18px; height: 18px; accent-color: #10B981;">
         </div>
 
-        <!-- Fotografía del Producto / Servicio (App Móvil & Menú) -->
-        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <label style="font-size: 12.5px; font-weight: 600; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 6px;">
-              <i class="fas fa-camera" style="color: var(--primary-gold);"></i> Fotografía del Producto / Servicio
+        <!-- Fotografía del Producto / Servicio (Carga Local Nativa de Archivos) -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <label style="font-size: 13px; font-weight: 700; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-camera-retro" style="color: var(--primary-gold);"></i> Fotografía del Producto o Servicio
             </label>
-            <span style="font-size: 11px; color: var(--text-muted);">Sincronizada con la App Móvil</span>
+            <span class="badge" style="background: #E0F2FE; color: #0369A1; font-size: 10.5px; font-weight: 600;">
+              <i class="fas fa-file-image"></i> Carga Local Directa
+            </span>
           </div>
 
-          <div style="display: flex; gap: 12px; align-items: center;">
-            <!-- Caja de Previsualización -->
-            <div id="sales-item-image-preview-box" style="width: 58px; height: 58px; border-radius: 10px; border: 1px dashed #CBD5E1; background: #FFF; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; box-shadow: var(--shadow-sm);">
-              <img id="sales-item-image-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
-              <i id="sales-item-image-placeholder" class="fas fa-image" style="font-size: 22px; color: #94A3B8;"></i>
+          <!-- Input oculto para archivo local y valor almacenado -->
+          <input type="file" id="sales-item-file-input" accept="image/*" style="display: none;" onchange="InventoryModule.onSalesImageFileSelected(event)">
+          <input type="hidden" id="sales-item-image">
+
+          <!-- Dropzone interactiva de carga local -->
+          <div id="sales-item-upload-zone" style="border: 2px dashed #CBD5E1; border-radius: 10px; padding: 16px; background: #FFFFFF; text-align: center; cursor: pointer; transition: all 0.2s ease;" onclick="document.getElementById('sales-item-file-input').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--primary-blue)'; this.style.background='#F0F9FF';" ondragleave="this.style.borderColor='#CBD5E1'; this.style.background='#FFFFFF';" ondrop="InventoryModule.onSalesImageDrop(event)">
+            
+            <div id="sales-item-empty-view">
+              <div style="width: 48px; height: 48px; margin: 0 auto 8px; border-radius: 50%; background: #EEF2F6; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--primary-blue);">
+                <i class="fas fa-cloud-upload-alt"></i>
+              </div>
+              <strong style="font-size: 13px; color: #1E293B; display: block; margin-bottom: 3px;">
+                Haga clic para subir una foto desde su computadora
+              </strong>
+              <p style="font-size: 11.5px; color: var(--text-muted); margin: 0;">
+                Formatos permitidos: JPG, PNG, WebP (Se procesa y almacena localmente)
+              </p>
             </div>
 
-            <div style="flex: 1;">
-              <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-                <input type="text" id="sales-item-image" class="form-control" placeholder="Pegue la URL directa o use presets..." style="font-size: 12px; height: 32px;" oninput="InventoryModule.onSalesImageUrlInput()">
-                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('sales-item-file-input').click()" style="white-space: nowrap; height: 32px; padding: 0 10px; font-size: 11px;" title="Subir foto desde su dispositivo">
-                  <i class="fas fa-upload"></i> Subir
-                </button>
-                <input type="file" id="sales-item-file-input" accept="image/*" style="display: none;" onchange="InventoryModule.onSalesImageFileSelected(event)">
+            <!-- Vista con imagen cargada -->
+            <div id="sales-item-filled-view" style="display: none; align-items: center; gap: 14px; text-align: left;">
+              <div style="width: 80px; height: 80px; border-radius: 8px; overflow: hidden; border: 1px solid #E2E8F0; flex-shrink: 0; background: #0F172A; box-shadow: 0 2px 6px rgba(0,0,0,0.08);">
+                <img id="sales-item-image-preview" src="" style="width: 100%; height: 100%; object-fit: cover;">
               </div>
-              <div style="display: flex; gap: 5px; align-items: center; flex-wrap: wrap;">
-                <span style="font-size: 10.5px; color: var(--text-muted); font-weight: 600;">Presets:</span>
-                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('desayuno')">Desayuno</button>
-                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('spa')">Spa</button>
-                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('agua')">Agua</button>
-                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('cerveza')">Cerveza</button>
-                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('hamburguesa')">Burger</button>
-                <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 6px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('lavanderia')">Lavandería</button>
+              <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                  <span class="badge badge-confirmada" style="font-size: 11px;">
+                    <i class="fas fa-check"></i> Imagen Lista
+                  </span>
+                  <span id="sales-item-filename" style="font-size: 11.5px; color: #64748B; font-weight: 500; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></span>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 8px;">
+                  <button type="button" class="btn btn-xs btn-outline" onclick="event.stopPropagation(); document.getElementById('sales-item-file-input').click();" style="font-size: 11px; padding: 4px 10px;">
+                    <i class="fas fa-exchange-alt"></i> Cambiar Foto
+                  </button>
+                  <button type="button" class="btn btn-xs btn-danger" onclick="event.stopPropagation(); InventoryModule.removeSalesImage();" style="font-size: 11px; padding: 4px 10px; background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA;">
+                    <i class="fas fa-trash-alt"></i> Quitar
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+
+          <!-- Presets y opción secundaria -->
+          <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+            <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+              <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Presets de muestra:</span>
+              <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 7px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('desayuno')">Desayuno</button>
+              <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 7px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('spa')">Spa</button>
+              <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 7px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('agua')">Agua</button>
+              <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 7px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('cerveza')">Cerveza</button>
+              <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 7px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('hamburguesa')">Burger</button>
+              <button type="button" class="btn btn-xs btn-outline" style="padding: 1px 7px; font-size: 10.5px;" onclick="InventoryModule.setSalesImagePreset('lavanderia')">Lavandería</button>
+            </div>
+            <a href="javascript:void(0)" onclick="document.getElementById('sales-item-url-wrapper').style.display = (document.getElementById('sales-item-url-wrapper').style.display === 'none' ? 'block' : 'none');" style="font-size: 11px; color: var(--primary-blue); text-decoration: underline;">
+              Pegar URL opcional
+            </a>
+          </div>
+
+          <div id="sales-item-url-wrapper" style="display: none; margin-top: 8px;">
+            <input type="text" id="sales-item-image-url-input" class="form-control" placeholder="https://..." style="font-size: 12px; height: 32px;" oninput="InventoryModule.onSalesImageUrlInput(this.value)">
           </div>
         </div>
 
