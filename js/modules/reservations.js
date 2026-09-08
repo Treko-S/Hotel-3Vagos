@@ -357,6 +357,11 @@ const ReservationsModule = {
                 ${((b.rate_plan_type || 'Flexible').toLowerCase().includes('flex')) ? 'Flexible' : 'No Reembolsable'}
               </span>
             </div>
+            ${b.estado === 'Cancelada' ? `
+              <div style="margin-top: 5px; background: #FEF2F2; border-left: 3px solid #DC2626; border-radius: 4px; padding: 4px 6px; font-size: 10.5px; color: #991B1B;" title="Motivo registrado de cancelación">
+                <i class="fas fa-ban"></i> <strong>Motivo:</strong> ${sanitizeInput(b.cancellation_reason || 'Cancelación administrativa')}
+              </div>
+            ` : ''}
           </td>
           <td>
             <div style="font-weight: 600;">Habitación ${sanitizeInput(hab.numero || 'N/A')}</div>
@@ -412,6 +417,12 @@ const ReservationsModule = {
           <td>${estadoBadge}</td>
           <td>
             <div class="action-btn-group">
+              ${b.estado === 'Cancelada' ? `
+                <button class="btn-action" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; font-weight: 600;" onclick="ReservationsModule.viewCancellationReason('${b.id}')" title="Ver Motivo de Cancelación & Auditoría">
+                  <i class="fas fa-file-alt"></i> Motivo
+                </button>
+              ` : ''}
+
               ${saldoPendiente > 0 && (b.estado !== 'Finalizada' && b.estado !== 'Cancelada') ? `
                 <button class="btn-action" onclick="CashBillingModule.openCobroModal('${b.id}')" title="Cobrar saldo pendiente en caja" style="background: #10B981; color: #fff; border-color: #059669; font-weight: 700;">
                   <i class="fas fa-hand-holding-usd"></i> Cobrar
@@ -507,20 +518,24 @@ const ReservationsModule = {
   },
 
   /**
-   * Renderiza el Historial de Reservas Concluidas (Modo Solo Lectura)
+   * Renderiza el Historial de Reservas Concluidas & Canceladas (Auditoría & Registro Histórico)
    */
   renderHistoryTable(list) {
     const tbody = document.getElementById('reservations-history-table-body');
     if (!tbody) return;
 
-    const finished = (list || []).filter(b => (b.estado || '').toLowerCase() === 'finalizada');
+    // Incluir reservas con estado 'Finalizada' y 'Cancelada' para preservar auditoría histórica
+    const historyList = (list || []).filter(b => {
+      const st = (b.estado || '').toLowerCase();
+      return st === 'finalizada' || st === 'cancelada';
+    });
 
-    if (finished.length === 0) {
+    if (historyList.length === 0) {
       tbody.innerHTML = `
         <tr>
           <td colspan="9" style="text-align: center; padding: 36px; color: var(--text-muted);">
             <i class="fas fa-archive" style="font-size: 26px; margin-bottom: 8px; display: block; opacity: 0.4;"></i>
-            No se encontraron reservas finalizadas en el historial.
+            No se encontraron reservas archivadas ni canceladas en el historial.
           </td>
         </tr>
       `;
@@ -528,22 +543,32 @@ const ReservationsModule = {
     }
 
     let html = '';
-    finished.forEach(b => {
+    historyList.forEach(b => {
       const hab = b.habitaciones || {};
       const tipo = hab.tipos_habitacion || {};
       const user = b.users || {};
       const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
       
+      const isCancelled = (b.estado || '').toLowerCase() === 'cancelada';
       const montoTotal = Number(b.monto_total || 0);
       const anticipo = folio.total_pagos !== undefined ? Number(folio.total_pagos) : Number(b.anticipo_pagado || 0);
+      const penalty = Number(b.cancellation_penalty_amount || 0);
+      const refund = Number(b.refund_amount || 0);
 
       html += `
-        <tr>
+        <tr style="${isCancelled ? 'background-color: #FEF2F208;' : ''}">
           <td>
-            <strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(b.codigo_reserva)}</strong>
+            <strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(b.codigo_reserva || b.id)}</strong>
             <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
               <i class="fas fa-mobile-alt" style="color: var(--info);"></i> ${sanitizeInput(b.canal_venta || 'App Móvil')}
             </div>
+            ${isCancelled ? `
+              <!-- Motivo de cancelación visible directamente en la fila del historial -->
+              <div style="margin-top: 6px; background: #FEF2F2; border-left: 3px solid #DC2626; border-radius: 4px; padding: 5px 8px; font-size: 11px; color: #991B1B; line-height: 1.3;" title="Motivo registrado de la cancelación">
+                <i class="fas fa-ban" style="margin-right: 4px;"></i><strong>Motivo:</strong> ${sanitizeInput(b.cancellation_reason || 'Cancelación administrativa')}
+                ${b.cancelled_at ? `<div style="font-size: 10px; color: #B91C1C; margin-top: 2px;"><i class="far fa-clock"></i> ${formatDate(b.cancelled_at)}</div>` : ''}
+              </div>
+            ` : ''}
           </td>
           <td>
             <div style="font-weight: 600;">Habitación ${sanitizeInput(hab.numero || 'N/A')}</div>
@@ -551,7 +576,7 @@ const ReservationsModule = {
           </td>
           <td>
             <div style="font-size: 12px;"><i class="far fa-calendar-alt" style="color: var(--info);"></i> ${formatDate(b.check_in_previsto || b.fecha_entrada)}</div>
-            <div style="font-size: 12px; color: #15803D;"><i class="far fa-calendar-check"></i> ${formatDate(b.check_out_previsto || b.fecha_salida)}</div>
+            <div style="font-size: 12px; color: ${isCancelled ? '#94A3B8' : '#15803D'};"><i class="far fa-calendar-check"></i> ${formatDate(b.check_out_previsto || b.fecha_salida)}</div>
           </td>
           <td>
             <div style="font-weight: 600; color: var(--primary-dark);">${sanitizeInput(user.full_name || 'Huésped Registrado')}</div>
@@ -560,28 +585,57 @@ const ReservationsModule = {
             </div>
           </td>
           <td>
-            <div style="font-weight: bold; color: #15803D; font-size: 13.5px;">${formatGs(montoTotal)}</div>
-            <div style="font-size: 10.5px; color: var(--text-muted);">100% Liquidado</div>
+            <div style="font-weight: bold; color: ${isCancelled ? '#DC2626' : '#15803D'}; font-size: 13.5px;">${formatGs(montoTotal)}</div>
+            <div style="font-size: 10.5px; color: var(--text-muted);">
+              ${isCancelled ? `Penalidad: <strong>${formatGs(penalty)}</strong>` : '100% Liquidado'}
+            </div>
           </td>
           <td>
             <span class="badge" style="background: rgba(16, 185, 129, 0.12); color: #10B981; font-weight: 700; padding: 3px 8px; font-size: 11.5px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
-              <i class="fas fa-check-circle" style="font-size: 10px;"></i> ${formatGs(anticipo)}
+              <i class="fas fa-coins" style="font-size: 10px;"></i> ${formatGs(anticipo)}
             </span>
+            ${isCancelled && refund > 0 ? `
+              <div style="margin-top: 3px; font-size: 10.5px; color: #15803D; font-weight: 700;">
+                Reembolso: ${formatGs(refund)}
+              </div>
+            ` : ''}
           </td>
           <td>
-            <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #BBF7D0;">
-              <i class="fas fa-check-double"></i> 0 Gs. Saldado
-            </span>
+            ${isCancelled ? `
+              <span class="badge" style="background: #F1F5F9; color: #475569; font-weight: 700; padding: 4px 8px; border-radius: 6px; border: 1px solid #CBD5E1;">
+                <i class="fas fa-lock"></i> Cancelada
+              </span>
+            ` : `
+              <span class="badge" style="background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #BBF7D0;">
+                <i class="fas fa-check-double"></i> 0 Gs. Saldado
+              </span>
+            `}
           </td>
           <td>
-            <span class="badge badge-disponible"><i class="fas fa-flag-checkered"></i> Finalizada</span>
+            ${isCancelled ? `
+              <span class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-weight: 700; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fas fa-ban"></i> Cancelada
+              </span>
+              ${b.cancellation_status ? `
+                <div style="font-size: 10.5px; color: #991B1B; margin-top: 3px; font-weight: 600;">
+                  ${sanitizeInput(b.cancellation_status)}
+                </div>
+              ` : ''}
+            ` : `
+              <span class="badge badge-disponible"><i class="fas fa-flag-checkered"></i> Finalizada</span>
+            `}
           </td>
           <td style="text-align: center;">
-            <div class="action-btn-group" style="justify-content: center;">
+            <div class="action-btn-group" style="justify-content: center; flex-wrap: wrap; gap: 4px;">
+              ${isCancelled ? `
+                <button class="btn-action" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; font-weight: 600;" onclick="ReservationsModule.viewCancellationReason('${b.id}')" title="Ver Motivo de Cancelación & Auditoría">
+                  <i class="fas fa-file-alt"></i> Motivo
+                </button>
+              ` : ''}
               <button class="btn-action btn-action-folio" onclick="ReservationsModule.viewFolioDetail('${b.id}')" title="Ver Folio Cerrado & Detalles de Cuenta">
-                <i class="fas fa-file-invoice"></i> Ver Folio
+                <i class="fas fa-file-invoice"></i> Folio
               </button>
-              <button class="btn-action" style="background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; font-weight: 600;" onclick="ReservationsModule.downloadBookingPdf('${b.id}')" title="Descargar Comprobante Legal Oficial en PDF">
+              <button class="btn-action" style="background: #F8FAFC; color: #475569; border: 1px solid #CBD5E1; font-weight: 600;" onclick="ReservationsModule.downloadBookingPdf('${b.id}')" title="Descargar Comprobante Legal Oficial en PDF">
                 <i class="fas fa-file-pdf"></i> PDF
               </button>
             </div>
@@ -2335,6 +2389,9 @@ const ReservationsModule = {
       return;
     }
 
+    const hab = b.habitaciones || {};
+    const tipo = hab.tipos_habitacion || {};
+    const user = b.users || {};
     const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
     const totalPagos = Number(folio.total_pagos || b.anticipo_pagado || 0);
     const plan = b.rate_plan_type || 'Flexible';
@@ -2350,33 +2407,156 @@ const ReservationsModule = {
     const refundAmount = canFreeCancel ? totalPagos : 0;
     const penaltyAmount = !canFreeCancel ? totalPagos : 0;
 
-    const alertMessage = canFreeCancel
-      ? `Tu tarifa permite cancelación gratuita. El monto de ${formatGs(refundAmount)} será reembolsado.`
-      : (isFlexible
-          ? `Atención: Quedan ${hoursRemaining.toFixed(1)} hs para el check-in (límite de 24 hs superado). Al cancelar, se aplicará penalidad del 100% sobre el monto abonado de ${formatGs(penaltyAmount)}.`
-          : `Atención: Tu plan de tarifa (Promo No Reembolsable) no admite devoluciones. Al cancelar, perderás el monto abonado de ${formatGs(penaltyAmount)}.`);
+    // Poblar datos del resumen en el modal
+    const codeEl = document.getElementById('cancel-res-code');
+    if (codeEl) codeEl.innerText = `#${b.codigo_reserva || b.id}`;
 
-    if (typeof CustomDialog !== 'undefined' && CustomDialog.confirm) {
-      CustomDialog.confirm({
-        title: canFreeCancel ? 'Cancelación Gratuita' : 'Penalidad de Cancelación (100%)',
-        subtitle: `Reserva #${b.codigo_reserva} - Plan: ${plan}`,
-        message: `${alertMessage}\n\n¿Deseas proceder con la cancelación y liberar la habitación?`,
-        icon: canFreeCancel ? 'info' : 'warning',
-        confirmText: canFreeCancel ? 'Sí, Cancelar Reserva' : 'Aceptar y Cancelar',
-        confirmClass: canFreeCancel ? 'btn-primary' : 'btn-danger',
-        cancelText: 'Volver',
-        onConfirm: async () => {
-          await ReservationsModule.executeCancellation(b.id, canFreeCancel, refundAmount, penaltyAmount);
-        }
-      });
-    } else {
-      if (confirm(`${alertMessage}\n\n¿Deseas proceder?`)) {
-        await this.executeCancellation(b.id, canFreeCancel, refundAmount, penaltyAmount);
+    const roomEl = document.getElementById('cancel-res-room');
+    if (roomEl) roomEl.innerText = `Hab. ${hab.numero || 'N/A'} (${tipo.nombre || 'Estándar'})`;
+
+    const guestEl = document.getElementById('cancel-res-guest');
+    if (guestEl) guestEl.innerText = `${user.full_name || 'Huésped Registrado'} (Doc: ${user.document_number || 'S/D'})`;
+
+    const planEl = document.getElementById('cancel-res-plan');
+    if (planEl) {
+      planEl.innerText = isFlexible ? 'Flexible' : 'No Reembolsable';
+      planEl.style.background = isFlexible ? '#DCFCE7' : '#FEF3C7';
+      planEl.style.color = isFlexible ? '#166534' : '#92400E';
+    }
+
+    const datesEl = document.getElementById('cancel-res-dates');
+    if (datesEl) datesEl.innerText = `${formatDate(b.check_in_previsto || b.fecha_entrada)} al ${formatDate(b.check_out_previsto || b.fecha_salida)}`;
+
+    const paidEl = document.getElementById('cancel-res-paid');
+    if (paidEl) paidEl.innerText = formatGs(totalPagos);
+
+    // Banner dinámico de política de cancelación
+    const banner = document.getElementById('cancel-res-policy-banner');
+    if (banner) {
+      if (canFreeCancel) {
+        banner.style.background = '#F0FDF4';
+        banner.style.border = '1px solid #BBF7D0';
+        banner.style.color = '#166534';
+        banner.innerHTML = `
+          <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-check-circle" style="color: #16A34A; font-size: 14px;"></i> Cancelación Gratuita Aplicable
+          </div>
+          <div>
+            Faltan <strong>${hoursRemaining.toFixed(1)} hs</strong> para el check-in oficial (más de 24 hs reglamentarias).
+            El monto abonado de <strong style="color: #15803D;">${formatGs(refundAmount)}</strong> será programado para <strong>Reembolso del 100%</strong> en Caja.
+          </div>
+        `;
+      } else if (isFlexible) {
+        banner.style.background = '#FEF2F2';
+        banner.style.border = '1px solid #FECACA';
+        banner.style.color = '#991B1B';
+        banner.innerHTML = `
+          <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-exclamation-triangle" style="color: #DC2626; font-size: 14px;"></i> Penalidad del 100% por Plazo Excedido
+          </div>
+          <div>
+            Quedan <strong>${hoursRemaining.toFixed(1)} hs</strong> para el check-in (límite de 24 hs superado).
+            Según las políticas del hotel, se retendrá el <strong style="color: #DC2626;">100% del monto abonado (${formatGs(penaltyAmount)})</strong> en concepto de penalidad.
+          </div>
+        `;
+      } else {
+        banner.style.background = '#FFFBEB';
+        banner.style.border = '1px solid #FDE68A';
+        banner.style.color = '#92400E';
+        banner.innerHTML = `
+          <div style="font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-lock" style="color: #D97706; font-size: 14px;"></i> Tarifa Promo No Reembolsable
+          </div>
+          <div>
+            Esta reserva fue contratada bajo el plan con descuento estricto <strong>No Reembolsable</strong>.
+            Al cancelar, se aplica la penalidad contractual total de <strong style="color: #B45309;">${formatGs(penaltyAmount)}</strong> sin derecho a reembolso.
+          </div>
+        `;
+      }
+    }
+
+    // Resetear formulario de motivos
+    const presetEl = document.getElementById('cancel-res-preset-reason');
+    if (presetEl) presetEl.value = '';
+    const detailEl = document.getElementById('cancel-res-detail-reason');
+    if (detailEl) detailEl.value = '';
+
+    // Guardar contexto de la cancelación activa
+    this._cancellingContext = {
+      bookingId: b.id,
+      canFreeCancel,
+      refundAmount,
+      penaltyAmount,
+      booking: b
+    };
+
+    openModal('modal-cancel-reservation');
+  },
+
+  onCancelPresetChange(val) {
+    const detailEl = document.getElementById('cancel-res-detail-reason');
+    if (!detailEl) return;
+    if (val === 'OTRO') {
+      detailEl.placeholder = 'Escriba obligatoriamente el motivo detallado de la cancelación...';
+      detailEl.focus();
+    } else if (val) {
+      detailEl.placeholder = 'Especifique detalles o justificaciones adicionales si lo requiere...';
+    }
+  },
+
+  async confirmCancellationFromModal() {
+    if (!this._cancellingContext) {
+      showToast('No hay reserva activa seleccionada para cancelar', 'error');
+      return;
+    }
+
+    const preset = (document.getElementById('cancel-res-preset-reason')?.value || '').trim();
+    const detail = (document.getElementById('cancel-res-detail-reason')?.value || '').trim();
+
+    // Validación obligatoria del motivo de cancelación
+    if (!preset && !detail) {
+      showToast('Debe seleccionar o ingresar el motivo de la cancelación obligatoriamente.', 'warning');
+      document.getElementById('cancel-res-preset-reason')?.focus();
+      return;
+    }
+
+    if (preset === 'OTRO' && !detail) {
+      showToast('Por favor detalle el motivo específico de la cancelación en el campo de texto.', 'warning');
+      document.getElementById('cancel-res-detail-reason')?.focus();
+      return;
+    }
+
+    let fullReason = preset;
+    if (preset === 'OTRO') {
+      fullReason = detail;
+    } else if (detail) {
+      fullReason = preset ? `${preset} - Detalle: ${detail}` : detail;
+    }
+
+    const btn = document.getElementById('btn-confirm-cancel-res');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cancelando...';
+    }
+
+    try {
+      await this.executeCancellation(
+        this._cancellingContext.bookingId,
+        this._cancellingContext.canFreeCancel,
+        this._cancellingContext.refundAmount,
+        this._cancellingContext.penaltyAmount,
+        fullReason
+      );
+      closeModal('modal-cancel-reservation');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-ban"></i> Confirmar Cancelación';
       }
     }
   },
 
-  async executeCancellation(bookingId, canFreeCancel, refundAmount, penaltyAmount) {
+  async executeCancellation(bookingId, canFreeCancel, refundAmount, penaltyAmount, fullReason = 'Cancelación solicitada desde Front Desk Recepción') {
     try {
       showToast('Procesando cancelación de reserva...', 'info');
 
@@ -2384,41 +2564,46 @@ const ReservationsModule = {
       try {
         const { data: rpcData, error: rpcErr } = await supabaseClient.rpc('cancel_reservation', {
           p_reserva_id: String(bookingId),
-          p_reason: 'Cancelación solicitada desde Front Desk Recepción'
+          p_reason: fullReason
         });
         if (!rpcErr && rpcData && rpcData.success) {
           success = true;
         }
       } catch (_) {}
 
-      if (!success) {
-        const b = this.currentBookings.find(r => String(r.id) === String(bookingId));
-        const cancellationStatus = !canFreeCancel
-          ? 'Penalizado'
-          : (refundAmount > 0 ? 'Pendiente' : 'Reembolsado');
+      const b = this.currentBookings.find(r => String(r.id) === String(bookingId));
+      const cancellationStatus = !canFreeCancel
+        ? 'Penalizado'
+        : (refundAmount > 0 ? 'Pendiente' : 'Reembolsado');
 
+      // Garantizar que estado, motivo y auditoría se asienten en Supabase
+      await supabaseClient
+        .from('reservas')
+        .update({
+          estado: 'Cancelada',
+          cancellation_status: cancellationStatus,
+          cancellation_penalty_amount: penaltyAmount,
+          refund_amount: refundAmount,
+          cancelled_at: new Date().toISOString(),
+          cancellation_reason: fullReason
+        })
+        .eq('id', bookingId);
+
+      if (b && b.habitacion_id) {
         await supabaseClient
-          .from('reservas')
-          .update({
-            estado: 'Cancelada',
-            cancellation_status: cancellationStatus,
-            cancellation_penalty_amount: penaltyAmount,
-            refund_amount: refundAmount,
-            cancelled_at: new Date().toISOString(),
-            cancellation_reason: 'Cancelación desde Front Desk Recepción'
-          })
-          .eq('id', bookingId);
-
-        if (b && b.habitacion_id) {
-          await supabaseClient
-            .from('habitaciones')
-            .update({ estado: 'Disponible' })
-            .eq('id', b.habitacion_id);
-        }
+          .from('habitaciones')
+          .update({ estado: 'Disponible' })
+          .eq('id', b.habitacion_id);
       }
 
-      showToast('Reserva cancelada y habitación liberada en el Rack de Ocupación', 'success');
+      showToast('Reserva cancelada con éxito. Motivo registrado para auditoría e historial.', 'success');
       await this.loadReservations();
+      if (typeof DashboardModule !== 'undefined') {
+        await DashboardModule.loadKPIs?.();
+      }
+      if (typeof RoomsModule !== 'undefined') {
+        await RoomsModule.loadRooms?.();
+      }
       if (typeof CashBillingModule !== 'undefined') {
         await CashBillingModule.loadCancellationRefunds?.();
         await CashBillingModule.loadPendingBalances?.();
@@ -2426,6 +2611,76 @@ const ReservationsModule = {
     } catch (err) {
       console.error('Error al cancelar reserva:', err);
       showToast('Error al cancelar reserva: ' + err.message, 'error');
+    }
+  },
+
+  viewCancellationReason(bookingId) {
+    const b = this.currentBookings.find(r => String(r.id) === String(bookingId));
+    if (!b) {
+      showToast('No se encontró la información de la reserva seleccionada.', 'error');
+      return;
+    }
+
+    this._viewingCancellationBooking = b;
+    const hab = b.habitaciones || {};
+    const tipo = hab.tipos_habitacion || {};
+    const user = b.users || {};
+    const folio = (b.folios && typeof b.folios === 'object') ? (Array.isArray(b.folios) ? (b.folios[0] || {}) : b.folios) : {};
+    const totalPagos = Number(folio.total_pagos || b.anticipo_pagado || 0);
+
+    const codeEl = document.getElementById('view-cancel-res-code');
+    if (codeEl) codeEl.innerText = `Reserva #${b.codigo_reserva || b.id}`;
+
+    const reasonEl = document.getElementById('view-cancel-reason-text');
+    if (reasonEl) reasonEl.innerText = b.cancellation_reason || 'Sin motivo específico registrado.';
+
+    const dateEl = document.getElementById('view-cancel-date');
+    if (dateEl) {
+      const cancelDate = b.cancelled_at || b.updated_at;
+      dateEl.innerHTML = `<i class="far fa-clock"></i> Fecha de Cancelación: <strong>${cancelDate ? formatDate(cancelDate) : 'No registrada'}</strong>`;
+    }
+
+    const guestEl = document.getElementById('view-cancel-guest');
+    if (guestEl) guestEl.innerText = `${user.full_name || 'Huésped Registrado'} (Doc: ${user.document_number || 'S/D'})`;
+
+    const roomEl = document.getElementById('view-cancel-room');
+    if (roomEl) roomEl.innerText = `Habitación ${hab.numero || 'N/A'} (${tipo.nombre || 'Estándar'})`;
+
+    const datesEl = document.getElementById('view-cancel-dates');
+    if (datesEl) datesEl.innerText = `${formatDate(b.check_in_previsto || b.fecha_entrada)} al ${formatDate(b.check_out_previsto || b.fecha_salida)}`;
+
+    const planEl = document.getElementById('view-cancel-plan');
+    if (planEl) {
+      const isFlex = (b.rate_plan_type || 'Flexible').toLowerCase().includes('flex');
+      planEl.innerText = isFlex ? 'Tarifa Flexible' : 'Promo No Reembolsable';
+      planEl.style.background = isFlex ? '#DCFCE7' : '#FEF3C7';
+      planEl.style.color = isFlex ? '#166534' : '#92400E';
+    }
+
+    const paidEl = document.getElementById('view-cancel-paid');
+    if (paidEl) paidEl.innerText = formatGs(totalPagos);
+
+    const statusEl = document.getElementById('view-cancel-status');
+    if (statusEl) {
+      const st = b.cancellation_status || (b.refund_amount > 0 ? 'Pendiente' : 'Penalizado');
+      statusEl.innerText = st;
+      statusEl.style.background = st === 'Reembolsado' ? '#DCFCE7' : (st === 'Pendiente' ? '#FEF3C7' : '#FEE2E2');
+      statusEl.style.color = st === 'Reembolsado' ? '#166534' : (st === 'Pendiente' ? '#92400E' : '#991B1B');
+    }
+
+    const penaltyEl = document.getElementById('view-cancel-penalty');
+    if (penaltyEl) penaltyEl.innerText = formatGs(b.cancellation_penalty_amount || 0);
+
+    const refundEl = document.getElementById('view-cancel-refund');
+    if (refundEl) refundEl.innerText = formatGs(b.refund_amount || 0);
+
+    openModal('modal-view-cancellation-reason');
+  },
+
+  viewFolioFromCancellation() {
+    if (this._viewingCancellationBooking) {
+      closeModal('modal-view-cancellation-reason');
+      this.viewFolioDetail(this._viewingCancellationBooking.id);
     }
   }
 };

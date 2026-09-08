@@ -1744,6 +1744,139 @@
     </div>
   </div>
 
+  <!-- Modal Cancelar Reserva con Justificación y Motivo Obligatorio -->
+  <div id="modal-cancel-reservation" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 580px; border-radius: var(--radius-xl); padding: 24px;">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: #FEE2E2; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fas fa-ban"></i>
+          </div>
+          <div>
+            <h3 style="font-size: 17px; font-weight: 700; margin: 0; color: #991B1B;">Cancelar Reserva</h3>
+            <p id="cancel-res-subtitle" style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">Evaluación de políticas de tarifa y registro de motivo</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-cancel-reservation')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <!-- Resumen de la Reserva -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12.5px;">
+            <div><span style="color: var(--text-muted);">Código:</span> <strong id="cancel-res-code" style="color: var(--primary-navy);">-</strong></div>
+            <div><span style="color: var(--text-muted);">Habitación:</span> <strong id="cancel-res-room">-</strong></div>
+            <div><span style="color: var(--text-muted);">Huésped:</span> <strong id="cancel-res-guest">-</strong></div>
+            <div><span style="color: var(--text-muted);">Plan de Tarifa:</span> <span id="cancel-res-plan" class="badge">-</span></div>
+            <div><span style="color: var(--text-muted);">Estadía:</span> <span id="cancel-res-dates" style="font-weight: 600;">-</span></div>
+            <div><span style="color: var(--text-muted);">Total Pagado:</span> <strong id="cancel-res-paid" style="color: #10B981;">0 Gs.</strong></div>
+          </div>
+        </div>
+
+        <!-- Alerta de Política y Evaluación -->
+        <div id="cancel-res-policy-banner" style="margin-bottom: 16px; padding: 12px 14px; border-radius: var(--radius-md); font-size: 12.5px; line-height: 1.5;">
+          <!-- Dinámico según evaluación -->
+        </div>
+
+        <!-- Formulario de Motivo Obligatorio -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+            <i class="fas fa-clipboard-list" style="color: #DC2626;"></i> Motivo de la Cancelación <span style="color: #DC2626;">*</span>
+          </label>
+          <select id="cancel-res-preset-reason" class="form-control" style="width: 100%; padding: 9px 12px; font-size: 13px; margin-bottom: 8px;" onchange="ReservationsModule.onCancelPresetChange(this.value)">
+            <option value="">-- Seleccione el motivo principal --</option>
+            <option value="Cambio de planes o itinerario del huésped">Cambio de planes o itinerario del huésped</option>
+            <option value="Problemas de salud o emergencia médica">Problemas de salud o emergencia médica</option>
+            <option value="Problemas de transporte (vuelo/viaje cancelado o reprogramado)">Problemas de transporte (vuelo/viaje cancelado o reprogramado)</option>
+            <option value="Error involuntario en fechas o reserva duplicada">Error involuntario en fechas o reserva duplicada</option>
+            <option value="Disconformidad con tarifas o políticas del hotel">Disconformidad con tarifas o políticas del hotel</option>
+            <option value="No Show (huésped no se presentó)">No Show (huésped no se presentó)</option>
+            <option value="Factores climáticos o fuerza mayor">Factores climáticos o fuerza mayor</option>
+            <option value="Cancelación solicitada por recepción / hotel">Cancelación solicitada por recepción / hotel</option>
+            <option value="OTRO">Otro motivo específico (escribir abajo)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label style="font-size: 12.5px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 5px;">
+            Justificación / Detalle Adicional:
+          </label>
+          <textarea id="cancel-res-detail-reason" class="form-control" rows="3" style="width: 100%; padding: 10px; font-size: 12.5px; resize: vertical;" placeholder="Especifique detalles adicionales del motivo de cancelación para la auditoría interna del hotel..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-cancel-reservation')">Volver / Conservar</button>
+        <button type="button" id="btn-confirm-cancel-res" class="btn btn-danger" onclick="ReservationsModule.confirmCancellationFromModal()" style="background: #DC2626; border-color: #DC2626;">
+          <i class="fas fa-ban"></i> Confirmar Cancelación
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ver Motivo y Auditoría de Cancelación (Desde el Historial) -->
+  <div id="modal-view-cancellation-reason" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 560px; border-radius: var(--radius-xl); padding: 24px;">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(220, 38, 38, 0.1); color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fas fa-file-contract"></i>
+          </div>
+          <div>
+            <h3 style="font-size: 17px; font-weight: 700; margin: 0; color: var(--primary-navy);">Auditoría de Cancelación</h3>
+            <p id="view-cancel-res-code" style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">Reserva #-</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-view-cancellation-reason')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <!-- Tarjeta de Motivo Destacada -->
+        <div style="background: #FEF2F2; border: 1px solid #FECACA; border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px;">
+          <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #991B1B; margin-bottom: 6px; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-comment-dots"></i> Motivo Registrado de la Cancelación:
+          </div>
+          <div id="view-cancel-reason-text" style="font-size: 14px; color: #7F1D1D; font-weight: 600; line-height: 1.5;">
+            -
+          </div>
+          <div id="view-cancel-date" style="margin-top: 8px; font-size: 11.5px; color: #B91C1C; display: flex; align-items: center; gap: 6px;">
+            <i class="far fa-clock"></i> Fecha de Cancelación: -
+          </div>
+        </div>
+
+        <!-- Ficha de la Reserva -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 14px; margin-bottom: 16px; font-size: 12.5px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div><span style="color: var(--text-muted);">Huésped:</span> <strong id="view-cancel-guest">-</strong></div>
+            <div><span style="color: var(--text-muted);">Habitación:</span> <strong id="view-cancel-room">-</strong></div>
+            <div><span style="color: var(--text-muted);">Estadía Prevista:</span> <span id="view-cancel-dates" style="font-weight: 600;">-</span></div>
+            <div><span style="color: var(--text-muted);">Plan Contratado:</span> <span id="view-cancel-plan" class="badge">-</span></div>
+          </div>
+        </div>
+
+        <!-- Conciliación Financiera y Reembolso -->
+        <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: var(--radius-md); padding: 14px;">
+          <div style="font-size: 12px; font-weight: 700; color: var(--primary-navy); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-coins" style="color: var(--primary-gold);"></i> Conciliación de Caja & Folio:
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12.5px;">
+            <div><span style="color: var(--text-muted);">Total Abonado:</span> <strong id="view-cancel-paid">0 Gs.</strong></div>
+            <div><span style="color: var(--text-muted);">Estado Reembolso:</span> <span id="view-cancel-status" class="badge">-</span></div>
+            <div><span style="color: var(--text-muted);">Penalidad Retenida:</span> <strong id="view-cancel-penalty" style="color: #DC2626;">0 Gs.</strong></div>
+            <div><span style="color: var(--text-muted);">Monto Reembolsado:</span> <strong id="view-cancel-refund" style="color: #15803D;">0 Gs.</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-view-cancellation-reason')">Cerrar</button>
+        <button type="button" class="btn btn-primary" onclick="ReservationsModule.viewFolioFromCancellation()">
+          <i class="fas fa-file-invoice"></i> Ver Folio Contable
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Check-in Renovado (5 Bloques Operativos: Cabecera, Huésped, Finanzas, Documentación, Entrega de Llave) -->
   <div id="modal-checkin" class="modal-backdrop">
     <div class="modal-box" style="max-width: 580px; max-height: 92vh; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; border-radius: var(--radius-xl); padding: 24px;">
