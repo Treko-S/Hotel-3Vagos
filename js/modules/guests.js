@@ -203,18 +203,78 @@ const GuestsModule = {
     this.renderInHouseTable(filtered);
   },
 
+  calculateGuestLoyalty(reservations) {
+    let points = 200; // Bono de bienvenida por activación de cuenta
+    const list = Array.isArray(reservations) ? reservations : [];
+    list.forEach(r => {
+      const monto = Number(r.monto_total) || 0;
+      points += Math.floor(monto / 1000); // 1 pt por cada 1.000 Gs
+      points += 100; // Bono App Móvil
+      points += 50;  // Bono por noche
+      const est = (r.estado || '').toLowerCase();
+      if (est.includes('finaliz') || est.includes('check-out') || est.includes('complet')) {
+        points += 150; // Bono de check-out cumplido
+      }
+    });
+
+    let tier = 'Plata';
+    let tierColor = '#94A3B8';
+    let tierBg = 'rgba(148, 163, 184, 0.15)';
+    let tierBorder = 'rgba(148, 163, 184, 0.3)';
+
+    if (points >= 3000) {
+      tier = 'Diamante';
+      tierColor = '#C084FC';
+      tierBg = 'rgba(168, 85, 247, 0.15)';
+      tierBorder = 'rgba(168, 85, 247, 0.35)';
+    } else if (points >= 1500) {
+      tier = 'Platino';
+      tierColor = '#38BDF8';
+      tierBg = 'rgba(56, 189, 248, 0.15)';
+      tierBorder = 'rgba(56, 189, 248, 0.35)';
+    } else if (points >= 500) {
+      tier = 'Oro';
+      tierColor = '#FBBF24';
+      tierBg = 'rgba(251, 191, 36, 0.15)';
+      tierBorder = 'rgba(251, 191, 36, 0.35)';
+    }
+
+    return { points, tier, tierColor, tierBg, tierBorder };
+  },
+
+  calculateGuestBalance(reservations) {
+    let pendingBalance = 0;
+    let totalBilled = 0;
+    const list = Array.isArray(reservations) ? reservations : [];
+    list.forEach(r => {
+      const total = Number(r.monto_total) || 0;
+      totalBilled += total;
+      const folio = Array.isArray(r.folios) ? (r.folios[0] || {}) : (r.folios || {});
+      if (folio && folio.saldo_pendiente !== undefined && folio.saldo_pendiente !== null) {
+        pendingBalance += Math.max(0, Number(folio.saldo_pendiente));
+      } else {
+        const pagado = Number(r.anticipo_pagado) || 0;
+        const est = (r.estado || '').toLowerCase();
+        if (est.includes('estadía') || est.includes('confirmada')) {
+          pendingBalance += Math.max(0, total - pagado);
+        }
+      }
+    });
+    return { pendingBalance, totalBilled };
+  },
+
   async loadGuests() {
     try {
       const tbody = document.getElementById('guests-table-body');
       const badgeHistory = document.getElementById('badge-history-count');
       if (!tbody) return;
 
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px;"><i class="fas fa-spinner fa-spin"></i> Cargando historial de pasajeros...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px;"><i class="fas fa-spinner fa-spin"></i> Cargando historial de pasajeros...</td></tr>`;
 
-      // Cargar usuarios con rol de Huésped (role_id = 5) o pasajeros
+      // Cargar usuarios con rol de Huésped (role_id = 5) o pasajeros con sus reservas y folios
       const { data, error } = await supabaseClient
         .from('users')
-        .select('*, reservas(id, estado, monto_total)')
+        .select('*, reservas(*, folios(*))')
         .eq('role_id', 5)
         .order('created_at', { ascending: false });
 
@@ -235,7 +295,7 @@ const GuestsModule = {
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 36px; color: var(--text-muted);"><i class="fas fa-users-slash" style="font-size: 26px; margin-bottom: 8px; display: block; opacity: 0.5;"></i>No hay pasajeros registrados en el historial que coincidan con la búsqueda.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 36px; color: var(--text-muted);"><i class="fas fa-users-slash" style="font-size: 26px; margin-bottom: 8px; display: block; opacity: 0.5;"></i>No hay pasajeros registrados en el historial que coincidan con la búsqueda.</td></tr>`;
       return;
     }
 
@@ -250,6 +310,9 @@ const GuestsModule = {
       const reservas = Array.isArray(g.reservas) ? g.reservas : [];
       const totalStays = reservas.length;
       const finishedStays = reservas.filter(r => (r.estado || '').toLowerCase().includes('finaliz') || (r.estado || '').toLowerCase().includes('check-out')).length;
+
+      const loyalty = this.calculateGuestLoyalty(reservas);
+      const balance = this.calculateGuestBalance(reservas);
 
       html += `
         <tr>
@@ -268,18 +331,14 @@ const GuestsModule = {
           </td>
           <td>
             <div style="font-weight: 700; color: #F8FAFC;">${sanitizeInput(docType)}: ${sanitizeInput(docNum)}</div>
-            <div style="font-size: 11px; color: #10B981;"><i class="fas fa-id-card"></i> Doc. Oficial Verificado</div>
-          </td>
-          <td>
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <i class="fas fa-globe-americas" style="color: var(--accent-gold); font-size: 12px;"></i>
-              <span style="color: #E2E8F0;">${sanitizeInput(nationality)}</span>
+            <div style="font-size: 11px; color: var(--accent-gold); margin-top: 2px;">
+              <i class="fas fa-globe-americas"></i> ${sanitizeInput(nationality)}
             </div>
           </td>
           <td>
             <div style="display: flex; align-items: center; gap: 6px;">
               <i class="fab fa-whatsapp" style="color: #10B981; font-size: 13px;"></i>
-              ${cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" style="color: #34D399; text-decoration: none;">${sanitizeInput(phone)}</a>` : `<span>${sanitizeInput(phone)}</span>`}
+              ${cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" style="color: #34D399; text-decoration: none; font-weight: 600;">${sanitizeInput(phone)}</a>` : `<span>${sanitizeInput(phone)}</span>`}
             </div>
           </td>
           <td>
@@ -287,10 +346,24 @@ const GuestsModule = {
               <i class="fas fa-suitcase-rolling"></i> ${totalStays} reservas (${finishedStays} concluidas)
             </span>
           </td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span class="badge" style="background: ${loyalty.tierBg}; color: ${loyalty.tierColor}; border: 1px solid ${loyalty.tierBorder}; font-weight: 800; font-size: 11px;">
+                <i class="fas fa-crown"></i> ${loyalty.tier}
+              </span>
+              <strong style="color: #F8FAFC; font-size: 13px;">${loyalty.points} pts</strong>
+            </div>
+          </td>
+          <td>
+            ${balance.pendingBalance > 0
+              ? `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 800;"><i class="fas fa-exclamation-triangle"></i> Deuda: ${formatGs(balance.pendingBalance)}</span>`
+              : `<span class="badge badge-confirmada" style="font-weight: 700;"><i class="fas fa-check-circle"></i> Al Día (0 Gs.)</span>`
+            }
+          </td>
           <td style="text-align: center;">
             <div class="action-btn-group" style="justify-content: center;">
-              <button class="btn-action btn-action-view" onclick="GuestsModule.viewGuestHistory('${g.id}')" title="Ver Historial Documental y Ficha del Pasajero">
-                <i class="fas fa-history"></i> Historial
+              <button class="btn-action btn-action-view" onclick="GuestsModule.viewGuestHistory('${g.id}')" title="Ver Historial, Ficha, Cuenta Corriente y Fidelidad">
+                <i class="fas fa-history"></i> Ficha
               </button>
               <button class="btn-action btn-action-folio" onclick="GuestsModule.syncGuestToBrevo('${g.id}')" title="Sincronizar con Brevo CRM">
                 <i class="fas fa-address-book"></i> Brevo
@@ -411,7 +484,7 @@ const GuestsModule = {
       const container = document.getElementById('guest-history-content');
 
       if (titleEl) {
-        titleEl.innerHTML = `<i class="fas fa-history" style="color: var(--accent-gold);"></i> Historial de Estadías: ${sanitizeInput(guest.full_name || 'Huésped')}`;
+        titleEl.innerHTML = `<i class="fas fa-user-circle" style="color: var(--accent-gold);"></i> Expediente & Historial: ${sanitizeInput(guest.full_name || 'Huésped')}`;
       }
       if (subEl) {
         subEl.innerText = `${guest.document_type || 'CI'}: ${guest.document_number || 'S/D'} • Tel: ${guest.phone || 'S/D'} • Correo: ${guest.email || 'S/D'}`;
@@ -431,21 +504,73 @@ const GuestsModule = {
 
       if (error) throw error;
 
-      if (!bookings || bookings.length === 0) {
+      const guestBookings = bookings || [];
+      const loyalty = this.calculateGuestLoyalty(guestBookings);
+      const balance = this.calculateGuestBalance(guestBookings);
+
+      // Tarjetas de Resumen Superior: Cuenta Corriente, Club 3V y Datos Generales
+      const summaryHeaderHtml = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px;">
+          <!-- Card 1: Cuenta Corriente -->
+          <div style="background: #1E293B; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px;">
+            <div style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700; margin-bottom: 6px;">
+              <i class="fas fa-wallet" style="color: var(--accent-gold);"></i> Cuenta Corriente
+            </div>
+            <div style="font-size: 18px; font-weight: 800; color: ${balance.pendingBalance > 0 ? '#F87171' : '#34D399'};">
+              ${balance.pendingBalance > 0 ? formatGs(balance.pendingBalance) : '0 Gs. (Al Día)'}
+            </div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">
+              Facturado Histórico: <strong>${formatGs(balance.totalBilled)}</strong>
+            </div>
+          </div>
+
+          <!-- Card 2: Club 3V Puntos & Nivel -->
+          <div style="background: #1E293B; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px;">
+            <div style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700; margin-bottom: 6px;">
+              <i class="fas fa-crown" style="color: ${loyalty.tierColor};"></i> Club 3 Vagos Lealtad
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge" style="background: ${loyalty.tierBg}; color: ${loyalty.tierColor}; border: 1px solid ${loyalty.tierBorder}; font-weight: 800; font-size: 11px;">
+                Nivel ${loyalty.tier}
+              </span>
+              <strong style="color: #F8FAFC; font-size: 15px;">${loyalty.points} pts</strong>
+            </div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">
+              Bono bienvenida + consumos activos
+            </div>
+          </div>
+
+          <!-- Card 3: Contacto & Ficha -->
+          <div style="background: #1E293B; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px;">
+            <div style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700; margin-bottom: 6px;">
+              <i class="fas fa-id-card" style="color: #38BDF8;"></i> Ficha del Pasajero
+            </div>
+            <div style="font-size: 13px; font-weight: 700; color: #F8FAFC;">
+              ${sanitizeInput(guest.document_type || 'CI')}: ${sanitizeInput(guest.document_number || 'S/D')}
+            </div>
+            <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">
+              <i class="fas fa-globe-americas"></i> ${sanitizeInput(guest.nationality || 'Paraguaya')} • Tel: ${sanitizeInput(guest.phone || 'S/D')}
+            </div>
+          </div>
+        </div>
+      `;
+
+      if (guestBookings.length === 0) {
         container.innerHTML = `
-          <div style="text-align: center; padding: 40px; color: var(--text-muted);">
-            <div style="width: 60px; height: 60px; border-radius: 50%; background: #F1F5F9; color: #94A3B8; display: flex; align-items: center; justify-content: center; font-size: 26px; margin: 0 auto 12px;">
+          ${summaryHeaderHtml}
+          <div style="text-align: center; padding: 36px; color: var(--text-muted); background: #0F172A; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.1);">
+            <div style="width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,0.05); color: #94A3B8; display: flex; align-items: center; justify-content: center; font-size: 22px; margin: 0 auto 10px;">
               <i class="far fa-calendar-times"></i>
             </div>
-            <h4 style="color: var(--primary-navy); margin-bottom: 6px;">Sin estadías previas registradas</h4>
-            <p style="font-size: 13px; max-width: 400px; margin: 0 auto;">El huésped no cuenta con reservas anteriores ni activas asociadas a su cuenta.</p>
+            <h4 style="color: #F8FAFC; margin-bottom: 4px; font-size: 14px;">Sin estadías previas registradas</h4>
+            <p style="font-size: 12px; max-width: 360px; margin: 0 auto;">El huésped no cuenta con reservas anteriores ni activas asociadas a su cuenta.</p>
           </div>
         `;
         return;
       }
 
       let rows = '';
-      bookings.forEach(b => {
+      guestBookings.forEach(b => {
         const hab = b.habitaciones || {};
         const tipo = hab.tipos_habitacion || {};
         const statusBadge = ReservationsModule ? ReservationsModule.getStatusBadge(b.estado) : `<span class="badge">${b.estado}</span>`;
@@ -475,6 +600,7 @@ const GuestsModule = {
       });
 
       container.innerHTML = `
+        ${summaryHeaderHtml}
         <table class="custom-table" style="font-size: 13px;">
           <thead>
             <tr>

@@ -767,12 +767,12 @@
               <table class="custom-table">
                 <thead>
                   <tr>
-                    <th>Producto / Servicio</th>
-                    <th>Categoría</th>
-                    <th>Precio Oficial</th>
-                    <th>Stock Venta</th>
+                    <th>Producto / Servicio & Marca</th>
+                    <th>Categoría & Código</th>
+                    <th>Costo vs Precio Oficial</th>
+                    <th>Lista & Promoción</th>
                     <th>Disponibilidad en App Móvil</th>
-                    <th>Acciones</th>
+                    <th style="text-align: center;">Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="inv-sales-table-body">
@@ -912,20 +912,132 @@
           </div>
 
           <!-- CONTENIDO PESTAÑA 4: COMPRAS & DIRECTORIO DE PROVEEDORES -->
+          <!-- CONTENIDO PESTAÑA 4: COMPRAS & PROVEEDORES (Checklist Parte 5) -->
           <div id="inv-content-providers" style="display: none;">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
-              <div>
-                <h3 class="panel-title"><i class="fas fa-truck" style="color: #0284C7;"></i> Directorio Oficial de Proveedores & Compras</h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Gestión de empresas abastecedoras para alimentos, lencería hotelera, lavandería y químicos</p>
-              </div>
-              <button class="btn btn-primary" onclick="InventoryModule.openNewProviderModal()">
-                <i class="fas fa-plus-circle"></i> Registrar Nuevo Proveedor
+            
+            <!-- Sub-navegación del Módulo de Compras (Checklist Parte 5: Proveedores, Órdenes, Recepciones, Pagos) -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+              <button id="btn-compras-sub-providers" class="btn btn-sm" style="background: rgba(2, 132, 199, 0.15); color: #0284C7; border: 1px solid rgba(2, 132, 199, 0.35); font-weight: 700; padding: 6px 14px; border-radius: 8px;" onclick="InventoryModule.switchComprasSubTab('providers')">
+                <i class="fas fa-truck"></i> Proveedores
+              </button>
+              <button id="btn-compras-sub-orders" class="btn btn-sm" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; padding: 6px 14px; border-radius: 8px;" onclick="InventoryModule.switchComprasSubTab('orders')">
+                <i class="fas fa-file-invoice"></i> Órdenes de Compra
+              </button>
+              <button id="btn-compras-sub-receptions" class="btn btn-sm" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; padding: 6px 14px; border-radius: 8px;" onclick="InventoryModule.switchComprasSubTab('receptions')">
+                <i class="fas fa-dolly"></i> Recepciones de Mercadería
+              </button>
+              <button id="btn-compras-sub-payments" class="btn btn-sm" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600; padding: 6px 14px; border-radius: 8px;" onclick="InventoryModule.switchComprasSubTab('payments')">
+                <i class="fas fa-receipt"></i> Pagos a Proveedores
               </button>
             </div>
 
-            <div id="providers-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;">
-              <!-- Tarjetas dinámicas de proveedores -->
+            <!-- 1. SUB-SECCIÓN PROVEEDORES -->
+            <div id="compras-subview-providers">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+                <div>
+                  <h3 class="panel-title"><i class="fas fa-truck" style="color: #0284C7;"></i> Directorio Oficial de Proveedores</h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Empresas homologadas para insumos, bebidas de minibar, lencería y mantenimiento</p>
+                </div>
+                <button class="btn btn-primary" onclick="InventoryModule.openNewProviderModal()">
+                  <i class="fas fa-plus-circle"></i> Registrar Nuevo Proveedor
+                </button>
+              </div>
+              <div id="providers-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;">
+                <!-- Tarjetas dinámicas de proveedores -->
+              </div>
             </div>
+
+            <!-- 2. SUB-SECCIÓN ÓRDENES DE COMPRA -->
+            <div id="compras-subview-orders" style="display: none;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+                <div>
+                  <h3 class="panel-title"><i class="fas fa-file-invoice" style="color: #3B82F6;"></i> Órdenes de Compra Emitidas</h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Solicitudes oficiales de abastecimiento para pañol, minibar y cocina del hotel</p>
+                </div>
+                <button class="btn btn-primary" onclick="InventoryModule.openNewOrderModal()">
+                  <i class="fas fa-plus"></i> Generar Orden de Compra
+                </button>
+              </div>
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Código Orden</th>
+                      <th>Proveedor</th>
+                      <th>Fecha Emisión</th>
+                      <th>Detalle de Insumos</th>
+                      <th>Monto Estimado</th>
+                      <th>Estado</th>
+                      <th style="text-align: center;">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="compras-orders-tbody">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 3. SUB-SECCIÓN RECEPCIONES -->
+            <div id="compras-subview-receptions" style="display: none;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+                <div>
+                  <h3 class="panel-title"><i class="fas fa-dolly" style="color: #10B981;"></i> Recepción e Ingreso de Mercaderías</h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Ingreso auditado a stock y kardex a partir de notas de remisión y facturas de compra</p>
+                </div>
+                <button class="btn btn-primary" style="background: #10B981; border-color: #059669;" onclick="InventoryModule.openNewReceptionModal()">
+                  <i class="fas fa-check-double"></i> Registrar Recepción
+                </button>
+              </div>
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Remisión / Factura</th>
+                      <th>Proveedor</th>
+                      <th>Fecha Recepción</th>
+                      <th>Artículos Recibidos</th>
+                      <th>Responsable Recepción</th>
+                      <th>Impacto en Stock</th>
+                    </tr>
+                  </thead>
+                  <tbody id="compras-receptions-tbody">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 4. SUB-SECCIÓN PAGOS A PROVEEDORES -->
+            <div id="compras-subview-payments" style="display: none;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+                <div>
+                  <h3 class="panel-title"><i class="fas fa-receipt" style="color: #F59E0B;"></i> Pagos y Vales Emitidos a Proveedores</h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Comprobantes de pago, vales de caja y transferencias por adquisición de insumos</p>
+                </div>
+                <button class="btn btn-outline" onclick="CashBillingModule.openEgresoModal()">
+                  <i class="fas fa-plus-circle"></i> Nuevo Vale de Pago Proveedor
+                </button>
+              </div>
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Vale / Comprobante</th>
+                      <th>Proveedor / Motivo</th>
+                      <th>Fecha / Hora</th>
+                      <th>Monto Abonado</th>
+                      <th>Emitido Por</th>
+                      <th>Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="compras-payments-tbody">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         </div>
       </section>
@@ -1142,9 +1254,10 @@
                 <tr>
                   <th>Huésped</th>
                   <th>Documento</th>
-                  <th>Nacionalidad</th>
-                  <th>Teléfono</th>
+                  <th>Teléfono / WhatsApp</th>
                   <th>Historial Estadías</th>
+                  <th>Puntos Club 3V</th>
+                  <th>Cuenta Corriente</th>
                   <th style="text-align: center;">Acción</th>
                 </tr>
               </thead>
@@ -3168,6 +3281,29 @@
           </div>
         </div>
 
+        <!-- Checklist Parte 3 y 4: Marca, Código de Barras, Costo y Promoción -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--primary-navy);"><i class="fas fa-certificate" style="color: var(--primary-gold);"></i> Marca Oficial</label>
+            <input type="text" id="sales-item-brand" class="form-control" placeholder="Ej: Dasani, Corona, Gourmet 3V...">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--primary-navy);"><i class="fas fa-barcode"></i> Código de Barras / SKU</label>
+            <input type="text" id="sales-item-barcode" class="form-control" placeholder="Ej: 7840001000032">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--primary-navy);"><i class="fas fa-calculator" style="color: #64748B;"></i> Costo Unitario de Compra (Gs.)</label>
+            <input type="number" id="sales-item-cost" class="form-control" placeholder="Ej: 4000" step="500">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--primary-navy);"><i class="fas fa-percentage" style="color: #D97706;"></i> Promoción / Beneficio</label>
+            <input type="text" id="sales-item-promo" class="form-control" placeholder="Ej: 10% OFF Socios Oro, 2x1 Viernes">
+          </div>
+        </div>
+
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px; margin-bottom: 14px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
             <div>
@@ -3907,22 +4043,22 @@
   <div id="toast-container"></div>
 
   <!-- Scripts Operativos del Sistema PMS -->
-  <script src="js/vendor/jspdf.umd.min.js?v=2.5"></script>
-  <script src="js/vendor/jspdf.plugin.autotable.min.js?v=2.5"></script>
-  <script src="js/escarapela_data.js?v=2.5"></script>
-  <script src="js/supabase_client.js?v=2.5"></script>
-  <script src="js/auth.js?v=2.5"></script>
-  <script src="js/dialogs.js?v=2.5"></script>
-  <script src="js/folio_pdf_service.js?v=2.5"></script>
-  <script src="js/modules/dashboard.js?v=2.5"></script>
-  <script src="js/modules/reservations.js?v=2.5"></script>
-  <script src="js/modules/rooms.js?v=2.5"></script>
-  <script src="js/modules/rates_seasons.js?v=2.5"></script>
-  <script src="js/modules/housekeeping.js?v=2.5"></script>
-  <script src="js/modules/maintenance.js?v=2.5"></script>
-  <script src="js/modules/inventory.js?v=2.5"></script>
-  <script src="js/modules/cash_billing.js?v=2.5"></script>
-  <script src="js/modules/guests.js?v=2.5"></script>
-  <script src="js/app.js?v=2.5"></script>
+  <script src="js/vendor/jspdf.umd.min.js?v=2.6"></script>
+  <script src="js/vendor/jspdf.plugin.autotable.min.js?v=2.6"></script>
+  <script src="js/escarapela_data.js?v=2.6"></script>
+  <script src="js/supabase_client.js?v=2.6"></script>
+  <script src="js/auth.js?v=2.6"></script>
+  <script src="js/dialogs.js?v=2.6"></script>
+  <script src="js/folio_pdf_service.js?v=2.6"></script>
+  <script src="js/modules/dashboard.js?v=2.6"></script>
+  <script src="js/modules/reservations.js?v=2.6"></script>
+  <script src="js/modules/rooms.js?v=2.6"></script>
+  <script src="js/modules/rates_seasons.js?v=2.6"></script>
+  <script src="js/modules/housekeeping.js?v=2.6"></script>
+  <script src="js/modules/maintenance.js?v=2.6"></script>
+  <script src="js/modules/inventory.js?v=2.6"></script>
+  <script src="js/modules/cash_billing.js?v=2.6"></script>
+  <script src="js/modules/guests.js?v=2.6"></script>
+  <script src="js/app.js?v=2.6"></script>
 </body>
 </html>

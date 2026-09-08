@@ -14,10 +14,16 @@ const InventoryModule = {
   selectedCategory: 'all',
   sortBy: 'category',
 
+  comprasActiveSubTab: 'providers',
+  purchaseOrders: [],
+  purchaseReceptions: [],
+  purchasePayments: [],
+
   async init() {
     this.loadData();
     this.loadKardexData();
     this.loadProviders();
+    this.loadComprasData();
     this.renderSalesCatalog();
     this.renderInternalInventory();
   },
@@ -25,21 +31,40 @@ const InventoryModule = {
   loadData() {
     // 1. Catálogo para la venta (Servicios, Room Service, Minibar)
     try {
+      const defaultImages = {
+        1: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800",
+        2: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800",
+        3: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800",
+        4: "https://images.unsplash.com/photo-1584225064785-c62a8b43d148?w=800",
+        5: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800",
+        6: "https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800"
+      };
+
+      const defaultSpecs = {
+        1: { brand: 'Gourmet 3V', barcode: 'SERV-00101', cost: 25000, promo: 'Incluido en tarifa VIP', priceList: 'Carta Oficial' },
+        2: { brand: 'Spa Armonía', barcode: 'SERV-00201', cost: 60000, promo: '15% off Huéspedes Diamante', priceList: 'Carta Oficial' },
+        3: { brand: 'Dasani / Fuente Cristal', barcode: '7840001001234', cost: 4500, promo: '2x 20.000 Gs.', priceList: 'Minibar Estándar' },
+        4: { brand: 'Corona Extra', barcode: '7501064191316', cost: 13500, promo: 'Balde 5x 100.000 Gs.', priceList: 'Minibar Estándar' },
+        5: { brand: 'Restó 3 Vagos', barcode: 'ROOM-00501', cost: 22000, promo: 'Combo Refresco Gratis Club 3V', priceList: 'Room Service' },
+        6: { brand: 'Lavandería Express', barcode: 'SERV-00601', cost: 8000, promo: 'Tarifa Plana Larga Estadía', priceList: 'Servicios' }
+      };
+
       const savedSales = localStorage.getItem('hotel_catalog_sales');
       if (savedSales) {
         this.salesItems = JSON.parse(savedSales);
-        // Garantizar que todos los ítems posean imagen por defecto si aún no la tienen
-        const defaultImages = {
-          1: "https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800",
-          2: "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800",
-          3: "https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=800",
-          4: "https://images.unsplash.com/photo-1608270199026-663f7389a056?w=800",
-          5: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800",
-          6: "https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800"
-        };
+        // Garantizar que todos los ítems posean imagen válida y especificaciones comerciales (Partes 3 y 4)
         this.salesItems.forEach(item => {
-          if (!item.imageUrl && defaultImages[item.id]) {
-            item.imageUrl = defaultImages[item.id];
+          if (!item.imageUrl || item.imageUrl.includes('photo-1548839140-29a749e1bc4e') || item.imageUrl.includes('photo-1608270199026-663f7389a056')) {
+            if (defaultImages[item.id]) {
+              item.imageUrl = defaultImages[item.id];
+            }
+          }
+          if (defaultSpecs[item.id]) {
+            if (!item.brand) item.brand = defaultSpecs[item.id].brand;
+            if (!item.barcode) item.barcode = defaultSpecs[item.id].barcode;
+            if (!item.cost) item.cost = defaultSpecs[item.id].cost;
+            if (!item.promo) item.promo = defaultSpecs[item.id].promo;
+            if (!item.priceList) item.priceList = defaultSpecs[item.id].priceList;
           }
         });
         this.saveSalesData();
@@ -49,7 +74,12 @@ const InventoryModule = {
             id: 1,
             name: "Desayuno Buffet Americano Extra",
             category: "Servicios Extra",
+            brand: "Gourmet 3V",
+            barcode: "SERV-00101",
+            cost: 25000,
             price: 65000,
+            priceList: "Carta Oficial",
+            promo: "Incluido en tarifa VIP",
             availableInApp: true,
             stock: null, // Servicio intangible
             isPhysical: false,
@@ -60,7 +90,12 @@ const InventoryModule = {
             id: 2,
             name: "Masaje Relajante Descontracturante (50 min)",
             category: "Spa & Bienestar",
+            brand: "Spa Armonía",
+            barcode: "SERV-00201",
+            cost: 60000,
             price: 180000,
+            priceList: "Carta Oficial",
+            promo: "15% off Huéspedes Diamante",
             availableInApp: true,
             stock: null,
             isPhysical: false,
@@ -71,29 +106,44 @@ const InventoryModule = {
             id: 3,
             name: "Agua Mineral sin Gas 500ml",
             category: "Minibar",
+            brand: "Dasani / Fuente Cristal",
+            barcode: "7840001001234",
+            cost: 4500,
             price: 12000,
+            priceList: "Minibar Estándar",
+            promo: "2x 20.000 Gs.",
             availableInApp: true,
             stock: 48,
             isPhysical: true,
             description: "Agua purificada fría de manantial en botella PET.",
-            imageUrl: "https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=800"
+            imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800"
           },
           {
             id: 4,
             name: "Cerveza Corona Extra 355ml",
             category: "Minibar",
+            brand: "Corona Extra",
+            barcode: "7501064191316",
+            cost: 13500,
             price: 25000,
+            priceList: "Minibar Estándar",
+            promo: "Balde 5x 100.000 Gs.",
             availableInApp: true,
             stock: 24,
             isPhysical: true,
             description: "Cerveza rubia importada fría con gajo de lima.",
-            imageUrl: "https://images.unsplash.com/photo-1608270199026-663f7389a056?w=800"
+            imageUrl: "https://images.unsplash.com/photo-1584225064785-c62a8b43d148?w=800"
           },
           {
             id: 5,
             name: "Hamburguesa Gourmet 3 Vagos con Papas",
             category: "Room Service",
+            brand: "Restó 3 Vagos",
+            barcode: "ROOM-00501",
+            cost: 22000,
             price: 55000,
+            priceList: "Room Service",
+            promo: "Combo Refresco Gratis Club 3V",
             availableInApp: true,
             stock: 15,
             isPhysical: true,
@@ -104,7 +154,12 @@ const InventoryModule = {
             id: 6,
             name: "Lavandería & Planchado Express (x Prenda)",
             category: "Servicios Extra",
+            brand: "Lavandería Express",
+            barcode: "SERV-00601",
+            cost: 8000,
             price: 30000,
+            priceList: "Servicios",
+            promo: "Tarifa Plana Larga Estadía",
             availableInApp: false, // Apagado temporalmente para la App
             stock: null,
             isPhysical: false,
@@ -293,6 +348,10 @@ const InventoryModule = {
         ? `<strong style="color: ${item.stock > 5 ? '#059669' : '#DC2626'};">${item.stock} un.</strong>`
         : `<span style="color: var(--text-muted); font-size: 11px;">Ilimitado (Servicio)</span>`;
 
+      const marginPercent = (item.cost && item.cost > 0 && item.price > item.cost)
+        ? Math.round(((item.price - item.cost) / item.price) * 100)
+        : null;
+
       html += `
         <tr>
           <td>
@@ -304,16 +363,39 @@ const InventoryModule = {
                 }
               </div>
               <div>
-                <strong style="color: var(--primary-navy); font-size: 14px;">${sanitizeInput(item.name)}</strong>
-                <small style="display: block; color: var(--text-muted); font-size: 11.5px;">${sanitizeInput(item.description || '-')}</small>
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <strong style="color: var(--primary-navy); font-size: 14px;">${sanitizeInput(item.name)}</strong>
+                  ${item.brand ? `<span class="badge" style="background: #EEF2FF; color: #4338CA; font-size: 10.5px; padding: 2px 6px; border-radius: 4px; font-weight: 700;"><i class="fas fa-tag"></i> ${sanitizeInput(item.brand)}</span>` : ''}
+                </div>
+                <small style="display: block; color: var(--text-muted); font-size: 11.5px; margin-top: 2px;">${sanitizeInput(item.description || '-')}</small>
               </div>
             </div>
           </td>
-          <td>${categoryBadge}</td>
+          <td>
+            ${categoryBadge}
+            <div style="margin-top: 5px; font-family: monospace; font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 4px;">
+              <i class="fas fa-barcode" style="color: #64748B;"></i> ${item.barcode ? sanitizeInput(item.barcode) : 'S/C'}
+            </div>
+          </td>
           <td>
             <strong style="color: #0A192F; font-size: 14px;">${formatGs(item.price)}</strong>
+            ${item.cost ? `
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                Costo: <strong>${formatGs(item.cost)}</strong>
+                ${marginPercent !== null ? `<span style="color: #059669; font-weight: 700; margin-left: 4px;">(+${marginPercent}%)</span>` : ''}
+              </div>
+            ` : `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">Costo: S/D</div>`}
           </td>
-          <td>${stockDisplay}</td>
+          <td>
+            <div style="font-size: 12px; font-weight: 600; color: var(--primary-navy);">
+              <i class="fas fa-list-ul" style="color: var(--primary-gold); font-size: 10.5px;"></i> ${sanitizeInput(item.priceList || 'Carta Oficial')}
+            </div>
+            ${item.promo ? `
+              <div style="margin-top: 4px; display: inline-flex; align-items: center; gap: 4px; background: #FEF3C7; color: #92400E; padding: 2px 8px; border-radius: 6px; font-size: 10.5px; font-weight: 700; border: 1px solid #FDE68A;">
+                <i class="fas fa-fire"></i> ${sanitizeInput(item.promo)}
+              </div>
+            ` : `<span style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px;">Tarifa regular</span>`}
+          </td>
           <td>
             <!-- Toggle Switch de Disponibilidad en la App Móvil -->
             <label class="toggle-switch" title="Activar o pausar disponibilidad en la App Móvil">
@@ -321,7 +403,7 @@ const InventoryModule = {
               <span class="slider"></span>
             </label>
             <span style="font-size: 11px; font-weight: 600; margin-left: 6px; color: ${isApp ? '#059669' : '#DC2626'};">
-              ${isApp ? '<i class="fas fa-check-circle"></i> Disponible App' : '<i class="fas fa-ban"></i> Pausado / Agotado'}
+              ${isApp ? '<i class="fas fa-check-circle"></i> Disponible App' : '<i class="fas fa-ban"></i> Pausado'}
             </span>
           </td>
           <td>
@@ -373,6 +455,14 @@ const InventoryModule = {
     document.getElementById('sales-item-title').innerText = item ? 'Editar Producto / Servicio de Venta' : 'Nuevo Producto / Servicio para Venta';
     document.getElementById('sales-item-name').value = item ? item.name : '';
     document.getElementById('sales-item-category').value = item ? item.category : 'Minibar';
+    const brandEl = document.getElementById('sales-item-brand');
+    if (brandEl) brandEl.value = item ? (item.brand || '') : '';
+    const barcodeEl = document.getElementById('sales-item-barcode');
+    if (barcodeEl) barcodeEl.value = item ? (item.barcode || '') : '';
+    const costEl = document.getElementById('sales-item-cost');
+    if (costEl) costEl.value = item ? (item.cost || '') : '';
+    const promoEl = document.getElementById('sales-item-promo');
+    if (promoEl) promoEl.value = item ? (item.promo || '') : '';
     document.getElementById('sales-item-price').value = item ? item.price : '';
     document.getElementById('sales-item-physical').checked = item ? !!item.isPhysical : true;
     document.getElementById('sales-item-stock').value = (item && item.stock !== null) ? item.stock : '20';
@@ -496,8 +586,8 @@ const InventoryModule = {
     const presets = {
       'desayuno': 'https://images.unsplash.com/photo-1533089860892-a7c6f0a88666?w=800',
       'spa': 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800',
-      'agua': 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=800',
-      'cerveza': 'https://images.unsplash.com/photo-1608270199026-663f7389a056?w=800',
+      'agua': 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800',
+      'cerveza': 'https://images.unsplash.com/photo-1584225064785-c62a8b43d148?w=800',
       'hamburguesa': 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800',
       'lavanderia': 'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?w=800'
     };
@@ -540,6 +630,10 @@ const InventoryModule = {
     const idInput = document.getElementById('sales-item-id').value;
     const name = document.getElementById('sales-item-name').value.trim();
     const category = document.getElementById('sales-item-category').value;
+    const brand = document.getElementById('sales-item-brand')?.value.trim() || '';
+    const barcode = document.getElementById('sales-item-barcode')?.value.trim() || '';
+    const cost = parseFloat(document.getElementById('sales-item-cost')?.value) || 0;
+    const promo = document.getElementById('sales-item-promo')?.value.trim() || '';
     const price = parseFloat(document.getElementById('sales-item-price').value) || 0;
     const isPhysical = document.getElementById('sales-item-physical').checked;
     const stock = isPhysical ? (parseInt(document.getElementById('sales-item-stock').value, 10) || 0) : null;
@@ -563,6 +657,10 @@ const InventoryModule = {
       if (item) {
         item.name = name;
         item.category = category;
+        item.brand = brand;
+        item.barcode = barcode;
+        item.cost = cost;
+        item.promo = promo;
         item.price = price;
         item.isPhysical = isPhysical;
         item.stock = stock;
@@ -578,7 +676,12 @@ const InventoryModule = {
         id: newId,
         name,
         category,
+        brand,
+        barcode,
+        cost,
+        promo,
         price,
+        priceList: "Carta Oficial",
         isPhysical,
         stock,
         availableInApp,
@@ -1157,5 +1260,247 @@ const InventoryModule = {
     this.saveProviders();
     this.renderProviders();
     showToast('Proveedor eliminado correctamente', 'info');
+  },
+
+  /* =========================================================
+     5. GESTIÓN INTEGRAL DE COMPRAS (ÓRDENES, RECEPCIONES & PAGOS)
+     ========================================================= */
+  switchComprasSubTab(subTab) {
+    this.comprasActiveSubTab = subTab;
+
+    // Actualizar estilo visual de los 4 botones
+    const tabs = ['providers', 'orders', 'receptions', 'payments'];
+    tabs.forEach(t => {
+      const btn = document.getElementById(`btn-compras-sub-${t}`);
+      const view = document.getElementById(`compras-subview-${t}`);
+      if (btn) {
+        if (t === subTab) {
+          btn.classList.add('active');
+          btn.style.background = 'rgba(10, 25, 47, 0.08)';
+          btn.style.color = '#0A192F';
+          btn.style.borderColor = 'rgba(10, 25, 47, 0.3)';
+        } else {
+          btn.classList.remove('active');
+          btn.style.background = 'transparent';
+          btn.style.color = '#64748B';
+          btn.style.borderColor = '#E2E8F0';
+        }
+      }
+      if (view) {
+        view.style.display = (t === subTab) ? 'block' : 'none';
+      }
+    });
+
+    if (subTab === 'providers') this.renderProviders();
+    if (subTab === 'orders') this.renderOrders();
+    if (subTab === 'receptions') this.renderReceptions();
+    if (subTab === 'payments') this.renderPayments();
+  },
+
+  loadComprasData() {
+    try {
+      const savedOrders = localStorage.getItem('hotel_compras_orders');
+      if (savedOrders && JSON.parse(savedOrders).length > 0) {
+        this.purchaseOrders = JSON.parse(savedOrders);
+      } else {
+        this.purchaseOrders = [
+          {
+            id: 'OC-2026-081',
+            provider: 'Distribuidora Central de Bebidas S.A.',
+            date: '06/09/2026',
+            items: '50x Agua Mineral 500ml, 30x Cerveza Corona Extra 355ml',
+            total: 625000,
+            status: 'Aprobada'
+          },
+          {
+            id: 'OC-2026-082',
+            provider: 'Limpieza Total & Químicos Paraguay S.A.',
+            date: '07/09/2026',
+            items: '10x Detergente Desinfectante 5L, 100x Jaboncitos de Tocador',
+            total: 850000,
+            status: 'En Tránsito'
+          },
+          {
+            id: 'OC-2026-083',
+            provider: 'Textil & Lencería Hotelera Guaraní S.R.L.',
+            date: '08/09/2026',
+            items: '20x Toallas de Baño Grandes, 15x Juegos de Sábanas 300 Hilos',
+            total: 2450000,
+            status: 'Pendiente'
+          }
+        ];
+      }
+
+      const savedReceptions = localStorage.getItem('hotel_compras_receptions');
+      if (savedReceptions && JSON.parse(savedReceptions).length > 0) {
+        this.purchaseReceptions = JSON.parse(savedReceptions);
+      } else {
+        this.purchaseReceptions = [
+          {
+            id: 'REC-0091',
+            orderId: 'OC-2026-081',
+            provider: 'Distribuidora Central de Bebidas S.A.',
+            docRef: 'Remisión N° 001-002-004452',
+            date: '07/09/2026 10:30 hs',
+            receiver: 'Carlos Gómez (Recepción)',
+            status: 'Recibido Conforme'
+          },
+          {
+            id: 'REC-0092',
+            orderId: 'OC-2026-079',
+            provider: 'Refrigeración & Repuestos del Este',
+            docRef: 'Factura N° 001-001-000891',
+            date: '05/09/2026 15:45 hs',
+            receiver: 'Marta Giménez (Gobernanta)',
+            status: 'Verificado Completo'
+          },
+          {
+            id: 'REC-0093',
+            orderId: 'OC-2026-078',
+            provider: 'Limpieza Total & Químicos Paraguay S.A.',
+            docRef: 'Remisión N° 001-005-001229',
+            date: '02/09/2026 09:15 hs',
+            receiver: 'Carlos Gómez (Recepción)',
+            status: 'Recibido Conforme'
+          }
+        ];
+      }
+
+      const savedPayments = localStorage.getItem('hotel_compras_payments');
+      if (savedPayments && JSON.parse(savedPayments).length > 0) {
+        this.purchasePayments = JSON.parse(savedPayments);
+      } else {
+        this.purchasePayments = [
+          {
+            id: 'PAG-0401',
+            provider: 'Distribuidora Central de Bebidas S.A.',
+            invoice: 'Factura N° 001-002-004452',
+            amount: 625000,
+            method: 'Transferencia Itaú',
+            date: '07/09/2026',
+            status: 'Pagado'
+          },
+          {
+            id: 'PAG-0402',
+            provider: 'Textil & Lencería Hotelera Guaraní S.R.L.',
+            invoice: 'Factura N° 002-001-001205',
+            amount: 1800000,
+            method: 'Cheque Diferido BNF (Vto 15/09)',
+            date: 'Pendiente',
+            status: 'Pendiente'
+          },
+          {
+            id: 'PAG-0403',
+            provider: 'Limpieza Total & Químicos Paraguay S.A.',
+            invoice: 'Factura N° 001-003-009941',
+            amount: 850000,
+            method: 'Efectivo Caja Chica',
+            date: '07/09/2026',
+            status: 'Pagado'
+          }
+        ];
+      }
+
+      this.saveComprasData();
+    } catch (e) {
+      console.warn('Error loading compras data:', e);
+    }
+  },
+
+  saveComprasData() {
+    try {
+      localStorage.setItem('hotel_compras_orders', JSON.stringify(this.purchaseOrders));
+      localStorage.setItem('hotel_compras_receptions', JSON.stringify(this.purchaseReceptions));
+      localStorage.setItem('hotel_compras_payments', JSON.stringify(this.purchasePayments));
+    } catch (e) {}
+  },
+
+  renderOrders() {
+    const tbody = document.getElementById('compras-orders-tbody');
+    if (!tbody) return;
+
+    if (this.purchaseOrders.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay órdenes de compra registradas.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    this.purchaseOrders.forEach(o => {
+      const statusBadge = o.status === 'Aprobada'
+        ? `<span class="badge badge-confirmada"><i class="fas fa-check"></i> Aprobada</span>`
+        : o.status === 'En Tránsito'
+        ? `<span class="badge" style="background: rgba(37, 99, 235, 0.12); color: #2563EB; border: 1px solid rgba(37, 99, 235, 0.25);"><i class="fas fa-shipping-fast"></i> En Tránsito</span>`
+        : `<span class="badge" style="background: rgba(245, 158, 11, 0.12); color: #D97706; border: 1px solid rgba(245, 158, 11, 0.25);"><i class="fas fa-clock"></i> Pendiente</span>`;
+
+      html += `
+        <tr>
+          <td><strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(o.id)}</strong></td>
+          <td><strong style="color: #1E293B;">${sanitizeInput(o.provider)}</strong></td>
+          <td style="color: var(--text-muted); font-size: 12px;">${sanitizeInput(o.date)}</td>
+          <td style="font-size: 12.5px; color: #475569;">${sanitizeInput(o.items)}</td>
+          <td><strong style="color: #0A192F; font-size: 14px;">${formatGs(o.total)}</strong></td>
+          <td>${statusBadge}</td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  renderReceptions() {
+    const tbody = document.getElementById('compras-receptions-tbody');
+    if (!tbody) return;
+
+    if (this.purchaseReceptions.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay recepciones de mercadería registradas.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    this.purchaseReceptions.forEach(r => {
+      html += `
+        <tr>
+          <td><strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(r.id)}</strong></td>
+          <td><span class="badge" style="background: #F1F5F9; color: #334155; font-weight: 700;">${sanitizeInput(r.orderId)}</span></td>
+          <td><strong style="color: #1E293B;">${sanitizeInput(r.provider)}</strong></td>
+          <td style="font-size: 12px; color: #64748B;"><i class="fas fa-file-invoice"></i> ${sanitizeInput(r.docRef)}</td>
+          <td style="font-size: 12px; color: var(--text-muted);">${sanitizeInput(r.date)}<br><small style="color: #059669; font-weight: 600;"><i class="fas fa-user-check"></i> ${sanitizeInput(r.receiver)}</small></td>
+          <td><span class="badge badge-confirmada"><i class="fas fa-check-double"></i> ${sanitizeInput(r.status)}</span></td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  renderPayments() {
+    const tbody = document.getElementById('compras-payments-tbody');
+    if (!tbody) return;
+
+    if (this.purchasePayments.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay pagos registrados.</td></tr>`;
+      return;
+    }
+
+    let html = '';
+    this.purchasePayments.forEach(p => {
+      const isPaid = p.status === 'Pagado';
+      const badge = isPaid
+        ? `<span class="badge badge-confirmada"><i class="fas fa-check-circle"></i> Pagado</span>`
+        : `<span class="badge" style="background: rgba(239, 68, 68, 0.12); color: #DC2626; border: 1px solid rgba(239, 68, 68, 0.25);"><i class="fas fa-hourglass-half"></i> Pendiente</span>`;
+
+      html += `
+        <tr>
+          <td><strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(p.id)}</strong></td>
+          <td><strong style="color: #1E293B;">${sanitizeInput(p.provider)}</strong></td>
+          <td style="font-size: 12px; color: #64748B;">${sanitizeInput(p.invoice)}</td>
+          <td><strong style="color: #0A192F; font-size: 14px;">${formatGs(p.amount)}</strong></td>
+          <td style="font-size: 12px; color: #475569;"><i class="fas fa-credit-card" style="color: var(--primary-gold);"></i> ${sanitizeInput(p.method)}</td>
+          <td>${badge}</td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
   }
 };
