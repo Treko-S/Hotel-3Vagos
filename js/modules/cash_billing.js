@@ -244,26 +244,26 @@ const CashBillingModule = {
     const efectivoEnCajon = apertura + totalEfec - totalEg;
 
     box.innerHTML = `
-      <div style="background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 22px; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98)); border-radius: var(--radius-lg); border: 1px solid rgba(255, 255, 255, 0.08); padding: 22px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="status-dot"></span>
-            <strong style="color: var(--success); font-size: 16px;">Caja Principal de Recepción Abierta (#${session.id})</strong>
-            <span class="badge badge-confirmada" style="font-size: 11px;">Turno Activo</span>
+            <strong style="color: #34D399; font-size: 16px; letter-spacing: -0.3px;">Caja Principal de Recepción Abierta (#${session.id})</strong>
+            <span class="badge" style="background: rgba(16, 185, 129, 0.2); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.3); font-size: 11px; font-weight: 700;">Turno Activo</span>
           </div>
-          <p style="font-size: 12.5px; color: var(--text-muted); margin: 6px 0 4px;">
-            Responsable: <strong style="color: var(--primary-navy);">${sanitizeInput(session.responsable || session.users?.full_name || localStorage.getItem('caja_responsable') || 'Marcos Rolón (Recepcionista)')}</strong> • Turno: <strong style="color: var(--primary-navy);">${sanitizeInput(localStorage.getItem('caja_turno') || 'Turno Mañana')}</strong> • Fondo Fijo Apertura: <strong>${formatGs(apertura)}</strong>
+          <p style="font-size: 12.5px; color: #94A3B8; margin: 6px 0 6px;">
+            Responsable: <strong style="color: #F8FAFC;">${sanitizeInput(session.responsable || session.users?.full_name || localStorage.getItem('caja_responsable') || 'Marcos Rolón (Recepcionista)')}</strong> • Turno: <strong style="color: #F8FAFC;">${sanitizeInput(localStorage.getItem('caja_turno') || 'Turno Mañana')}</strong> • Fondo Fijo Apertura: <strong style="color: #FBBF24;">${formatGs(apertura)}</strong>
           </p>
           <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-top: 6px; font-size: 12px;">
-            <span style="color: #166534;"><i class="fas fa-arrow-down"></i> Cobros Efectivo: <strong>+${formatGs(totalEfec)}</strong></span>
-            <span style="color: #991B1B;"><i class="fas fa-arrow-up"></i> Egresos / Vales: <strong>-${formatGs(totalEg)}</strong></span>
-            <span style="color: var(--primary-navy); font-weight: 700; background: #F8FAFC; padding: 2px 8px; border-radius: 6px; border: 1px solid #E2E8F0;">
-              <i class="fas fa-cash-register"></i> Efectivo Teórico en Cajón: <strong>${formatGs(efectivoEnCajon)}</strong>
+            <span style="color: #4ADE80;"><i class="fas fa-arrow-down"></i> Cobros Efectivo: <strong>+${formatGs(totalEfec)}</strong></span>
+            <span style="color: #F87171;"><i class="fas fa-arrow-up"></i> Egresos / Vales: <strong>-${formatGs(totalEg)}</strong></span>
+            <span style="color: #F8FAFC; font-weight: 700; background: rgba(255, 255, 255, 0.05); padding: 3px 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);">
+              <i class="fas fa-cash-register" style="color: #FBBF24;"></i> Efectivo Teórico en Cajón: <strong>${formatGs(efectivoEnCajon)}</strong>
             </span>
           </div>
-          <div style="margin-top: 6px;">
-            <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-size: 11px; padding: 2px 8px;">
-              <i class="fas fa-bolt"></i> Cobros de la App Móvil se concilian automáticamente en Cuenta Bancaria 24/7
+          <div style="margin-top: 8px;">
+            <span class="badge" style="background: rgba(37, 99, 235, 0.18); color: #93C5FD; border: 1px solid rgba(96, 165, 250, 0.3); font-size: 11px; padding: 3px 9px;">
+              <i class="fas fa-shield-alt"></i> Cobros App Móvil: Exclusivamente Tarjetas Crédito/Débito vía Pasarela Bancaria 24/7
             </span>
           </div>
         </div>
@@ -271,8 +271,8 @@ const CashBillingModule = {
           <button class="btn" style="background: #10B981; color: #fff; border: 1px solid #059669; font-weight: 700;" onclick="CashBillingModule.openCobroModal()" title="Registrar cobro de saldo pendiente de reserva o folio">
             <i class="fas fa-hand-holding-usd"></i> Cobrar Saldo de Reserva
           </button>
-          <button class="btn" style="background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; font-weight: 600;" onclick="CashBillingModule.openEgresoModal()" title="Registrar un retiro de dinero para pago a proveedores, hielo o urgencias">
-            <i class="fas fa-receipt"></i> Registrar Egreso / Vale de Caja
+          <button class="btn" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 600;" onclick="CashBillingModule.openEgresoModal()" title="Registrar un retiro de dinero para pago a proveedores o gastos">
+            <i class="fas fa-receipt"></i> Registrar Egreso / Vale
           </button>
           <button class="btn btn-outline" onclick="CashBillingModule.openArqueoModal()" title="Ver auditoría preliminar del turno">
             <i class="fas fa-calculator"></i> Arqueo Rápido
@@ -290,14 +290,14 @@ const CashBillingModule = {
     if (!box) return;
 
     box.innerHTML = `
-      <div style="background: #fff; border-radius: var(--radius-lg); border: 1px solid var(--border-color); padding: 24px; box-shadow: var(--shadow-sm); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98)); border-radius: var(--radius-lg); border: 1px solid rgba(255, 255, 255, 0.08); padding: 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="width: 10px; height: 10px; border-radius: 50%; background: var(--danger); display: inline-block;"></span>
-            <strong style="color: var(--danger); font-size: 16px;">Caja Principal de Recepción Cerrada</strong>
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #EF4444; display: inline-block;"></span>
+            <strong style="color: #F87171; font-size: 16px;">Caja Principal de Recepción Cerrada</strong>
           </div>
-          <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-            El turno físico de mostrador está cerrado. Los pagos realizados por huéspedes en la <strong>App Móvil</strong> ingresan y se acreditan automáticamente 24/7 en la cuenta bancaria.
+          <p style="font-size: 12.5px; color: #94A3B8; margin-top: 6px;">
+            El turno físico de mostrador está cerrado. Los cobros online de la <strong>App Móvil</strong> (Tarjetas Débito/Crédito) ingresan y se concilian 24/7 en la cuenta bancaria.
           </p>
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -334,20 +334,25 @@ const CashBillingModule = {
       this.payments.forEach(p => {
         const monto = Number(p.monto) || 0;
         totalConsolidado += monto;
-        const metodo = (p.metodo_pago || '').toLowerCase();
+        const metodoRaw = (p.metodo_pago || '').toLowerCase();
         const folio = p.folios || {};
         const reserva = Array.isArray(folio.reservas) ? (folio.reservas[0] || {}) : (folio.reservas || {});
-        const canal = reserva.canal_venta || 'App Móvil';
+        let canal = reserva.canal_venta || 'Mostrador / Recepción';
+
+        // REGLA CRÍTICA DE NEGOCIO:
+        // Si el método es 'efectivo', es estrictamente de mostrador/recepción.
+        if (metodoRaw.includes('efectivo')) {
+          canal = 'Mostrador / Recepción';
+        }
+
         const isApp = canal === 'App Móvil';
 
-        if (metodo.includes('efectivo')) {
+        if (isApp) {
+          totalAppPasarela += monto; // Pago con Tarjeta Online en App Móvil
+        } else if (metodoRaw.includes('efectivo')) {
           totalEfectivo += monto;
-        } else if (metodo.includes('tarjeta') || metodo.includes('credito') || metodo.includes('debito')) {
-          if (isApp) {
-            totalAppPasarela += monto; // Pago de tarjeta online desde la App Móvil
-          } else {
-            totalTarjetasPOS += monto; // POS físico en mostrador de recepción
-          }
+        } else if (metodoRaw.includes('tarjeta') || metodoRaw.includes('credito') || metodoRaw.includes('debito')) {
+          totalTarjetasPOS += monto; // POS físico en mostrador de recepción
         } else {
           totalDigital += monto;
         }
@@ -372,7 +377,7 @@ const CashBillingModule = {
           <div class="kpi-card" style="border-left: 4px solid #2563EB;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Tarjetas (POS Mostrador)</p>
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Tarjetas POS (Mostrador)</p>
                 <h3 style="font-size: 20px; font-weight: 800; color: #1D4ED8; margin: 6px 0 2px;">${formatGs(totalTarjetasPOS)}</h3>
                 <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Comprobantes físicos / vouchers POS</p>
               </div>
@@ -382,15 +387,15 @@ const CashBillingModule = {
             </div>
           </div>
 
-          <div class="kpi-card" style="border-left: 4px solid #0D9488;">
+          <div class="kpi-card" style="border-left: 4px solid #6366F1;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">QR & SIPAP Bancario</p>
-                <h3 style="font-size: 20px; font-weight: 800; color: #0F766E; margin: 6px 0 2px;">${formatGs(totalDigital)}</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Billeteras y transferencias 24/7</p>
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">App Móvil (Tarjetas 24/7)</p>
+                <h3 style="font-size: 20px; font-weight: 800; color: #4F46E5; margin: 6px 0 2px;">${formatGs(totalAppPasarela)}</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Tarjeta Crédito / Débito Bancaria</p>
               </div>
-              <div style="width: 38px; height: 38px; border-radius: 10px; background: #F0FDFA; color: #0D9488; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                <i class="fas fa-qrcode"></i>
+              <div style="width: 38px; height: 38px; border-radius: 10px; background: #EEF2FF; color: #6366F1; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                <i class="fas fa-mobile-alt"></i>
               </div>
             </div>
           </div>
@@ -400,7 +405,7 @@ const CashBillingModule = {
               <div>
                 <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ganancia Total Consolidada</p>
                 <h3 style="font-size: 20px; font-weight: 800; color: var(--primary-dark); margin: 6px 0 2px;">${formatGs(totalConsolidado)}</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Ingresos reales (Incluye ${formatGs(totalAppPasarela)} App Móvil)</p>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Ingresos reales registrados en el sistema</p>
               </div>
               <div style="width: 38px; height: 38px; border-radius: 10px; background: #FEF3C7; color: #B45309; display: flex; align-items: center; justify-content: center; font-size: 16px;">
                 <i class="fas fa-vault"></i>
@@ -419,16 +424,31 @@ const CashBillingModule = {
 
         let html = '';
         this.payments.forEach(p => {
-        const folio = p.folios || {};
-        const reserva = Array.isArray(folio.reservas) ? (folio.reservas[0] || {}) : (folio.reservas || {});
-        const user = Array.isArray(reserva.users) ? (reserva.users[0] || {}) : (reserva.users || {});
-        const canal = reserva.canal_venta || 'App Móvil';
-        const isApp = canal === 'App Móvil';
+          const folio = p.folios || {};
+          const reserva = Array.isArray(folio.reservas) ? (folio.reservas[0] || {}) : (folio.reservas || {});
+          const user = Array.isArray(reserva.users) ? (reserva.users[0] || {}) : (reserva.users || {});
+          let canal = reserva.canal_venta || 'Mostrador / Recepción';
+          let metodo = p.metodo_pago || 'Tarjeta Débito';
 
-          const badgeMetodo = this.getMethodBadge(p.metodo_pago);
-          const destinoFinanciero = (p.metodo_pago || '').toLowerCase().includes('efectivo')
-            ? `<span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-size: 10.5px;"><i class="fas fa-cash-register"></i> Caja Mostrador</span>`
-            : `<span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-size: 10.5px;"><i class="fas fa-landmark"></i> Cuenta Bancaria (24/7)</span>`;
+          // REGLA CRÍTICA:
+          // Un pago hecho desde la App Móvil es obligatoriamente por Tarjeta Crédito o Débito.
+          if (canal === 'App Móvil') {
+            if (metodo.toLowerCase().includes('efectivo')) {
+              metodo = 'Tarjeta Débito (App)';
+            }
+          }
+          // Y si es efectivo, el canal siempre es Mostrador / Recepción
+          if (metodo.toLowerCase().includes('efectivo')) {
+            canal = 'Mostrador / Recepción';
+          }
+
+          const isApp = canal === 'App Móvil';
+          const badgeMetodo = this.getMethodBadge(metodo);
+          const destinoFinanciero = isApp
+            ? `<span class="badge" style="background: rgba(37, 99, 235, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.35); font-size: 11px;"><i class="fas fa-landmark"></i> Cuenta Bancaria (24/7)</span>`
+            : (metodo.toLowerCase().includes('efectivo')
+                ? `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.35); font-size: 11px;"><i class="fas fa-cash-register"></i> Caja Mostrador</span>`
+                : `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35); font-size: 11px;"><i class="fas fa-university"></i> Banco / POS Mostrador</span>`);
 
           // Estado de Facturación Legal (SET Paraguay)
           const matchedInv = this.invoices.find(inv => inv.folio_id === p.folio_id || (inv.ruc_ci && Number(inv.monto_total) == Number(p.monto)));
@@ -488,16 +508,20 @@ const CashBillingModule = {
 
   getMethodBadge(metodoRaw) {
     const m = (metodoRaw || 'Tarjeta Debito').toLowerCase();
+    if (m.includes('app')) {
+      const isCred = m.includes('credito') || m.includes('crédito');
+      return `<span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #818CF8; border: 1px solid rgba(129, 140, 248, 0.35); font-weight: 600;"><i class="fas fa-mobile-alt"></i> ${isCred ? 'Tarjeta Crédito (App)' : 'Tarjeta Débito (App)'}</span>`;
+    }
     if (m.includes('efectivo')) {
-      return `<span class="badge" style="background: #FEFCE8; color: #854D0E; border: 1px solid #FEF08A; font-weight: 600;"><i class="fas fa-money-bill-wave"></i> Efectivo</span>`;
+      return `<span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.35); font-weight: 600;"><i class="fas fa-money-bill-wave"></i> Efectivo</span>`;
     } else if (m.includes('credito') || m.includes('crédito')) {
-      return `<span class="badge" style="background: #FAF5FF; color: #7E22CE; border: 1px solid #E9D5FF; font-weight: 600;"><i class="fas fa-credit-card"></i> Tarjeta Crédito</span>`;
+      return `<span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(192, 132, 252, 0.35); font-weight: 600;"><i class="fas fa-credit-card"></i> Tarjeta Crédito (POS)</span>`;
     } else if (m.includes('debito') || m.includes('débito') || m.includes('tarjeta')) {
-      return `<span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-weight: 600;"><i class="fas fa-credit-card"></i> Tarjeta Débito</span>`;
+      return `<span class="badge" style="background: rgba(37, 99, 235, 0.15); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.35); font-weight: 600;"><i class="fas fa-credit-card"></i> Tarjeta Débito (POS)</span>`;
     } else if (m.includes('qr') || m.includes('billetera')) {
-      return `<span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-weight: 600;"><i class="fas fa-qrcode"></i> QR Billetera</span>`;
+      return `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.35); font-weight: 600;"><i class="fas fa-qrcode"></i> QR Billetera</span>`;
     } else if (m.includes('transferencia') || m.includes('sipap') || m.includes('banco')) {
-      return `<span class="badge" style="background: #F0FDFA; color: #0D9488; border: 1px solid #99F6E4; font-weight: 600;"><i class="fas fa-university"></i> Transferencia SIPAP</span>`;
+      return `<span class="badge" style="background: rgba(13, 148, 136, 0.15); color: #2DD4BF; border: 1px solid rgba(45, 212, 191, 0.35); font-weight: 600;"><i class="fas fa-university"></i> Transferencia SIPAP</span>`;
     }
     return `<span class="badge badge-confirmada">${sanitizeInput(metodoRaw || 'Digital')}</span>`;
   },

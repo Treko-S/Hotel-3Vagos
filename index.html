@@ -1063,11 +1063,64 @@
            VIEW 7: HUÉSPEDES & CRM
            ===================================================== -->
       <section id="view-guests" class="view-section">
-        <div class="card-panel">
+        <!-- Sub-pestañas de Huéspedes -->
+        <div class="tabs-header" style="margin-bottom: 20px; display: flex; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+          <button class="tab-btn active" id="tab-btn-guests-inhouse" onclick="GuestsModule.switchSubView('inhouse')" style="padding: 9px 18px; font-weight: 700; font-size: 13px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.3);">
+            <i class="fas fa-hotel" style="color: #10B981;"></i> Huéspedes en Estadía Actual
+            <span class="badge" id="badge-inhouse-count" style="background: rgba(16, 185, 129, 0.25); color: #34D399; font-size: 11px; padding: 1px 7px;">0</span>
+          </button>
+          <button class="tab-btn" id="tab-btn-guests-history" onclick="GuestsModule.switchSubView('history')" style="padding: 9px 18px; font-weight: 600; font-size: 13px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.05); color: #94A3B8; border: 1px solid rgba(255, 255, 255, 0.1);">
+            <i class="fas fa-address-book" style="color: var(--accent-gold);"></i> Historial & Directorio de Pasajeros
+            <span class="badge" id="badge-history-count" style="background: rgba(255, 255, 255, 0.08); color: #94A3B8; font-size: 11px; padding: 1px 7px;">0</span>
+          </button>
+        </div>
+
+        <!-- SUBVIEW 1: HUÉSPEDES EN ESTADÍA ACTUAL -->
+        <div id="subview-guests-inhouse" class="card-panel" style="border-left: 4px solid #10B981;">
           <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
             <div>
-              <h3 class="panel-title"><i class="fas fa-users" style="color: var(--primary-gold);"></i> Directorio de Huéspedes & CRM</h3>
-              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Gestión de fichas de pasajeros, documentación oficial, historial de estadías y fidelización</p>
+              <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-door-open" style="color: #10B981;"></i> Huéspedes Alojados Actualmente en el Hotel
+              </h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Control de pasajeros en casa, habitaciones asignadas, estado de estancia y folios abiertos</p>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="search-guests-inhouse" placeholder="Buscar huésped o habitación..." oninput="GuestsModule.filterInHouse(this.value)">
+              </div>
+              <button class="btn btn-outline" onclick="GuestsModule.loadInHouseGuests()" title="Actualizar lista de estadía">
+                <i class="fas fa-sync-alt"></i> Actualizar
+              </button>
+            </div>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Habitación & Tipo</th>
+                  <th>Huésped Titular</th>
+                  <th>Documento (CI / Pasaporte)</th>
+                  <th>Estadía (Check-in / Check-out)</th>
+                  <th>Teléfono / WhatsApp</th>
+                  <th>Folio / Saldo</th>
+                  <th style="text-align: center;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="guests-inhouse-tbody">
+                <tr><td colspan="7" style="text-align: center; padding: 28px; color: var(--text-muted);">Cargando huéspedes en estadía actual...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SUBVIEW 2: HISTORIAL Y DIRECTORIO GENERAL DE PASAJEROS -->
+        <div id="subview-guests-history" class="card-panel" style="display: none;">
+          <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
+            <div>
+              <h3 class="panel-title"><i class="fas fa-users" style="color: var(--primary-gold);"></i> Historial y Directorio Completo de Pasajeros</h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Registro histórico inmutable de documentación legal, datos de contacto y fidelización</p>
             </div>
             <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
               <div class="search-box">
@@ -1094,12 +1147,12 @@
                   <th>Documento</th>
                   <th>Nacionalidad</th>
                   <th>Teléfono</th>
-                  <th>Rol</th>
-                  <th>Acción</th>
+                  <th>Historial Estadías</th>
+                  <th style="text-align: center;">Acción</th>
                 </tr>
               </thead>
               <tbody id="guests-table-body">
-                <!-- Dinámico -->
+                <tr><td colspan="6" style="text-align: center; padding: 28px; color: var(--text-muted);">Cargando directorio de pasajeros...</td></tr>
               </tbody>
             </table>
           </div>

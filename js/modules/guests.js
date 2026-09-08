@@ -5,44 +5,227 @@
 
 const GuestsModule = {
   guests: [],
+  inHouseList: [],
+  currentSubView: 'inhouse',
 
   async init() {
+    await this.loadInHouseGuests();
     await this.loadGuests();
     this.setupEventListeners();
   },
 
+  switchSubView(view) {
+    this.currentSubView = view;
+    const btnInHouse = document.getElementById('tab-btn-guests-inhouse');
+    const btnHistory = document.getElementById('tab-btn-guests-history');
+    const secInHouse = document.getElementById('subview-guests-inhouse');
+    const secHistory = document.getElementById('subview-guests-history');
+
+    if (view === 'inhouse') {
+      if (btnInHouse) {
+        btnInHouse.classList.add('active');
+        btnInHouse.style.background = 'rgba(16, 185, 129, 0.15)';
+        btnInHouse.style.color = '#34D399';
+        btnInHouse.style.borderColor = 'rgba(52, 211, 153, 0.3)';
+      }
+      if (btnHistory) {
+        btnHistory.classList.remove('active');
+        btnHistory.style.background = 'rgba(255, 255, 255, 0.05)';
+        btnHistory.style.color = '#94A3B8';
+        btnHistory.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      }
+      if (secInHouse) secInHouse.style.display = 'block';
+      if (secHistory) secHistory.style.display = 'none';
+      this.loadInHouseGuests();
+    } else {
+      if (btnHistory) {
+        btnHistory.classList.add('active');
+        btnHistory.style.background = 'rgba(212, 175, 55, 0.18)';
+        btnHistory.style.color = '#FBBF24';
+        btnHistory.style.borderColor = 'rgba(212, 175, 55, 0.4)';
+      }
+      if (btnInHouse) {
+        btnInHouse.classList.remove('active');
+        btnInHouse.style.background = 'rgba(255, 255, 255, 0.05)';
+        btnInHouse.style.color = '#94A3B8';
+        btnInHouse.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      }
+      if (secInHouse) secInHouse.style.display = 'none';
+      if (secHistory) secHistory.style.display = 'block';
+      this.loadGuests();
+    }
+  },
+
   setupEventListeners() {
-    const search = document.getElementById('search-guests');
-    if (search) {
+    const searchHistory = document.getElementById('search-guests');
+    if (searchHistory) {
       let timer;
-      search.addEventListener('input', (e) => {
+      searchHistory.addEventListener('input', (e) => {
         clearTimeout(timer);
         timer = setTimeout(() => this.filterGuests(e.target.value), 250);
       });
     }
   },
 
+  /**
+   * Carga únicamente los huéspedes que están actualmente en el hotel (estado = 'En Estadía')
+   */
+  async loadInHouseGuests() {
+    try {
+      const tbody = document.getElementById('guests-inhouse-tbody');
+      const badgeCount = document.getElementById('badge-inhouse-count');
+
+      const { data, error } = await supabaseClient
+        .from('reservas')
+        .select('*, users(*), habitaciones(*), folios(*)')
+        .eq('estado', 'En Estadía')
+        .order('id', { ascending: false });
+
+      if (error) throw error;
+
+      this.inHouseList = data || [];
+      if (badgeCount) badgeCount.innerText = this.inHouseList.length;
+
+      this.renderInHouseTable(this.inHouseList);
+    } catch (err) {
+      console.error('Error al cargar huéspedes en estadía actual:', err);
+      const tbody = document.getElementById('guests-inhouse-tbody');
+      if (tbody) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: #EF4444;">Error al cargar huéspedes en estadía: ${err.message}</td></tr>`;
+      }
+    }
+  },
+
+  renderInHouseTable(list) {
+    const tbody = document.getElementById('guests-inhouse-tbody');
+    if (!tbody) return;
+
+    if (!list || list.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; padding: 36px; color: var(--text-muted);">
+            <i class="fas fa-bed" style="font-size: 28px; margin-bottom: 10px; display: block; opacity: 0.5; color: #10B981;"></i>
+            <strong>No hay huéspedes alojados actualmente en el hotel</strong><br>
+            <span style="font-size: 12px;">Las habitaciones ocupadas con check-in activo figurarán aquí automáticamente.</span>
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    let html = '';
+    list.forEach(r => {
+      const u = r.users || {};
+      const hab = r.habitaciones || {};
+      const folio = Array.isArray(r.folios) ? (r.folios[0] || {}) : (r.folios || {});
+      const initial = (u.full_name || 'H').charAt(0).toUpperCase();
+      const phone = u.phone || 'S/D';
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const docType = u.document_type || 'CI';
+      const docNum = u.document_number || 'N/D';
+      const saldo = Number(folio.saldo_pendiente ?? Math.max(0, (r.monto_total || 0) - (r.anticipo_pagado || 0)));
+
+      html += `
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="badge" style="background: rgba(16, 185, 129, 0.18); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.35); font-weight: 800; font-size: 13px;">
+                Hab. ${hab.numero || '-'}
+              </span>
+              <div>
+                <strong style="color: #F8FAFC; font-size: 12.5px;">${sanitizeInput(hab.tipo_nombre || 'Habitación')}</strong>
+                <div style="font-size: 11px; color: #94A3B8;">Piso ${hab.piso || 1}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #1E3A8A, #3B82F6); color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">
+                ${initial}
+              </div>
+              <div>
+                <strong style="color: #F8FAFC; font-size: 13px;">${sanitizeInput(u.full_name || 'Huésped')}</strong>
+                <div style="font-size: 11px; color: #94A3B8;"><i class="far fa-envelope"></i> ${sanitizeInput(u.email || 'Sin correo')}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <strong style="color: #F8FAFC; font-size: 12.5px;">${sanitizeInput(docType)}: ${sanitizeInput(docNum)}</strong>
+            <div style="font-size: 11px; color: #10B981;"><i class="fas fa-check-circle"></i> Pasajero Acreditado</div>
+          </td>
+          <td>
+            <div style="font-size: 12px; color: #F8FAFC;">
+              <i class="fas fa-sign-in-alt" style="color: #10B981;"></i> In: <strong>${formatDate(r.check_in_real || r.fecha_checkin || r.check_in_previsto)}</strong>
+            </div>
+            <div style="font-size: 12px; color: #94A3B8;">
+              <i class="fas fa-sign-out-alt" style="color: #EF4444;"></i> Out: <strong>${formatDate(r.fecha_checkout || r.check_out_previsto)}</strong>
+            </div>
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <i class="fab fa-whatsapp" style="color: #10B981; font-size: 14px;"></i>
+              ${cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" style="color: #34D399; font-weight: 600; text-decoration: none;">${sanitizeInput(phone)}</a>` : `<span style="color: #94A3B8;">${sanitizeInput(phone)}</span>`}
+            </div>
+          </td>
+          <td>
+            ${saldo > 0 
+              ? `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.35); font-weight: 700;">Saldo: ${formatGs(saldo)}</span>`
+              : `<span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.35); font-weight: 700;">Folio Saldado</span>`}
+          </td>
+          <td style="text-align: center;">
+            <div class="action-btn-group" style="justify-content: center;">
+              <button class="btn-action btn-action-folio" onclick="ReservationsModule.openFolioModal('${r.id}')" title="Ver Folio de Consumos y Liquidación">
+                <i class="fas fa-file-invoice-dollar"></i> Folio
+              </button>
+              <button class="btn-action btn-action-view" onclick="GuestsModule.viewGuestHistory('${u.id}')" title="Ver Historial Documental del Pasajero">
+                <i class="fas fa-history"></i> Historial
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+
+    tbody.innerHTML = html;
+  },
+
+  filterInHouse(q) {
+    const query = (q || '').toLowerCase().trim();
+    const filtered = this.inHouseList.filter(r => {
+      const u = r.users || {};
+      const hab = r.habitaciones || {};
+      const name = (u.full_name || '').toLowerCase();
+      const doc = (u.document_number || '').toLowerCase();
+      const num = String(hab.numero || '').toLowerCase();
+      const code = (r.codigo_reserva || '').toLowerCase();
+      return query === '' || name.includes(query) || doc.includes(query) || num.includes(query) || code.includes(query);
+    });
+    this.renderInHouseTable(filtered);
+  },
+
   async loadGuests() {
     try {
       const tbody = document.getElementById('guests-table-body');
+      const badgeHistory = document.getElementById('badge-history-count');
       if (!tbody) return;
 
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px;"><i class="fas fa-spinner fa-spin"></i> Cargando huéspedes desde la base de datos...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px;"><i class="fas fa-spinner fa-spin"></i> Cargando historial de pasajeros...</td></tr>`;
 
-      // Cargar usuarios con rol de Huésped (role_id = 5)
+      // Cargar usuarios con rol de Huésped (role_id = 5) o pasajeros
       const { data, error } = await supabaseClient
         .from('users')
-        .select('*')
+        .select('*, reservas(id, estado, monto_total)')
         .eq('role_id', 5)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       this.guests = data || [];
+      if (badgeHistory) badgeHistory.innerText = this.guests.length;
       this.renderTable(this.guests);
 
     } catch (err) {
-      console.error('Error al cargar huéspedes:', err);
+      console.error('Error al cargar historial de huéspedes:', err);
       showToast('Error al cargar huéspedes: ' + err.message, 'error');
     }
   },
@@ -52,7 +235,7 @@ const GuestsModule = {
     if (!tbody) return;
 
     if (!list || list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 36px; color: var(--text-muted);"><i class="fas fa-users-slash" style="font-size: 26px; margin-bottom: 8px; display: block; opacity: 0.5;"></i>No hay huéspedes registrados que coincidan con la búsqueda.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 36px; color: var(--text-muted);"><i class="fas fa-users-slash" style="font-size: 26px; margin-bottom: 8px; display: block; opacity: 0.5;"></i>No hay pasajeros registrados en el historial que coincidan con la búsqueda.</td></tr>`;
       return;
     }
 
@@ -63,7 +246,10 @@ const GuestsModule = {
       const docNum = g.document_number || 'N/D';
       const nationality = g.nationality || 'Paraguaya';
       const phone = g.phone || 'S/D';
-      const roleName = g.role_id === 1 ? 'Administrador' : 'Huésped Registrado';
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      const reservas = Array.isArray(g.reservas) ? g.reservas : [];
+      const totalStays = reservas.length;
+      const finishedStays = reservas.filter(r => (r.estado || '').toLowerCase().includes('finaliz') || (r.estado || '').toLowerCase().includes('check-out')).length;
 
       html += `
         <tr>
@@ -73,7 +259,7 @@ const GuestsModule = {
                 ${initial}
               </div>
               <div>
-                <strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(g.full_name || 'Sin nombre')}</strong>
+                <strong style="color: #F8FAFC; font-size: 13.5px;">${sanitizeInput(g.full_name || 'Sin nombre')}</strong>
                 <div style="font-size: 11px; color: var(--text-muted); margin-top: 1px;">
                   <i class="far fa-envelope" style="color: var(--primary-blue);"></i> ${sanitizeInput(g.email || 'Sin correo')}
                 </div>
@@ -81,32 +267,32 @@ const GuestsModule = {
             </div>
           </td>
           <td>
-            <div style="font-weight: 700; color: var(--primary-dark);">${sanitizeInput(docType)}: ${sanitizeInput(docNum)}</div>
-            <div style="font-size: 11px; color: var(--text-muted);">Doc. Verificado</div>
+            <div style="font-weight: 700; color: #F8FAFC;">${sanitizeInput(docType)}: ${sanitizeInput(docNum)}</div>
+            <div style="font-size: 11px; color: #10B981;"><i class="fas fa-id-card"></i> Doc. Oficial Verificado</div>
           </td>
           <td>
             <div style="display: flex; align-items: center; gap: 6px;">
               <i class="fas fa-globe-americas" style="color: var(--accent-gold); font-size: 12px;"></i>
-              <span>${sanitizeInput(nationality)}</span>
+              <span style="color: #E2E8F0;">${sanitizeInput(nationality)}</span>
             </div>
           </td>
           <td>
             <div style="display: flex; align-items: center; gap: 6px;">
               <i class="fab fa-whatsapp" style="color: #10B981; font-size: 13px;"></i>
-              <span>${sanitizeInput(phone)}</span>
+              ${cleanPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" style="color: #34D399; text-decoration: none;">${sanitizeInput(phone)}</a>` : `<span>${sanitizeInput(phone)}</span>`}
             </div>
           </td>
           <td>
-            <span class="badge" style="background: rgba(212, 175, 55, 0.15); color: #B45309; border: 1px solid rgba(212, 175, 55, 0.4); font-weight: 700; font-size: 11px;">
-              <i class="fas fa-id-badge"></i> ${roleName}
+            <span class="badge" style="background: rgba(212, 175, 55, 0.15); color: #FBBF24; border: 1px solid rgba(212, 175, 55, 0.4); font-weight: 700; font-size: 11px;">
+              <i class="fas fa-suitcase-rolling"></i> ${totalStays} reservas (${finishedStays} concluidas)
             </span>
           </td>
-          <td>
-            <div class="action-btn-group">
-              <button class="btn-action btn-action-view" onclick="GuestsModule.viewGuestHistory('${g.id}')" title="Ver Historial de Estadías y Folios">
+          <td style="text-align: center;">
+            <div class="action-btn-group" style="justify-content: center;">
+              <button class="btn-action btn-action-view" onclick="GuestsModule.viewGuestHistory('${g.id}')" title="Ver Historial Documental y Ficha del Pasajero">
                 <i class="fas fa-history"></i> Historial
               </button>
-              <button class="btn-action btn-action-folio" onclick="GuestsModule.syncGuestToBrevo('${g.id}')" title="Sincronizar contacto con Brevo CRM">
+              <button class="btn-action btn-action-folio" onclick="GuestsModule.syncGuestToBrevo('${g.id}')" title="Sincronizar con Brevo CRM">
                 <i class="fas fa-address-book"></i> Brevo
               </button>
             </div>
