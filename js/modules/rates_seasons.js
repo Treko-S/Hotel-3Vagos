@@ -6,6 +6,7 @@
 
 const RatesSeasonsModule = {
   seasons: [],
+  packages: [],
   currentTab: 'tab-seasons',
 
   // Reglas generales (con persistencia local sincronizada)
@@ -81,6 +82,7 @@ const RatesSeasonsModule = {
     this.renderAddOnsCatalog();
     this.initSimulator();
     this.loadRatePlansFromRemote();
+    await this.loadPackages();
   },
 
   loadSavedRules() {
@@ -238,6 +240,9 @@ const RatesSeasonsModule = {
 
     if (tabId === 'tab-simulator') {
       this.populateSimulatorRooms();
+    }
+    if (tabId === 'tab-packages') {
+      this.loadPackages();
     }
   },
 
@@ -885,5 +890,505 @@ const RatesSeasonsModule = {
         </div>
       </div>
     `;
+  },
+
+  // ============================================================================
+  // PAQUETES EN PROMOCIÓN (TAREA 13) - CRUD & SERVICIOS INCLUIDOS A 0 Gs.
+  // ============================================================================
+  DEFAULT_PACKAGES: [
+    {
+      id: 'pkg-romantico-vip',
+      name: 'Paquete Romántico VIP & Espumante',
+      description: 'Botella de Champagne en la habitación, bombones de autor, circuito spa relax y late check-out extendido.',
+      room_type_id: 1,
+      package_price: 520000,
+      image_url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800',
+      is_active: true,
+      services: [
+        { catalog_item_id: 1, item_name: 'Desayuno Buffet Premium', quantity: 2 },
+        { catalog_item_id: 2, item_name: 'Circuito Spa & Sauna Relax', quantity: 2 },
+        { catalog_item_id: 4, item_name: 'Champagne Moët / Vino Espumante', quantity: 1 }
+      ]
+    },
+    {
+      id: 'pkg-relax-spa',
+      name: 'Paquete Relax & Bienestar Total',
+      description: 'Estadía reparadora con sesión completa de masaje descontracturante, spa hidroterapia y desayuno buffet.',
+      room_type_id: 2,
+      package_price: 480000,
+      image_url: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800',
+      is_active: true,
+      services: [
+        { catalog_item_id: 2, item_name: 'Masaje Descontracturante & Spa', quantity: 2 },
+        { catalog_item_id: 1, item_name: 'Desayuno Buffet Premium', quantity: 2 }
+      ]
+    },
+    {
+      id: 'pkg-ejecutivo-utcd',
+      name: 'Paquete Ejecutivo & Negocios UTCD',
+      description: 'Confort premium, room service cena gourmet y late check-out extendido sin recargo.',
+      room_type_id: 3,
+      package_price: 390000,
+      image_url: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800',
+      is_active: true,
+      services: [
+        { catalog_item_id: 1, item_name: 'Desayuno Buffet Premium', quantity: 1 },
+        { catalog_item_id: 5, item_name: 'Cena Gourmet Room Service', quantity: 1 }
+      ]
+    }
+  ],
+
+  async loadPackages() {
+    try {
+      // 1. Intentar cargar desde Supabase si la tabla existe
+      if (typeof supabaseClient !== 'undefined') {
+        const { data: pkgs, error } = await supabaseClient
+          .from('promotional_packages')
+          .select('*, package_included_services(*)')
+          .order('created_at', { ascending: false });
+
+        if (!error && pkgs && pkgs.length > 0) {
+          this.packages = pkgs.map(p => ({
+            id: p.id,
+            name: p.name,
+            description: p.description || '',
+            room_type_id: p.room_type_id,
+            package_price: Number(p.package_price),
+            image_url: p.image_url || '',
+            is_active: p.is_active !== false,
+            services: (p.package_included_services || []).map(s => ({
+              catalog_item_id: s.catalog_item_id,
+              item_name: s.item_name,
+              quantity: s.quantity || 1
+            }))
+          }));
+          this.renderPackagesTable();
+          return;
+        }
+      }
+
+      // 2. Intentar cargar desde Supabase Storage hotel-rooms/config/promotional_packages.json
+      if (typeof supabaseClient !== 'undefined') {
+        const { data: fileData, error: fileErr } = await supabaseClient.storage
+          .from('hotel-rooms')
+          .download('config/promotional_packages.json');
+
+        if (!fileErr && fileData) {
+          const text = await fileData.text();
+          const parsed = JSON.parse(text);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            this.packages = parsed;
+            this.renderPackagesTable();
+            return;
+          }
+        }
+      }
+
+      // 3. Fallback localStorage o por defecto
+      const saved = localStorage.getItem('hotel_promotional_packages');
+      if (saved) {
+        this.packages = JSON.parse(saved);
+      } else {
+        this.packages = JSON.parse(JSON.stringify(this.DEFAULT_PACKAGES));
+        localStorage.setItem('hotel_promotional_packages', JSON.stringify(this.packages));
+      }
+    } catch (e) {
+      console.warn('RatesSeasonsModule.loadPackages: usando respaldo local:', e);
+      const saved = localStorage.getItem('hotel_promotional_packages');
+      this.packages = saved ? JSON.parse(saved) : JSON.parse(JSON.stringify(this.DEFAULT_PACKAGES));
+    }
+
+    this.renderPackagesTable();
+  },
+
+  renderPackagesTable() {
+    const tbody = document.getElementById('packages-table-body');
+    if (!tbody) return;
+
+    if (!this.packages || this.packages.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">
+            <i class="fas fa-box-open" style="font-size: 28px; opacity: 0.5; margin-bottom: 8px; display: block;"></i>
+            No se han registrado paquetes promocionales aún. Cree el primero con el botón "+ Nuevo Paquete Promocional".
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = this.packages.map(pkg => {
+      // Buscar nombre de habitación base
+      let roomTypeName = 'Cualquier Categoría Base';
+      if (typeof RoomsModule !== 'undefined' && RoomsModule.roomTypes) {
+        const rt = RoomsModule.roomTypes.find(r => String(r.id) === String(pkg.room_type_id));
+        if (rt) roomTypeName = rt.nombre;
+      }
+      if (roomTypeName === 'Cualquier Categoría Base' && pkg.room_type_id) {
+        const typeMap = { 1: 'Individual Estándar', 2: 'Doble / Matrimonial', 3: 'Suite Presidencial', 4: 'Familiar Superior' };
+        if (typeMap[pkg.room_type_id]) roomTypeName = typeMap[pkg.room_type_id];
+      }
+
+      // Renderizar servicios incluidos con etiqueta de 0 Gs.
+      const servicesHtml = (pkg.services && pkg.services.length > 0)
+        ? pkg.services.map(s => `
+            <span style="display: inline-flex; align-items: center; gap: 4px; background: rgba(16, 185, 129, 0.12); color: #047857; padding: 2px 8px; border-radius: 6px; font-size: 11px; margin: 2px 4px 2px 0; border: 1px solid rgba(16, 185, 129, 0.25); font-weight: 600;">
+              <i class="fas fa-check-circle" style="font-size: 10px;"></i>
+              ${sanitizeInput(s.item_name || 'Servicio')} (x${s.quantity || 1})
+              <span style="color: #059669; font-weight: 800; margin-left: 2px;">• 0 Gs.</span>
+            </span>
+          `).join('')
+        : '<span style="color: var(--text-muted); font-size: 11px;">Sin servicios adicionales</span>';
+
+      const statusBadge = pkg.is_active !== false
+        ? '<span class="badge" style="background: #ECFDF5; color: #065F46; border: 1px solid #A7F3D0; font-weight: 700;"><i class="fas fa-circle" style="font-size: 7px; color: #10B981; margin-right: 4px;"></i>Activo</span>'
+        : '<span class="badge" style="background: #F1F5F9; color: #64748B; border: 1px solid #CBD5E1;"><i class="fas fa-pause-circle" style="margin-right: 4px;"></i>Pausado</span>';
+
+      const thumbImg = pkg.image_url
+        ? `<img src="${pkg.image_url}" alt="${sanitizeInput(pkg.name)}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid #E2E8F0; flex-shrink: 0;" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=200'">`
+        : `<div style="width: 44px; height: 44px; border-radius: 8px; background: #FEF3C7; color: #D97706; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;"><i class="fas fa-gift"></i></div>`;
+
+      return `
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              ${thumbImg}
+              <div>
+                <div style="font-weight: 700; color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(pkg.name)}</div>
+                <small style="color: var(--text-muted); font-size: 11px; display: block; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  ${sanitizeInput(pkg.description || 'Experiencia exclusiva todo incluido')}
+                </small>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span style="font-weight: 600; color: #1E293B; font-size: 12.5px;">
+              <i class="fas fa-door-open" style="color: var(--primary-blue); margin-right: 6px;"></i>${sanitizeInput(roomTypeName)}
+            </span>
+          </td>
+          <td style="max-width: 300px;">
+            <div style="display: flex; flex-wrap: wrap;">
+              ${servicesHtml}
+            </div>
+          </td>
+          <td style="text-align: right; font-weight: 800; font-size: 14px; color: var(--primary-navy);">
+            ${formatGs(pkg.package_price)}
+          </td>
+          <td style="text-align: center;">
+            ${statusBadge}
+          </td>
+          <td style="text-align: center;">
+            <div style="display: flex; gap: 6px; justify-content: center;">
+              <button class="btn btn-sm btn-outline" onclick="RatesSeasonsModule.openPackageModal('${pkg.id}')" title="Editar paquete y servicios" style="padding: 4px 8px;">
+                <i class="fas fa-edit" style="color: var(--primary-blue);"></i>
+              </button>
+              <button class="btn btn-sm btn-outline" onclick="RatesSeasonsModule.togglePackageStatus('${pkg.id}')" title="Activar / Desactivar paquete" style="padding: 4px 8px;">
+                <i class="fas ${pkg.is_active !== false ? 'fa-pause' : 'fa-play'}" style="color: ${pkg.is_active !== false ? '#D97706' : '#10B981'};"></i>
+              </button>
+              <button class="btn btn-sm btn-outline" onclick="RatesSeasonsModule.deletePackage('${pkg.id}')" title="Eliminar paquete" style="padding: 4px 8px; color: #DC2626;">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  },
+
+  openPackageModal(packageId = null) {
+    // 1. Poblar Tipos de Habitación
+    const roomTypeSelect = document.getElementById('package-room-type');
+    if (roomTypeSelect) {
+      let optionsHtml = '';
+      if (typeof RoomsModule !== 'undefined' && RoomsModule.roomTypes && RoomsModule.roomTypes.length > 0) {
+        optionsHtml = RoomsModule.roomTypes.map(t =>
+          `<option value="${t.id}">${sanitizeInput(t.nombre)} (hasta ${t.capacidad_personas || 2} pers.)</option>`
+        ).join('');
+      } else {
+        optionsHtml = `
+          <option value="1">Habitación Matrimonial Confort</option>
+          <option value="2">Habitación Doble Twin</option>
+          <option value="3">Suite Presidencial Ejecutiva</option>
+          <option value="4">Habitación Familiar Superior</option>
+        `;
+      }
+      roomTypeSelect.innerHTML = optionsHtml;
+    }
+
+    // 2. Poblar Checklist de Servicios Incluidos desde InventoryModule o catálogo
+    const checklist = document.getElementById('package-services-checklist');
+    let availableServices = [];
+    if (typeof InventoryModule !== 'undefined' && InventoryModule.salesItems && InventoryModule.salesItems.length > 0) {
+      availableServices = InventoryModule.salesItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        category: item.category || 'Servicio'
+      }));
+    } else {
+      availableServices = [
+        { id: 1, name: 'Desayuno Buffet Premium', category: 'Room Service' },
+        { id: 2, name: 'Circuito Spa & Sauna Relax', category: 'Spa' },
+        { id: 3, name: 'Botella Champagne Moët / Espumante', category: 'Minibar' },
+        { id: 4, name: 'Masaje Descontracturante 45 min', category: 'Spa' },
+        { id: 5, name: 'Tabla de Quesos & Jamones Finos', category: 'Room Service' },
+        { id: 6, name: 'Late Check-out Extendido (16:00 hs)', category: 'Servicio Extra' }
+      ];
+    }
+
+    // 3. Buscar paquete si es edición
+    const pkg = packageId ? this.packages.find(p => String(p.id) === String(packageId)) : null;
+
+    document.getElementById('package-modal-title').innerText = pkg ? 'Editar Paquete Promocional' : 'Nuevo Paquete de Promoción';
+    document.getElementById('package-id').value = pkg ? pkg.id : '';
+    document.getElementById('package-name').value = pkg ? pkg.name : '';
+    document.getElementById('package-price').value = pkg ? pkg.package_price : '';
+    document.getElementById('package-description').value = pkg ? pkg.description : '';
+    document.getElementById('package-active').value = (pkg && pkg.is_active === false) ? 'false' : 'true';
+    document.getElementById('package-image-url').value = pkg ? (pkg.image_url || '') : '';
+
+    if (pkg && pkg.room_type_id && roomTypeSelect) {
+      roomTypeSelect.value = pkg.room_type_id;
+    }
+
+    // Renderizar checklist con checkboxes y selector de cantidad
+    if (checklist) {
+      checklist.innerHTML = availableServices.map(srv => {
+        const existing = pkg && pkg.services ? pkg.services.find(s => Number(s.catalog_item_id) === Number(srv.id)) : null;
+        const isChecked = Boolean(existing);
+        const qty = existing ? (existing.quantity || 1) : 1;
+
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; background: #fff; padding: 8px 12px; border-radius: 8px; border: 1px solid #E2E8F0; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #1E293B; cursor: pointer; flex: 1; margin: 0;">
+              <input type="checkbox" class="pkg-service-check" data-id="${srv.id}" data-name="${sanitizeInput(srv.name)}" ${isChecked ? 'checked' : ''} style="width: 16px; height: 16px; accent-color: var(--primary-blue);">
+              <span>${sanitizeInput(srv.name)}</span>
+              <small style="color: var(--text-muted); font-size: 11px;">(${sanitizeInput(srv.category)})</small>
+            </label>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 11px; color: var(--text-muted); font-weight: 600;">Cant:</span>
+              <input type="number" class="pkg-service-qty form-control" data-id="${srv.id}" value="${qty}" min="1" max="10" style="width: 55px; height: 28px; padding: 2px 6px; font-size: 12px; text-align: center; font-weight: 700;">
+              <span class="badge" style="background: #ECFDF5; color: #065F46; font-size: 10px; padding: 2px 6px;">0 Gs.</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Preview de imagen
+    this.previewPackageImage(document.getElementById('package-image-url').value);
+
+    openModal('modal-promotional-package');
+  },
+
+  previewPackageImage(url) {
+    const previewContainer = document.getElementById('package-image-preview-container');
+    const previewImg = document.getElementById('package-image-preview');
+    if (!previewContainer || !previewImg) return;
+
+    if (url && url.trim().length > 5) {
+      previewImg.src = url.trim();
+      previewContainer.style.display = 'block';
+    } else {
+      previewContainer.style.display = 'none';
+    }
+  },
+
+  setPresetPackageImage() {
+    const presets = [
+      'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800',
+      'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=800',
+      'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800',
+      'https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800',
+      'https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=800'
+    ];
+    const picked = presets[Math.floor(Math.random() * presets.length)];
+    const input = document.getElementById('package-image-url');
+    if (input) {
+      input.value = picked;
+      this.previewPackageImage(picked);
+    }
+  },
+
+  async savePackage() {
+    const id = document.getElementById('package-id').value || 'pkg-' + Date.now();
+    const name = document.getElementById('package-name').value.trim();
+    const price = parseFloat(document.getElementById('package-price').value) || 0;
+    const roomTypeId = document.getElementById('package-room-type').value;
+    const description = document.getElementById('package-description').value.trim();
+    const isActive = document.getElementById('package-active').value === 'true';
+    const imageUrl = document.getElementById('package-image-url').value.trim();
+
+    if (!name) {
+      showToast('Por favor ingrese el nombre del paquete promocional', 'warning');
+      return;
+    }
+    if (price <= 0) {
+      showToast('Por favor asigne un precio cerrado válido al paquete', 'warning');
+      return;
+    }
+
+    // Recolectar servicios seleccionados del checklist
+    const selectedServices = [];
+    document.querySelectorAll('.pkg-service-check:checked').forEach(chk => {
+      const srvId = parseInt(chk.dataset.id, 10);
+      const srvName = chk.dataset.name;
+      const qtyInput = document.querySelector(`.pkg-service-qty[data-id="${srvId}"]`);
+      const quantity = qtyInput ? (parseInt(qtyInput.value, 10) || 1) : 1;
+      selectedServices.push({
+        catalog_item_id: srvId,
+        item_name: srvName,
+        quantity: quantity
+      });
+    });
+
+    if (selectedServices.length === 0) {
+      showToast('Debe marcar al menos un servicio incluido para el paquete (Regla 0 Gs.)', 'warning');
+      return;
+    }
+
+    const packageData = {
+      id: id,
+      name: name,
+      description: description,
+      room_type_id: roomTypeId ? parseInt(roomTypeId, 10) : null,
+      package_price: price,
+      image_url: imageUrl,
+      is_active: isActive,
+      services: selectedServices,
+      updated_at: new Date().toISOString()
+    };
+
+    // 1. Guardar en Supabase si es posible
+    try {
+      if (typeof supabaseClient !== 'undefined') {
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        const dbPayload = {
+          name: name,
+          description: description,
+          room_type_id: roomTypeId ? parseInt(roomTypeId, 10) : null,
+          package_price: price,
+          image_url: imageUrl,
+          is_active: isActive,
+          updated_at: new Date().toISOString()
+        };
+        if (isUUID) dbPayload.id = id;
+
+        const { data: savedDb, error: dbErr } = await supabaseClient
+          .from('promotional_packages')
+          .upsert(dbPayload)
+          .select();
+
+        if (!dbErr && savedDb && savedDb[0]) {
+          const finalPkgId = savedDb[0].id;
+          packageData.id = finalPkgId;
+
+          // Guardar servicios incluidos en package_included_services
+          await supabaseClient
+            .from('package_included_services')
+            .delete()
+            .eq('package_id', finalPkgId);
+
+          const servicesPayload = selectedServices.map(s => ({
+            package_id: finalPkgId,
+            catalog_item_id: s.catalog_item_id,
+            item_name: s.item_name,
+            quantity: s.quantity
+          }));
+
+          await supabaseClient
+            .from('package_included_services')
+            .insert(servicesPayload);
+        }
+      }
+    } catch (dbEx) {
+      console.warn('RatesSeasonsModule.savePackage: error guardando en BD relacional:', dbEx);
+    }
+
+    // 2. Actualizar lista en memoria y localStorage
+    const existingIndex = this.packages.findIndex(p => String(p.id) === String(id) || String(p.id) === String(packageData.id));
+    if (existingIndex >= 0) {
+      this.packages[existingIndex] = packageData;
+    } else {
+      this.packages.unshift(packageData);
+    }
+
+    localStorage.setItem('hotel_promotional_packages', JSON.stringify(this.packages));
+
+    // 3. Sincronizar con Supabase Storage (hotel-rooms/config/promotional_packages.json)
+    try {
+      if (typeof supabaseClient !== 'undefined') {
+        const jsonBlob = new Blob([JSON.stringify(this.packages, null, 2)], { type: 'application/json' });
+        await supabaseClient.storage
+          .from('hotel-rooms')
+          .upload('config/promotional_packages.json', jsonBlob, { upsert: true });
+      }
+    } catch (stEx) {
+      console.warn('Error sincronizando paquete con storage:', stEx);
+    }
+
+    closeModal('modal-promotional-package');
+    showToast(`Paquete "${name}" guardado exitosamente con servicios a 0 Gs.`, 'success');
+    this.renderPackagesTable();
+  },
+
+  async deletePackage(packageId) {
+    if (!confirm('¿Está seguro de que desea eliminar este paquete promocional?')) return;
+
+    try {
+      if (typeof supabaseClient !== 'undefined') {
+        await supabaseClient
+          .from('promotional_packages')
+          .delete()
+          .eq('id', packageId);
+      }
+    } catch (e) {
+      console.warn('deletePackage: error en BD:', e);
+    }
+
+    this.packages = this.packages.filter(p => String(p.id) !== String(packageId));
+    localStorage.setItem('hotel_promotional_packages', JSON.stringify(this.packages));
+
+    try {
+      if (typeof supabaseClient !== 'undefined') {
+        const jsonBlob = new Blob([JSON.stringify(this.packages, null, 2)], { type: 'application/json' });
+        await supabaseClient.storage
+          .from('hotel-rooms')
+          .upload('config/promotional_packages.json', jsonBlob, { upsert: true });
+      }
+    } catch (stEx) {}
+
+    showToast('Paquete promocional eliminado', 'info');
+    this.renderPackagesTable();
+  },
+
+  async togglePackageStatus(packageId) {
+    const pkg = this.packages.find(p => String(p.id) === String(packageId));
+    if (!pkg) return;
+
+    pkg.is_active = !pkg.is_active;
+
+    try {
+      if (typeof supabaseClient !== 'undefined') {
+        await supabaseClient
+          .from('promotional_packages')
+          .update({ is_active: pkg.is_active })
+          .eq('id', packageId);
+      }
+    } catch (e) {}
+
+    localStorage.setItem('hotel_promotional_packages', JSON.stringify(this.packages));
+
+    try {
+      if (typeof supabaseClient !== 'undefined') {
+        const jsonBlob = new Blob([JSON.stringify(this.packages, null, 2)], { type: 'application/json' });
+        await supabaseClient.storage
+          .from('hotel-rooms')
+          .upload('config/promotional_packages.json', jsonBlob, { upsert: true });
+      }
+    } catch (stEx) {}
+
+    showToast(`Paquete ${pkg.is_active ? 'activado' : 'pausado'} correctamente`, 'info');
+    this.renderPackagesTable();
   }
 };
+

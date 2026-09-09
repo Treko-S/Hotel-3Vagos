@@ -89,10 +89,13 @@
       doc.setLineWidth(0.4);
       doc.roundedRect(128, 6, 68, 24, 2, 2, 'FD');
 
+      const masterRuc = (typeof SettingsModule !== 'undefined' && SettingsModule.currentSettings?.ruc) || window.HOTEL_GLOBAL_SETTINGS?.ruc || '80092341-2';
+      const masterName = (typeof SettingsModule !== 'undefined' && SettingsModule.currentSettings?.hotel_name) || window.HOTEL_GLOBAL_SETTINGS?.hotel_name || 'Hotel 3 Vagos';
+
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8.5);
       doc.setTextColor(...navy);
-      doc.text('RUC: 80092341-2', 132, 11);
+      doc.text('RUC: ' + masterRuc, 132, 11);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7.5);
@@ -451,6 +454,9 @@
       const concepto = data.concepto || 'Servicio de Alojamiento y Hospedaje Hotelero';
       const fecha = data.fecha_emision ? data.fecha_emision.split('T')[0] : new Date().toLocaleDateString('es-PY');
 
+      const masterRuc = (typeof SettingsModule !== 'undefined' && SettingsModule.currentSettings?.ruc) || window.HOTEL_GLOBAL_SETTINGS?.ruc || '80092341-2';
+      const masterName = (typeof SettingsModule !== 'undefined' && SettingsModule.currentSettings?.hotel_name) || window.HOTEL_GLOBAL_SETTINGS?.hotel_name || 'Hotel 3 Vagos';
+
       // 1. Membrete Fiscal SET
       doc.setFillColor(...navy);
       doc.rect(0, 0, 210, 3.5, 'F');
@@ -458,13 +464,13 @@
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(16);
       doc.setTextColor(...navy);
-      doc.text('HOTEL 3 VAGOS S.A.', 14, 15);
+      doc.text(masterName.toUpperCase() + ' S.A.', 14, 15);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(...slate);
       doc.text('Servicios de Alojamiento, Gastronomía y Eventos Turísticos', 14, 20);
-      doc.text('Casa Central: Asunción, Paraguay • Tel: +595 21 555-0199', 14, 24);
+      doc.text('Casa Central: Asunción, Paraguay • Tel: +595 21 600 000', 14, 24);
       doc.text('Email: facturacion@hotel3vagos.com.py', 14, 28);
 
       // Recuadro Timbrado Legal SET (Derecha)
@@ -480,7 +486,7 @@
       doc.setFontSize(7.5);
       doc.text('Vigencia: 01/01/2026 al 31/12/2026', 132, 16);
       doc.setFont('helvetica', 'bold');
-      doc.text('RUC: 80092341-2', 132, 21);
+      doc.text('RUC: ' + masterRuc, 132, 21);
       doc.setFontSize(10);
       doc.setTextColor(180, 83, 9);
       doc.text(`FACTURA: ${invNo}`, 132, 28);

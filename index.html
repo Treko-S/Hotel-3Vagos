@@ -119,13 +119,9 @@
 
       <!-- 5. FINANZAS -->
       <div class="nav-category" data-category="finanzas">Finanzas</div>
-      <a class="nav-item" data-view="cash" data-allowed-roles="admin,finance,receptionist" title="Caja, Sesiones y Arqueos">
+      <a class="nav-item" data-view="cash" data-allowed-roles="admin,finance,receptionist" title="Caja, Sesiones, Arqueos y Facturación">
         <i class="fas fa-cash-register"></i>
         <span>Caja & Arqueos</span>
-      </a>
-      <a class="nav-item" data-view="billing" data-allowed-roles="admin,finance,receptionist" title="Facturación Legal SET y Comprobantes">
-        <i class="fas fa-file-invoice-dollar"></i>
-        <span>Facturación Legal (SET)</span>
       </a>
 
       <!-- 6. SISTEMA -->
@@ -886,175 +882,280 @@
       </section>
 
       <!-- =====================================================
-           VIEW 6: CAJA & FACTURACIÓN
+           VIEW 6: CAJA, ARQUEOS & FACTURACIÓN LEGAL
            ===================================================== -->
       <section id="view-cash" class="view-section">
-        <!-- Estado de Caja Activa -->
-        <div id="cash-status-box" style="margin-bottom: 24px;">
-          <!-- Dinámico -->
-        </div>
-
-        <!-- Tarjetas Resumen de Ingresos por Medio de Pago -->
-        <div id="cash-methods-kpis" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
-          <!-- Dinámico: Efectivo, Tarjetas (POS Mostrador), QR / Billetera, Consolidado -->
+        <!-- Barra de Pestañas Principales de Caja & Finanzas -->
+        <div class="luxury-subtabs" style="margin-bottom: 20px;">
+          <button class="subtab-btn active" id="btn-subtab-cash-operations" onclick="CashBillingModule.switchCashSubtab('operations', this)">
+            <i class="fas fa-cash-register"></i> Operaciones & Flujo de Caja
+          </button>
+          <button class="subtab-btn" id="btn-subtab-cash-billing" onclick="CashBillingModule.switchCashSubtab('billing', this)">
+            <i class="fas fa-file-invoice-dollar"></i> Facturación Legal (SET Paraguay)
+          </button>
+          <button class="subtab-btn" id="btn-subtab-cash-history" onclick="CashBillingModule.switchCashSubtab('history', this)">
+            <i class="fas fa-history"></i> Historial de Turnos & Arqueos
+          </button>
         </div>
 
         <!-- =====================================================
-             NUEVO APARTADO: CANCELACIONES & REEMBOLSOS PENDIENTES
+             SUBTAB 1: OPERACIONES & FLUJO DE CAJA
              ===================================================== -->
-        <div id="cash-cancellations-panel" class="card-panel" style="margin-bottom: 24px; border-left: 4px solid #DC2626; box-shadow: var(--shadow-sm); display: none;">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-              <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
-                <span style="width: 34px; height: 34px; border-radius: 8px; background: rgba(220, 38, 38, 0.12); color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                  <i class="fas fa-undo-alt"></i>
+        <div id="subtab-cash-operations" class="cash-subtab-content active">
+          <!-- Estado de Caja Activa -->
+          <div id="cash-status-box" style="margin-bottom: 24px;">
+            <!-- Dinámico desde CashBillingModule -->
+          </div>
+
+          <!-- Tarjetas Resumen de Ingresos por Medio de Pago -->
+          <div id="cash-methods-kpis" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <!-- Dinámico: Efectivo, Tarjetas POS, App Móvil (Tarjetas 24/7), Egresos/Vales, Penalidades, Ganancia Consolidada -->
+          </div>
+
+          <!-- CANCELACIONES & REEMBOLSOS PENDIENTES -->
+          <div id="cash-cancellations-panel" class="card-panel" style="margin-bottom: 24px; border-left: 4px solid #DC2626; box-shadow: var(--shadow-sm); display: none;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                  <span style="width: 34px; height: 34px; border-radius: 8px; background: rgba(220, 38, 38, 0.12); color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                    <i class="fas fa-undo-alt"></i>
+                  </span>
+                  <span style="color: #991B1B;">Reembolsos Pendientes por Cancelación (Tarifa Flexible)</span>
+                </h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                  Reservas canceladas a tiempo. Mostrador reembolsa en efectivo de la gaveta; App Móvil reembolsa por transferencia bancaria sin afectar la caja física.
+                </p>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <span id="cash-cancellations-badge-count" class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-weight: 800;">
+                  0 Pendientes
                 </span>
-                <span style="color: #991B1B;">Reembolsos Pendientes por Cancelación (Tarifa Flexible)</span>
-              </h3>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                Reservas canceladas a tiempo que requieren reintegro del anticipo al cliente para cuadrar el arqueo de caja
-              </p>
+                <button class="btn btn-outline" style="padding: 7px 14px; font-size: 12px;" onclick="CashBillingModule.loadCancellationRefunds()" title="Actualizar lista de reembolsos">
+                  <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+              </div>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <span id="cash-cancellations-badge-count" class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-weight: 800;">
-                0 Pendientes
+
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Código / Reserva</th>
+                    <th>Habitación</th>
+                    <th>Huésped Titular</th>
+                    <th>Plan de Tarifa</th>
+                    <th>Fecha Cancelación</th>
+                    <th style="text-align: right;">Anticipo Pagado</th>
+                    <th style="text-align: right;">Reembolso a Devolver</th>
+                    <th style="text-align: center;">Estado Reembolso</th>
+                    <th style="text-align: center;">Acción de Caja</th>
+                  </tr>
+                </thead>
+                <tbody id="cash-cancellations-tbody">
+                  <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">Consultando reembolsos pendientes...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- RESERVAS CON SALDOS PENDIENTES DE COBRO -->
+          <div class="card-panel" style="margin-bottom: 24px; border-left: 4px solid var(--accent-gold); box-shadow: var(--shadow-sm);">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
+                  <span style="width: 34px; height: 34px; border-radius: 8px; background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                    <i class="fas fa-hand-holding-usd"></i>
+                  </span>
+                  <span>Reservas con Saldos Pendientes de Cobro</span>
+                </h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                  Liquidación de folios, check-in, check-out y cobros de mostrador para recepción (Efectivo, Tarjetas POS y QR)
+                </p>
+              </div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button class="btn btn-outline" style="padding: 7px 14px; font-size: 12px;" onclick="CashBillingModule.loadPendingBalances()" title="Actualizar saldos pendientes">
+                  <i class="fas fa-sync-alt"></i> Actualizar
+                </button>
+              </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Código / Reserva</th>
+                    <th>Habitación</th>
+                    <th>Huésped Titular</th>
+                    <th>Fechas Estadía</th>
+                    <th style="text-align: right;">Total Estadía</th>
+                    <th style="text-align: right;">Abonado</th>
+                    <th style="text-align: right;">Saldo Pendiente</th>
+                    <th style="text-align: center;">Estado</th>
+                    <th style="text-align: center;">Acción de Cobro</th>
+                  </tr>
+                </thead>
+                <tbody id="cash-pending-reservations-tbody">
+                  <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Cargando reservas con saldos pendientes...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Auditoría de Ingresos & Cobros (Folios y Señas) -->
+          <div class="card-panel" style="margin-bottom: 24px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 class="panel-title"><i class="fas fa-money-check-alt" style="color: var(--primary);"></i> Ingresos & Cobros por Canal y Método de Pago</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Identificación automática de cobros de recepción (mostrador) y cobros online de la App Móvil 24/7</p>
+              </div>
+              <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 11.5px; padding: 4px 10px;">
+                <i class="fas fa-check-double"></i> Conciliación Bancaria 24/7 Activa
               </span>
-              <button class="btn btn-outline" style="padding: 7px 14px; font-size: 12px;" onclick="CashBillingModule.loadCancellationRefunds()" title="Actualizar lista de reembolsos">
-                <i class="fas fa-sync-alt"></i> Actualizar
-              </button>
             </div>
-          </div>
-
-          <div style="overflow-x: auto;">
-            <table class="custom-table">
-              <thead>
-                <tr>
-                  <th>Código / Reserva</th>
-                  <th>Habitación</th>
-                  <th>Huésped Titular</th>
-                  <th>Plan de Tarifa</th>
-                  <th>Fecha Cancelación</th>
-                  <th style="text-align: right;">Anticipo Pagado</th>
-                  <th style="text-align: right;">Reembolso a Devolver</th>
-                  <th style="text-align: center;">Estado Reembolso</th>
-                  <th style="text-align: center;">Acción de Caja</th>
-                </tr>
-              </thead>
-              <tbody id="cash-cancellations-tbody">
-                <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">Consultando reembolsos pendientes...</td></tr>
-              </tbody>
-            </table>
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Fecha / Hora</th>
+                    <th>Folio / Reserva</th>
+                    <th>Huésped</th>
+                    <th>Canal de Cobro</th>
+                    <th>Método de Pago Identificado</th>
+                    <th>Referencia / Comprobante</th>
+                    <th style="text-align: right;">Monto Ingresado</th>
+                    <th>Destino Financiero</th>
+                    <th>Estado Factura</th>
+                  </tr>
+                </thead>
+                <tbody id="cash-payments-table-body">
+                  <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">Cargando registros de ingresos...</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         <!-- =====================================================
-             NUEVO APARTADO: RESERVAS CON SALDOS PENDIENTES DE COBRO
+             SUBTAB 2: FACTURACIÓN LEGAL & TRIBUTARIA (SET PARAGUAY)
              ===================================================== -->
-        <div class="card-panel" style="margin-bottom: 24px; border-left: 4px solid var(--accent-gold); box-shadow: var(--shadow-sm);">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-              <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
-                <span style="width: 34px; height: 34px; border-radius: 8px; background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                  <i class="fas fa-hand-holding-usd"></i>
-                </span>
-                <span>Reservas con Saldos Pendientes de Cobro</span>
-              </h3>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                Liquidación de folios, check-in, check-out y cobros de mostrador para recepción (Efectivo, Tarjetas POS y QR)
-              </p>
+        <div id="subtab-cash-billing" class="cash-subtab-content" style="display: none;">
+          <div class="card-panel" style="margin-bottom: 24px;">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 class="panel-title"><i class="fas fa-file-invoice-dollar" style="color: var(--accent-gold);"></i> Facturación Legal & Tributaria (SET Paraguay)</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                  Emisión oficial de comprobantes tributarios, régimen general IVA 10%, timbrado N° 16789423 y libro de ventas
+                </p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-outline" onclick="CashBillingModule.loadInvoices()">
+                  <i class="fas fa-sync-alt"></i> Sincronizar Facturas
+                </button>
+              </div>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button class="btn btn-outline" style="padding: 7px 14px; font-size: 12px;" onclick="CashBillingModule.loadPendingBalances()" title="Actualizar saldos pendientes">
-                <i class="fas fa-sync-alt"></i> Actualizar
-              </button>
-            </div>
-          </div>
 
-          <div style="overflow-x: auto;">
-            <table class="custom-table">
-              <thead>
-                <tr>
-                  <th>Código / Reserva</th>
-                  <th>Habitación</th>
-                  <th>Huésped Titular</th>
-                  <th>Fechas Estadía</th>
-                  <th style="text-align: right;">Total Estadía</th>
-                  <th style="text-align: right;">Abonado</th>
-                  <th style="text-align: right;">Saldo Pendiente</th>
-                  <th style="text-align: center;">Estado</th>
-                  <th style="text-align: center;">Acción de Cobro</th>
-                </tr>
-              </thead>
-              <tbody id="cash-pending-reservations-tbody">
-                <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Cargando reservas con saldos pendientes...</td></tr>
-              </tbody>
-            </table>
+            <!-- KPIs Fiscales SET -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 20px;">
+              <div class="kpi-card" style="border-left: 4px solid var(--accent-gold);">
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Total Ventas Gravadas</p>
+                <h3 id="tax-total-gravadas" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">0 Gs.</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Base imponible acumulada del período</p>
+              </div>
+              <div class="kpi-card" style="border-left: 4px solid #10B981;">
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Débito Fiscal IVA 10%</p>
+                <h3 id="tax-total-iva" style="font-size: 22px; font-weight: 800; color: #059669; margin: 6px 0 2px;">0 Gs.</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Impuesto liquidado a favor del Fisco</p>
+              </div>
+              <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
+                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Facturas Homologadas</p>
+                <h3 id="tax-total-invoices-count" style="font-size: 22px; font-weight: 800; color: #2563EB; margin: 6px 0 2px;">0</h3>
+                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Comprobantes emitidos con timbrado legal</p>
+              </div>
+            </div>
+
+            <!-- Banner Timbrado Vigente -->
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                  <i class="fas fa-stamp"></i>
+                </div>
+                <div>
+                  <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin: 0;">Timbrado Oficial SET: N° 16789423</h4>
+                  <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">
+                    RUC: <strong id="billing-hotel-ruc">80092341-2</strong> • Razón Social: <strong id="billing-hotel-name">HOTEL 3 VAGOS S.A.</strong> • Vigencia hasta: 31/12/2026
+                  </p>
+                </div>
+              </div>
+              <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-weight: 700;">
+                <i class="fas fa-shield-alt"></i> Homologación SET Activa
+              </span>
+            </div>
+
+            <!-- Tabla de Comprobantes Emitidos -->
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Fecha Emisión</th>
+                    <th>N° Factura</th>
+                    <th>RUC / CI</th>
+                    <th>Razón Social</th>
+                    <th>Concepto / Reserva</th>
+                    <th style="text-align: right;">Total Liquidado</th>
+                    <th style="text-align: right;">IVA 10%</th>
+                    <th>Medio de Pago</th>
+                    <th style="text-align: center;">Acciones (PDF)</th>
+                  </tr>
+                </thead>
+                <tbody id="invoices-table-body">
+                  <!-- Dinámico -->
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
-        <!-- Auditoría de Ingresos & Cobros (Folios y Señas) -->
-        <div class="card-panel" style="margin-bottom: 24px;">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-              <h3 class="panel-title"><i class="fas fa-money-check-alt" style="color: var(--primary);"></i> Ingresos & Cobros por Canal y Método de Pago</h3>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Identificación automática de cobros de recepción (mostrador) y cobros online de la App Móvil 24/7</p>
+        <!-- =====================================================
+             SUBTAB 3: HISTORIAL DE TURNOS & AUDITORÍA DE ARQUEOS
+             ===================================================== -->
+        <div id="subtab-cash-history" class="cash-subtab-content" style="display: none;">
+          <div class="card-panel">
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 class="panel-title"><i class="fas fa-history" style="color: var(--primary);"></i> Historial de Turnos & Auditoría de Arqueos de Caja</h3>
+                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                  Registro histórico de sesiones cerradas, recuento físico de billetes/monedas y diferencias para auditoría financiera
+                </p>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-outline" onclick="CashBillingModule.loadSessionsHistory()">
+                  <i class="fas fa-sync-alt"></i> Sincronizar Historial
+                </button>
+              </div>
             </div>
-            <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 11.5px; padding: 4px 10px;">
-              <i class="fas fa-check-double"></i> Conciliación Bancaria 24/7 Activa
-            </span>
-          </div>
-          <div style="overflow-x: auto;">
-            <table class="custom-table">
-              <thead>
-                <tr>
-                  <th>Fecha / Hora</th>
-                  <th>Folio / Reserva</th>
-                  <th>Huésped</th>
-                  <th>Canal de Cobro</th>
-                  <th>Método de Pago Identificado</th>
-                  <th>Referencia / Comprobante</th>
-                  <th style="text-align: right;">Monto Ingresado</th>
-                  <th>Destino Financiero</th>
-                  <th>Estado Factura</th>
-                </tr>
-              </thead>
-              <tbody id="cash-payments-table-body">
-                <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">Cargando registros de ingresos...</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
 
-        <!-- Facturas Emitidas -->
-        <div class="card-panel">
-          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <div>
-              <h3 class="panel-title"><i class="fas fa-file-invoice" style="color: var(--primary);"></i> Comprobantes & Facturación Legal (SET Paraguay)</h3>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Régimen Tributario General • Timbrado N° 16789423 • RUC 80092341-2</p>
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>N° Sesión / Turno</th>
+                    <th>Responsable</th>
+                    <th>Horario Turno</th>
+                    <th style="text-align: right;">Fondo Apertura</th>
+                    <th style="text-align: right;">Cobros Efectivo</th>
+                    <th style="text-align: right;">Egresos / Vales</th>
+                    <th style="text-align: right;">Efectivo Teórico</th>
+                    <th style="text-align: right;">Real Contado (Arqueo)</th>
+                    <th style="text-align: center;">Diferencia</th>
+                    <th style="text-align: center;">Estado</th>
+                    <th style="text-align: center;">Detalle Arqueo</th>
+                  </tr>
+                </thead>
+                <tbody id="cash-sessions-history-tbody">
+                  <tr><td colspan="11" style="text-align: center; padding: 24px; color: var(--text-muted);">Cargando historial de auditoría de cajas...</td></tr>
+                </tbody>
+              </table>
             </div>
-            <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 11.5px; padding: 4px 10px;">
-              <i class="fas fa-shield-alt"></i> Facturas Homologadas por SET
-            </span>
-          </div>
-          <div style="overflow-x: auto;">
-            <table class="custom-table">
-              <thead>
-                <tr>
-                  <th>Fecha Emisión</th>
-                  <th>N° Factura</th>
-                  <th>RUC / CI</th>
-                  <th>Razón Social</th>
-                  <th>Concepto / Reserva</th>
-                  <th style="text-align: right;">Total Liquidado</th>
-                  <th style="text-align: right;">IVA 10%</th>
-                  <th>Medio de Pago</th>
-                  <th style="text-align: center;">Acciones (PDF)</th>
-                </tr>
-              </thead>
-              <tbody id="invoices-table-body">
-                <!-- Dinámico -->
-              </tbody>
-            </table>
           </div>
         </div>
       </section>
@@ -1215,6 +1316,9 @@
             <button class="rates-tab-btn" data-tab="tab-rate-plans" onclick="RatesSeasonsModule.switchTab('tab-rate-plans')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
               <i class="fas fa-layer-group"></i> Planes
             </button>
+            <button class="rates-tab-btn" data-tab="tab-packages" onclick="RatesSeasonsModule.switchTab('tab-packages')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
+              <i class="fas fa-box-open"></i> Paquetes en Promocion
+            </button>
           </div>
 
           <div style="padding: 24px;">
@@ -1329,6 +1433,38 @@
                   </thead>
                   <tbody id="rate-plans-table-body">
                     <!-- Dinámico -->
+                  </tbody>
+                </table>
+            <!-- TAB 4: PAQUETES EN PROMOCIÓN (TAREA 13) -->
+            <div id="tab-packages" class="rates-tab-content" style="display: none;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--primary-navy);">
+                    <i class="fas fa-box-open" style="color: var(--accent-gold);"></i> Paquetes de Promoción & Add-ons Cerrados
+                  </h4>
+                  <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">
+                    Experiencias todo incluido vinculadas al tipo de habitación base. Los servicios incluidos se cargan con 0 Gs. al folio.
+                  </p>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="RatesSeasonsModule.openPackageModal()">
+                  <i class="fas fa-plus-circle"></i> Nuevo Paquete Promocional
+                </button>
+              </div>
+
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Paquete Promocional</th>
+                      <th>Tipo de Habitación Base</th>
+                      <th>Servicios Incluidos (Folio 0 Gs.)</th>
+                      <th style="text-align: right;">Precio Paquete (Cerrado)</th>
+                      <th style="text-align: center;">Estado</th>
+                      <th style="text-align: center;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="packages-table-body">
+                    <tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--text-muted);">Cargando paquetes promocionales...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1600,161 +1736,222 @@
         </div>
       </section>
 
-      <!-- =====================================================
-           VIEW: FACTURACIÓN LEGAL (SET) (FINANZAS)
-           ===================================================== -->
-      <section id="view-billing" class="view-section">
-        <div class="card-panel">
-          <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
-            <div>
-              <h3 class="panel-title"><i class="fas fa-file-invoice-dollar" style="color: var(--accent-gold);"></i> Facturación Legal & Tributaria (SET Paraguay)</h3>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                Emisión de comprobantes tributarios, régimen general IVA 10%, control de timbrado N° 16789423 y reportes fiscales
-              </p>
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-outline" onclick="if(typeof CashBillingModule!=='undefined') CashBillingModule.init();">
-                <i class="fas fa-sync-alt"></i> Sincronizar Facturas
-              </button>
-            </div>
-          </div>
 
-          <!-- Luxury Sub-tabs -->
-          <div class="luxury-subtabs">
-            <button class="subtab-btn active" onclick="switchBillingSubtab('invoices', this)">
-              <i class="fas fa-file-invoice"></i> Comprobantes & Facturas Emitidas
-            </button>
-            <button class="subtab-btn" onclick="switchBillingSubtab('taxreport', this)">
-              <i class="fas fa-calculator"></i> Libro Ventas & Liquidación IVA
-            </button>
-            <button class="subtab-btn" onclick="switchBillingSubtab('timbrado', this)">
-              <i class="fas fa-stamp"></i> Parámetros de Timbrado SET
-            </button>
-          </div>
-
-          <div id="subtab-billing-invoices" class="subtab-content active">
-            <div style="overflow-x: auto;">
-              <table class="custom-table">
-                <thead>
-                  <tr>
-                    <th>Fecha Emisión</th>
-                    <th>N° Factura</th>
-                    <th>RUC / CI</th>
-                    <th>Razón Social</th>
-                    <th>Concepto / Reserva</th>
-                    <th style="text-align: right;">Total Liquidado</th>
-                    <th style="text-align: right;">IVA 10%</th>
-                    <th>Medio de Pago</th>
-                    <th style="text-align: center;">Acciones (PDF)</th>
-                  </tr>
-                </thead>
-                <tbody id="billing-view-invoices-tbody">
-                  <!-- Sincronizado dinámicamente -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div id="subtab-billing-taxreport" class="subtab-content">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
-              <div class="kpi-card" style="border-left: 4px solid var(--accent-gold);">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Total Ventas Gravadas</p>
-                <h3 id="tax-total-gravadas" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">0 Gs.</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Base imponible acumulada</p>
-              </div>
-              <div class="kpi-card" style="border-left: 4px solid #10B981;">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Débito Fiscal IVA 10%</p>
-                <h3 id="tax-total-iva" style="font-size: 22px; font-weight: 800; color: #059669; margin: 6px 0 2px;">0 Gs.</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Liquidación mensual SET</p>
-              </div>
-            </div>
-          </div>
-
-          <div id="subtab-billing-timbrado" class="subtab-content">
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 10px;">
-                <i class="fas fa-certificate" style="color: var(--accent-gold);"></i> Timbrado Oficial Vigente
-              </h4>
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">RUC: 80092341-2 • Razón Social: HOTEL 3 VAGOS S.A. • Timbrado N°: 16789423 • Vigencia: 31/12/2026</p>
-              <button class="btn btn-outline" onclick="openModal('modal-hotel-config')"><i class="fas fa-sliders-h"></i> Editar Parámetros de Timbrado</button>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <!-- =====================================================
            VIEW: REPORTES & ANALÍTICA (SISTEMA)
            ===================================================== -->
       <section id="view-analytics" class="view-section">
-        <div class="card-panel">
-          <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
+        <div class="card-panel" style="margin-bottom: 24px;">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
             <div>
-              <h3 class="panel-title"><i class="fas fa-chart-line" style="color: var(--accent-gold);"></i> Reportes & Analítica Hotelera</h3>
+              <h3 class="panel-title"><i class="fas fa-chart-line" style="color: var(--accent-gold);"></i> Reportes & Analítica Hotelera Integral</h3>
               <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                Métricas financieras, RevPAR, ADR, ocupación mensual y balance ejecutivo para toma de decisiones
+                Auditoría financiera, RevPAR, ADR, ocupación mensual, canales de venta y generación de reportes ejecutivos en PDF
               </p>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn-report-pdf" onclick="DashboardModule.downloadExecutiveReportPdf()">
-                <i class="fas fa-file-pdf" style="color: #F87171;"></i> Descargar Balance Oficial PDF
+            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+              <select id="analytics-period-select" class="form-control" style="width: auto; height: 38px; font-size: 12.5px; font-weight: 600;" onchange="if(typeof DashboardModule!=='undefined') DashboardModule.renderAnalyticsMetrics();">
+                <option value="current_month">Mes Actual (Septiembre 2026)</option>
+                <option value="last_month">Mes Anterior (Agosto 2026)</option>
+                <option value="current_year">Año Fiscal 2026</option>
+              </select>
+              <button class="btn btn-primary" onclick="DashboardModule.downloadExecutiveReportPdf()" style="display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fas fa-file-pdf" style="color: #F87171;"></i> Generar Reporte Oficial PDF
               </button>
+            </div>
+          </div>
+
+          <!-- Top Executive KPIs Grid -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0;">
+            <div class="kpi-card" style="border-left: 4px solid #10B981;">
+              <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ocupación Promedio</p>
+              <h3 id="analytics-kpi-occupancy" style="font-size: 22px; font-weight: 800; color: #059669; margin: 6px 0 2px;">0%</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Capacidad total disponible</p>
+            </div>
+            <div class="kpi-card" style="border-left: 4px solid #2563EB;">
+              <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">ADR (Tarifa Promedio)</p>
+              <h3 id="analytics-kpi-adr" style="font-size: 22px; font-weight: 800; color: #1D4ED8; margin: 6px 0 2px;">0 Gs.</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Por noche/habitación ocupada</p>
+            </div>
+            <div class="kpi-card" style="border-left: 4px solid var(--accent-gold);">
+              <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">RevPAR Global</p>
+              <h3 id="analytics-kpi-revpar" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">0 Gs.</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Rendimiento s/ inventario total</p>
+            </div>
+            <div class="kpi-card" style="border-left: 4px solid #8B5CF6;">
+              <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ingresos Consolidados</p>
+              <h3 id="analytics-kpi-revenue" style="font-size: 22px; font-weight: 800; color: #6D28D9; margin: 6px 0 2px;">0 Gs.</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Cobros mostrador + app móvil</p>
             </div>
           </div>
 
           <!-- Luxury Sub-tabs -->
           <div class="luxury-subtabs">
             <button class="subtab-btn active" onclick="switchAnalyticsSubtab('executive', this)">
-              <i class="fas fa-file-alt"></i> Balance Ejecutivo & KPIs
+              <i class="fas fa-file-invoice-dollar"></i> Balance Ejecutivo & Rentabilidad
             </button>
-            <button class="subtab-btn" onclick="switchAnalyticsSubtab('revpar', this)">
-              <i class="fas fa-chart-bar"></i> RevPAR & Rendimiento
+            <button class="subtab-btn" onclick="switchAnalyticsSubtab('channels', this)">
+              <i class="fas fa-network-wired"></i> Desglose por Canales & Pagos
+            </button>
+            <button class="subtab-btn" onclick="switchAnalyticsSubtab('operations', this)">
+              <i class="fas fa-concierge-bell"></i> Operación & Housekeeping
             </button>
             <button class="subtab-btn" onclick="switchAnalyticsSubtab('audit', this)">
-              <i class="fas fa-moon"></i> Auditoría Nocturna
+              <i class="fas fa-moon"></i> Auditoría Nocturna & Bancaria
             </button>
           </div>
 
+          <!-- SUBTAB 1: BALANCE EJECUTIVO & RENTABILIDAD -->
           <div id="subtab-analytics-executive" class="subtab-content active">
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 24px; margin-bottom: 20px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+              
+              <!-- Estado de Resultados Resumido -->
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
+                <h4 style="font-size: 15px; font-weight: 700; color: var(--primary-navy); margin-bottom: 14px;">
+                  <i class="fas fa-calculator" style="color: var(--accent-gold);"></i> Estado de Rendimiento Financiero
+                </h4>
+                <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+                  <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #E2E8F0; padding-bottom: 6px;">
+                    <span style="color: #475569;">Ingresos por Hospedaje:</span>
+                    <strong id="analytics-inc-rooms" style="color: #166534;">+0 Gs.</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #E2E8F0; padding-bottom: 6px;">
+                    <span style="color: #475569;">Ingresos por Consumo & Minibar:</span>
+                    <strong id="analytics-inc-consumptions" style="color: #166534;">+0 Gs.</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #E2E8F0; padding-bottom: 6px;">
+                    <span style="color: #475569;">Penalidades Retenidas (No Reembolsables):</span>
+                    <strong id="analytics-inc-penalties" style="color: #166534;">+0 Gs.</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #E2E8F0; padding-bottom: 6px;">
+                    <span style="color: #DC2626;">Egresos Operativos & Vales de Caja:</span>
+                    <strong id="analytics-exp-total" style="color: #991B1B;">-0 Gs.</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #E2E8F0; padding-bottom: 6px;">
+                    <span style="color: #64748B;">Débito Fiscal IVA 10% (SET Paraguay):</span>
+                    <strong id="analytics-tax-vat" style="color: #475569;">0 Gs.</strong>
+                  </div>
+                  <div style="border-top: 2px solid #CBD5E1; padding-top: 10px; margin-top: 4px; display: flex; justify-content: space-between; font-size: 15px; font-weight: 800;">
+                    <span style="color: var(--primary-navy);">Utilidad Neta Consolidada:</span>
+                    <strong id="analytics-net-profit" style="color: var(--accent-gold); font-size: 16px;">0 Gs.</strong>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Certificación y Exportación Oficial en PDF -->
+              <div style="background: linear-gradient(135deg, rgba(15, 23, 42, 0.03) 0%, rgba(212, 175, 55, 0.08) 100%); border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
-                  <h4 style="font-size: 16px; font-weight: 700; color: var(--primary-navy); margin-bottom: 6px;">
-                    <i class="fas fa-shield-alt" style="color: var(--accent-gold);"></i> Generación de Reporte Certificado en PDF
-                  </h4>
-                  <p style="font-size: 12.5px; color: var(--text-muted);">
-                    Documento membretado oficial con desglose de ocupación, cobros en mostrador vs App Móvil, liquidación de IVA y estado de cajas.
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                    <div style="width: 36px; height: 36px; border-radius: 8px; background: rgba(212, 175, 55, 0.2); color: var(--accent-gold); display: flex; align-items: center; justify-content: center; font-size: 16px;">
+                      <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <div>
+                      <h4 style="font-size: 15px; font-weight: 700; color: var(--primary-navy); margin: 0;">Reporte Mensual Ejecutivo PDF</h4>
+                      <p style="font-size: 11.5px; color: var(--text-muted); margin: 1px 0 0;">Documento oficial membretado y foliado</p>
+                    </div>
+                  </div>
+                  <p style="font-size: 12.5px; color: #475569; line-height: 1.5; margin: 12px 0;">
+                    El reporte exportado incluye: desglose de ocupación por habitación, liquidación tributaria SET con RUC del hotel, conciliación bancaria de la App Móvil 24/7 y estado de arqueos físicos.
                   </p>
                 </div>
-                <button class="btn btn-primary" onclick="DashboardModule.downloadExecutiveReportPdf()" style="padding: 10px 20px; font-size: 13px;">
-                  <i class="fas fa-download"></i> Exportar Reporte PDF
-                </button>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="btn btn-primary" onclick="DashboardModule.downloadExecutiveReportPdf()" style="flex: 1; padding: 10px 14px; font-size: 13px;">
+                    <i class="fas fa-download"></i> Descargar Balance PDF
+                  </button>
+                  <button class="btn btn-outline" onclick="window.print()" style="padding: 10px 14px; font-size: 13px;">
+                    <i class="fas fa-print"></i> Imprimir
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- SUBTAB 2: DESGLOSE POR CANALES & PAGOS -->
+          <div id="subtab-analytics-channels" class="subtab-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <span style="font-size: 13px; font-weight: 700; color: var(--primary-navy);">
+                    <i class="fas fa-mobile-alt" style="color: #6366F1;"></i> Canal App Móvil (24/7)
+                  </span>
+                  <span class="badge" style="background: #EEF2FF; color: #4F46E5;">Bancario</span>
+                </div>
+                <h3 id="analytics-channel-app" style="font-size: 22px; font-weight: 800; color: #4338CA; margin: 0 0 4px;">0 Gs.</h3>
+                <p style="font-size: 11.5px; color: var(--text-muted); margin: 0;">Tarjetas Débito / Crédito pasarela online</p>
+              </div>
+
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <span style="font-size: 13px; font-weight: 700; color: var(--primary-navy);">
+                    <i class="fas fa-money-bill-wave" style="color: #16A34A;"></i> Mostrador (Efectivo Físico)
+                  </span>
+                  <span class="badge" style="background: #DCFCE7; color: #166534;">Cajón</span>
+                </div>
+                <h3 id="analytics-channel-cash" style="font-size: 22px; font-weight: 800; color: #15803D; margin: 0 0 4px;">0 Gs.</h3>
+                <p style="font-size: 11.5px; color: var(--text-muted); margin: 0;">Ingresos cobrados en mano en recepción</p>
+              </div>
+
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                  <span style="font-size: 13px; font-weight: 700; color: var(--primary-navy);">
+                    <i class="fas fa-credit-card" style="color: #2563EB;"></i> Mostrador (Tarjetas POS)
+                  </span>
+                  <span class="badge" style="background: #EFF6FF; color: #1D4ED8;">POS Físico</span>
+                </div>
+                <h3 id="analytics-channel-pos" style="font-size: 22px; font-weight: 800; color: #1D4ED8; margin: 0 0 4px;">0 Gs.</h3>
+                <p style="font-size: 11.5px; color: var(--text-muted); margin: 0;">Vouchers POS en mesada de front desk</p>
               </div>
             </div>
           </div>
 
-          <div id="subtab-analytics-revpar" class="subtab-content">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
-              <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">ADR (Tarifa Promedio Diaria)</p>
-                <h3 id="analytics-kpi-adr" style="font-size: 22px; font-weight: 800; color: #2563EB; margin: 6px 0 2px;">220.000 Gs.</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Por habitación vendida</p>
+          <!-- SUBTAB 3: OPERACIÓN & HOUSEKEEPING -->
+          <div id="subtab-analytics-operations" class="subtab-content" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px;">
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 10px;">
+                  <i class="fas fa-broom" style="color: #10B981;"></i> Eficiencia de Housekeeping
+                </h4>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Control de limpieza y tiempos de entrega de habitaciones.</p>
+                <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0;">
+                  <span>Habitaciones Limpias & Listas:</span>
+                  <strong id="analytics-ops-clean">0</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0;">
+                  <span>En Proceso de Limpieza:</span>
+                  <strong id="analytics-ops-cleaning">0</strong>
+                </div>
               </div>
-              <div class="kpi-card" style="border-left: 4px solid var(--accent-gold);">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">RevPAR (Ingreso por Hab. Disp.)</p>
-                <h3 id="analytics-kpi-revpar" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">154.000 Gs.</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Métrica global de rentabilidad</p>
+
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px;">
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 10px;">
+                  <i class="fas fa-tools" style="color: #F59E0B;"></i> Mantenimiento & Disponibilidad
+                </h4>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">Monitoreo de incidencias y paradas técnicas.</p>
+                <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0;">
+                  <span>Órdenes de Mantenimiento Activas:</span>
+                  <strong id="analytics-ops-maint">0</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0;">
+                  <span>Habitaciones Bloqueadas:</span>
+                  <strong id="analytics-ops-blocked">0</strong>
+                </div>
               </div>
             </div>
           </div>
 
-          <div id="subtab-analytics-audit" class="subtab-content">
+          <!-- SUBTAB 4: AUDITORÍA NOCTURNA -->
+          <div id="subtab-analytics-audit" class="subtab-content" style="display: none;">
             <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 8px;">
-                <i class="fas fa-moon" style="color: #6366F1;"></i> Cierre y Auditoría Nocturna
+              <h4 style="font-size: 15px; font-weight: 700; color: var(--primary-navy); margin-bottom: 8px;">
+                <i class="fas fa-moon" style="color: #6366F1;"></i> Protocolo de Auditoría Nocturna
               </h4>
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">Verifica la sincronización de reservas, pase de estadías no-show y consolidación bancaria del día.</p>
-              <button class="btn btn-outline" onclick="showToast('Auditoría nocturna ejecutada con éxito. Registros al día.', 'success')">
-                <i class="fas fa-check-circle"></i> Ejecutar Verificación Nocturna
+              <p style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 16px;">
+                Verifica el balance de la jornada, la conciliación entre folios abiertos, cobros de pasarela online y el arqueo de caja de recepción.
+              </p>
+              <button class="btn btn-primary" onclick="showToast('Auditoría nocturna ejecutada. Cuentas y folios conciliados correctamente.', 'success')">
+                <i class="fas fa-check-double"></i> Ejecutar Verificación Nocturna
               </button>
             </div>
           </div>
@@ -1782,18 +1979,22 @@
 
           <!-- Luxury Sub-tabs -->
           <div class="luxury-subtabs">
-            <button class="subtab-btn active" onclick="switchUsersSubtab('directory', this)">
-              <i class="fas fa-users"></i> Directorio del Personal
+            <button class="subtab-btn active" id="btn-subtab-users-staff" onclick="switchUsersSubtab('staff', this)">
+              <i class="fas fa-id-badge"></i> Personal del Hotel (Colaboradores)
             </button>
-            <button class="subtab-btn" onclick="switchUsersSubtab('matrix', this)">
-              <i class="fas fa-id-badge"></i> Matriz de Permisos RBAC
+            <button class="subtab-btn" id="btn-subtab-users-app-guests" onclick="switchUsersSubtab('app-guests', this)">
+              <i class="fas fa-mobile-alt"></i> Huéspedes de la App Móvil
             </button>
-            <button class="subtab-btn" onclick="switchUsersSubtab('devices', this)">
+            <button class="subtab-btn" id="btn-subtab-users-matrix" onclick="switchUsersSubtab('matrix', this)">
+              <i class="fas fa-table"></i> Matriz de Permisos RBAC
+            </button>
+            <button class="subtab-btn" id="btn-subtab-users-devices" onclick="switchUsersSubtab('devices', this)">
               <i class="fas fa-fingerprint"></i> Dispositivos & Sesiones
             </button>
           </div>
 
-          <div id="subtab-users-directory" class="subtab-content active">
+          <!-- TAB 1: PERSONAL DEL HOTEL -->
+          <div id="subtab-users-staff" class="users-subtab-content active">
             <div style="overflow-x: auto;">
               <table class="custom-table">
                 <thead>
@@ -1807,6 +2008,41 @@
                 </thead>
                 <tbody id="users-directory-tbody">
                   <!-- Rellenado dinámicamente desde AuthModule.STAFF_ACCOUNTS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- TAB 2: HUÉSPEDES REGISTRADOS EN LA APP MÓVIL (TAREA 15) -->
+          <div id="subtab-users-app-guests" class="users-subtab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--primary-navy);">
+                  <i class="fas fa-users" style="color: var(--primary-blue);"></i> Registro Central de Usuarios de la App Móvil
+                </h4>
+                <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">
+                  Cuentas de huéspedes registradas en la aplicación de huéspedes para autogestión de estadías
+                </p>
+              </div>
+              <button class="btn btn-outline btn-sm" onclick="renderAppGuestsTable()">
+                <i class="fas fa-sync-alt"></i> Actualizar Huéspedes
+              </button>
+            </div>
+            <div style="overflow-x: auto;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Huésped App</th>
+                    <th>Correo Electrónico</th>
+                    <th>Documento CI / Pasaporte</th>
+                    <th>Teléfono / WhatsApp</th>
+                    <th>Nacionalidad</th>
+                    <th>Reservas en App</th>
+                    <th>Estado</th>
+                  </tr>
+                </thead>
+                <tbody id="users-app-guests-tbody">
+                  <tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">Cargando usuarios registrados en la app móvil...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1899,79 +2135,187 @@
       </section>
 
       <!-- =====================================================
-           VIEW: CONFIGURACIÓN GENERAL (SISTEMA)
+           VIEW: CONFIGURACIÓN GENERAL (SISTEMA - TAREA 16)
            ===================================================== -->
       <section id="view-settings" class="view-section">
         <div class="card-panel">
-          <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
+          <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
             <div>
-              <h3 class="panel-title"><i class="fas fa-sliders-h" style="color: var(--accent-gold);"></i> Configuración General del Hotel</h3>
+              <h3 class="panel-title"><i class="fas fa-sliders-h" style="color: var(--accent-gold);"></i> Configuración General del PMS Hotelero</h3>
               <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                Políticas institucionales, horarios de check-in / out, parámetros de cancelación y vinculación con la App Móvil
+                Parámetros maestros, políticas legales y motor base sincronizados globalmente con la App Móvil y el ecosistema web
               </p>
             </div>
             <div style="display: flex; gap: 8px;">
-              <button class="btn btn-primary" onclick="openModal('modal-hotel-config')">
-                <i class="fas fa-edit"></i> Abrir Editor Completo de Parámetros
+              <button type="button" class="btn btn-primary" onclick="SettingsModule.saveSettings()" id="btn-save-master-settings">
+                <i class="fas fa-save"></i> Guardar Cambios Globales
               </button>
             </div>
           </div>
 
-          <!-- Luxury Sub-tabs -->
+          <!-- 3 Luxury Master Sub-tabs -->
           <div class="luxury-subtabs">
-            <button class="subtab-btn active" onclick="switchSettingsSubtab('identity', this)">
-              <i class="fas fa-hotel"></i> Identidad & Contacto
+            <button class="subtab-btn active" id="btn-subtab-settings-profile" onclick="switchSettingsSubtab('profile', this)">
+              <i class="fas fa-hotel"></i> Tab 1: Perfil & Parámetros
             </button>
-            <button class="subtab-btn" onclick="switchSettingsSubtab('policies', this)">
-              <i class="fas fa-clock"></i> Horarios & Cancelación
+            <button class="subtab-btn" id="btn-subtab-settings-policies" onclick="switchSettingsSubtab('policies', this)">
+              <i class="fas fa-file-contract"></i> Tab 2: Políticas & Horarios
             </button>
-            <button class="subtab-btn" onclick="switchSettingsSubtab('system', this)">
-              <i class="fas fa-database"></i> Conectividad & Supabase
+            <button class="subtab-btn" id="btn-subtab-settings-engine" onclick="switchSettingsSubtab('engine', this)">
+              <i class="fas fa-cogs"></i> Tab 3: Motor Base (Habitaciones & Tarifas)
             </button>
           </div>
 
-          <div id="subtab-settings-identity" class="subtab-content active">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
-              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px;">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 6px;">Nombre Oficial</p>
-                <h4 style="font-size: 16px; font-weight: 700; color: var(--primary-navy);">Hotel 3 Vagos</h4>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Asunción, Paraguay • RUC: 80092341-2</p>
+          <form id="form-master-settings" onsubmit="event.preventDefault(); SettingsModule.saveSettings();">
+            
+            <!-- TAB 1: PERFIL & PARÁMETROS -->
+            <div id="subtab-settings-profile" class="settings-subtab-content active">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-bottom: 20px;">
+                <div class="form-group">
+                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Nombre Oficial del Hotel *</label>
+                  <input type="text" id="setting-hotel-name" class="form-control" value="Hotel 3 Vagos" required>
+                </div>
+                <div class="form-group">
+                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Nombre Comercial / Slogan</label>
+                  <input type="text" id="setting-commercial-name" class="form-control" value="Hospitality UTCD">
+                </div>
+                <div class="form-group">
+                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">RUC del Hotel (SET Paraguay) *</label>
+                  <input type="text" id="setting-ruc" class="form-control" value="80092341-2" required style="font-family: monospace; font-weight: 700;">
+                  <small style="font-size: 11px; color: var(--text-muted);">Impacta directamente en la facturación legal y comprobantes</small>
+                </div>
+                <div class="form-group">
+                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Moneda Base *</label>
+                  <input type="text" id="setting-currency" class="form-control" value="Gs." required style="font-weight: 700;">
+                </div>
+                <div class="form-group">
+                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Zona Horaria Oficial</label>
+                  <select id="setting-timezone" class="form-control">
+                    <option value="America/Asuncion" selected>America/Asuncion (UTC-04:00 / UTC-03:00)</option>
+                    <option value="America/Buenos_Aires">America/Buenos_Aires (UTC-03:00)</option>
+                    <option value="America/Sao_Paulo">America/Sao_Paulo (UTC-03:00)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Teléfono de Contacto</label>
+                  <input type="text" id="setting-phone" class="form-control" value="+595 21 600 000">
+                </div>
+                <div class="form-group">
+                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">WhatsApp de Recepción</label>
+                  <input type="text" id="setting-whatsapp" class="form-control" value="+595 981 123 456">
+                </div>
+                <div class="form-group">
+                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Email de Reservas</label>
+                  <input type="email" id="setting-email" class="form-control" value="reservas@hotel3vagos.com.py">
+                </div>
               </div>
-              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px;">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 6px;">Atención al Huésped</p>
-                <h4 style="font-size: 16px; font-weight: 700; color: #059669;">+595 981 123 456</h4>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">WhatsApp & Recepción 24/7</p>
-              </div>
-            </div>
-          </div>
 
-          <div id="subtab-settings-policies" class="subtab-content">
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                <div>
-                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Check-in Estándar</label>
-                  <p style="font-size: 14px; font-weight: 600; color: #334155; margin-top: 4px;">14:00 hs</p>
-                </div>
-                <div>
-                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Check-out Estándar</label>
-                  <p style="font-size: 14px; font-weight: 600; color: #334155; margin-top: 4px;">11:00 hs</p>
-                </div>
-                <div>
-                  <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Cancelación Gratuita</label>
-                  <p style="font-size: 14px; font-weight: 600; color: #334155; margin-top: 4px;">Hasta 48 hs antes</p>
+              <div class="form-group" style="margin-bottom: 18px;">
+                <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Dirección Física</label>
+                <input type="text" id="setting-address" class="form-control" value="Avda. Santa Teresa c/ Aviadores del Chaco, Asunción, Paraguay">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 20px;">
+                <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">URL del Logo Oficial</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                  <input type="url" id="setting-logo-url" class="form-control" value="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800" oninput="SettingsModule.previewLogo(this.value)">
+                  <img id="setting-logo-preview" src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800" alt="Logo preview" style="width: 42px; height: 42px; object-fit: cover; border-radius: 8px; border: 1px solid #CBD5E1;">
                 </div>
               </div>
             </div>
-          </div>
 
-          <div id="subtab-settings-system" class="subtab-content">
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Sincronización en la nube con Supabase Realtime y Web Sockets activa.</p>
-              <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 12px; padding: 6px 12px;">
-                <i class="fas fa-check-circle"></i> Supabase PostgreSQL Conectado
-              </span>
+            <!-- TAB 2: POLÍTICAS & HORARIOS -->
+            <div id="subtab-settings-policies" class="settings-subtab-content" style="display: none;">
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 12px;">
+                  <i class="fas fa-clock" style="color: var(--accent-gold);"></i> Horarios Operativos de Check-in y Check-out
+                </h4>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+                  Se transmiten directamente a los resúmenes de reserva y confirmaciones por email de la App Móvil y Mostrador.
+                </p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+                  <div class="form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Hora de Check-in *</label>
+                    <input type="time" id="setting-checkin-time" class="form-control" value="14:00" required style="font-weight: 700; font-size: 15px;">
+                    <small style="font-size: 11px; color: var(--text-muted);">Horario habilitado para ingreso del huésped</small>
+                  </div>
+                  <div class="form-group">
+                    <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">Hora de Check-out *</label>
+                    <input type="time" id="setting-checkout-time" class="form-control" value="11:00" required style="font-weight: 700; font-size: 15px;">
+                    <small style="font-size: 11px; color: var(--text-muted);">Límite de entrega de llave y desocupación</small>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 18px;">
+                <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">
+                  <i class="fas fa-undo-alt" style="color: #DC2626;"></i> Texto Legal de Política de Cancelación y Reembolso *
+                </label>
+                <textarea id="setting-cancellation-text" class="form-control" rows="3" required placeholder="Condiciones oficiales para cancelación y reintegros..."></textarea>
+                <small style="font-size: 11px; color: var(--text-muted);">Consumido dinámicamente por la pantalla de Políticas de la App Móvil.</small>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 20px;">
+                <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy);">
+                  <i class="fas fa-gavel" style="color: var(--primary-blue);"></i> Términos de Convivencia y Condiciones Generales
+                </label>
+                <textarea id="setting-terms-text" class="form-control" rows="4" placeholder="Normas del hotel, no fumar, horario de silencio, etc."></textarea>
+              </div>
             </div>
-          </div>
+
+            <!-- TAB 3: MOTOR BASE (HABITACIONES & TARIFAS) -->
+            <div id="subtab-settings-engine" class="settings-subtab-content" style="display: none;">
+              <!-- Regla de Impuestos Base (IVA 10%) -->
+              <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px; margin-bottom: 20px;">
+                <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 10px;">
+                  <i class="fas fa-percentage" style="color: #10B981;"></i> Regla Base de Impuesto al Valor Agregado (IVA)
+                </h4>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Porcentaje estándar aplicado a las liquidaciones y facturación homologada SET.</p>
+                <div style="display: flex; gap: 12px; align-items: center; max-width: 320px;">
+                  <div class="form-group" style="margin: 0; flex: 1;">
+                    <label style="font-size: 11.5px; font-weight: 600;">Tasa Base IVA (%)</label>
+                    <input type="number" id="setting-tax-vat-rate" class="form-control" min="0" max="30" step="0.5" value="10.0" style="font-weight: 700; font-size: 15px;">
+                  </div>
+                  <span class="badge" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; font-weight: 700; margin-top: 16px;">
+                    IVA 10% Paraguay
+                  </span>
+                </div>
+              </div>
+
+              <!-- ABM Simple de Categorías Base de Habitación -->
+              <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                  <div>
+                    <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin: 0;">
+                      <i class="fas fa-bed" style="color: var(--accent-gold);"></i> Tipos de Habitación (Categorías Base)
+                    </h4>
+                    <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">Definición estructural de tipologías y capacidad máxima absoluta para el motor de reservas.</p>
+                  </div>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.openNewRoomTypeDialog()">
+                    <i class="fas fa-plus"></i> Nueva Categoría Base
+                  </button>
+                </div>
+
+                <div style="overflow-x: auto;">
+                  <table class="custom-table" style="font-size: 13px;">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Nombre de la Categoría</th>
+                        <th style="text-align: center;">Capacidad Máxima Absoluta</th>
+                        <th style="text-align: right;">Tarifa Base de Referencia</th>
+                        <th style="text-align: center;">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody id="settings-room-types-tbody">
+                      <tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--text-muted);">Cargando categorías maestras...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </form>
         </div>
       </section>
 
@@ -4814,6 +5158,99 @@
     </div>
   </div>
 
+  <!-- Modal ABM Paquetes Promocionales (Tarea 13) -->
+  <div id="modal-promotional-package" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 620px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            <i class="fas fa-box-open"></i>
+          </div>
+          <div>
+            <h3 id="package-modal-title" style="font-size: 18px; color: var(--primary-navy); margin: 0;">
+              Nuevo Paquete de Promoción
+            </h3>
+            <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0;">Configuración de experiencia cerrada y servicios con folio a 0 Gs.</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-promotional-package')">&times;</button>
+      </div>
+
+      <form id="form-package-editor" onsubmit="event.preventDefault(); RatesSeasonsModule.savePackage();">
+        <input type="hidden" id="package-id">
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Nombre del Paquete *</label>
+            <input type="text" id="package-name" class="form-control" placeholder="Ej: Paquete Romántico VIP" required>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Precio Cerrado (Gs.) *</label>
+            <input type="number" id="package-price" class="form-control" min="0" step="1000" placeholder="Ej: 450000" required style="font-weight: 700; color: var(--primary-navy);">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Tipo de Habitación Base *</label>
+            <select id="package-room-type" class="form-control" required>
+              <option value="">Cargando tipos de habitación...</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Estado del Paquete</label>
+            <select id="package-active" class="form-control">
+              <option value="true">Activo (Visible en App Móvil y Web)</option>
+              <option value="false">Inactivo (Pausado)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 12px; font-weight: 600;">Descripción de la Experiencia</label>
+          <textarea id="package-description" class="form-control" rows="2" placeholder="Ej: Incluye botella de espumante fría en habitación, bombones artesanales y acceso libre al spa."></textarea>
+        </div>
+
+        <!-- Servicios Incluidos del Catálogo (Regla Contable 0 Gs.) -->
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy); text-transform: uppercase; margin: 0;">
+              <i class="fas fa-concierge-bell" style="color: var(--accent-gold);"></i> Servicios Incluidos del Catálogo *
+            </label>
+            <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-size: 11px;">
+              Regla Contable: Folio a 0 Gs.
+            </span>
+          </div>
+          <p style="font-size: 11.5px; color: var(--text-muted); margin: 0 0 10px;">
+            Marque los ítems que el huésped recibirá sin cargo adicional durante su estancia (el costo está diluido en el precio del paquete):
+          </p>
+
+          <div id="package-services-checklist" style="max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px;">
+            <div style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 12px;">Cargando catálogo de servicios...</div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+          <label style="font-size: 12px; font-weight: 600;">URL Imagen Promocional</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="url" id="package-image-url" class="form-control" placeholder="https://images.unsplash.com/..." oninput="RatesSeasonsModule.previewPackageImage(this.value)">
+            <button type="button" class="btn btn-outline btn-sm" onclick="RatesSeasonsModule.setPresetPackageImage()">Imagen Sugerida</button>
+          </div>
+          <div id="package-image-preview-container" style="margin-top: 8px; display: none;">
+            <img id="package-image-preview" src="" alt="Vista previa" style="width: 100%; max-height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid #E2E8F0;">
+          </div>
+        </div>
+
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-promotional-package')">Cancelar</button>
+          <button type="submit" id="btn-save-package" class="btn btn-primary">
+            <i class="fas fa-save"></i> Guardar Paquete Promocional
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal Registro / Edición de Proveedor -->
   <div id="modal-provider" class="modal-backdrop">
     <div class="modal-box" style="max-width: 520px; padding: 24px; border-radius: var(--radius-xl);">
@@ -5201,6 +5638,7 @@
   <script src="js/modules/inventory.js?v=2.7"></script>
   <script src="js/modules/cash_billing.js?v=2.7"></script>
   <script src="js/modules/guests.js?v=3.2"></script>
+  <script src="js/modules/settings.js?v=3.0"></script>
   <script src="js/app.js?v=3.2"></script>
 </body>
 </html>
