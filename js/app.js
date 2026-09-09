@@ -221,8 +221,8 @@ function switchView(viewId) {
     'rates': { title: 'Tarifas & Temporadas', subtitle: 'Revenue management, temporadas anuales, promociones y add-ons' },
     'housekeeping': { title: 'Housekeeping & Calidad', subtitle: 'Control de limpieza, checklists de áreas y asignación a mucamas' },
     'maintenance': { title: 'Mantenimiento & Incidencias', subtitle: 'Control de órdenes técnicas, costos y reparaciones' },
-    'consumptions': { title: 'Consumos, Frigobar & Room Service', subtitle: 'Control de reposición de minibar, pedidos de app y cargos a folio' },
-    'inventory': { title: 'Inventario & Kardex', subtitle: 'Control de insumos de pañol, stock valorizado y catálogo para venta' },
+    'consumptions': { title: 'Consumo & Servicios', subtitle: 'Catálogo oficial de Minibar, Restaurante / Room Service y Servicios Adicionales' },
+    'inventory': { title: 'Inventario & Kardex', subtitle: 'Control de insumos de pañol, stock valorizado y kardex de movimientos' },
     'purchases': { title: 'Compras & Proveedores', subtitle: 'Directorio de proveedores, órdenes de compra y recepción de insumos' },
     'cash': { title: 'Caja & Arqueos', subtitle: 'Control de sesiones de caja, arqueos, egresos y reembolsos' },
     'billing': { title: 'Facturación Legal (SET Paraguay)', subtitle: 'Emisión de comprobantes tributarios, timbrado y libro de ventas' },
@@ -245,12 +245,25 @@ function switchView(viewId) {
   if (viewId === 'inventory' && typeof InventoryModule !== 'undefined') InventoryModule.init();
   if (viewId === 'rates' && typeof RatesSeasonsModule !== 'undefined') RatesSeasonsModule.init();
   if (viewId === 'housekeeping' && typeof HousekeepingModule !== 'undefined') HousekeepingModule.loadHousekeepingBoard();
-  if (viewId === 'maintenance' && typeof MaintenanceModule !== 'undefined') MaintenanceModule.loadOrders();
+  if (viewId === 'maintenance' && typeof MaintenanceModule !== 'undefined') {
+    MaintenanceModule.loadOrders();
+    MaintenanceModule.loadIncidentsInbox();
+  }
+  if (viewId === 'consumptions' && typeof InventoryModule !== 'undefined') {
+    InventoryModule.renderSalesCatalog();
+  }
   if (viewId === 'cash' && typeof CashBillingModule !== 'undefined') CashBillingModule.init();
   if (viewId === 'guests' && typeof GuestsModule !== 'undefined') GuestsModule.loadGuests();
 
   // Nuevas vistas integradas
-  if (viewId === 'purchases') renderPurchasesProvidersView();
+  if (viewId === 'purchases') {
+    if (typeof InventoryModule !== 'undefined') {
+      InventoryModule.switchComprasSubTab(InventoryModule.comprasActiveSubTab || 'orders');
+      InventoryModule.updateComprasKPIs();
+    } else {
+      renderPurchasesProvidersView();
+    }
+  }
   if (viewId === 'billing') renderBillingViewInvoices();
   if (viewId === 'analytics') renderAnalyticsMetrics();
   if (viewId === 'users') renderUsersDirectory();

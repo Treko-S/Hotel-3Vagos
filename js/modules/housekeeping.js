@@ -211,18 +211,98 @@ const HousekeepingModule = {
     }
   },
 
+  // Historial de Limpiezas Completadas (Tarea 7)
+  getCleaningHistory() {
+    try {
+      const saved = localStorage.getItem('hotel_hk_completed_history');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [
+      {
+        id: 'clh-1',
+        roomNumber: '101',
+        roomType: 'Habitación Standard Single (Piso 1)',
+        maid: 'Rosa Almada',
+        finishedAt: 'Hoy 11:20 hs',
+        notes: 'Checklist 10/10 verificado. Habitación desinfectada y aromatizada.',
+        status: 'Disponible'
+      },
+      {
+        id: 'clh-2',
+        roomNumber: '202',
+        roomType: 'Habitación Doble Twin (Piso 2)',
+        maid: 'Elena Morales',
+        finishedAt: 'Hoy 10:45 hs',
+        notes: 'Checklist 10/10 verificado. Reposición de minibar y blancos al 100%.',
+        status: 'Disponible'
+      },
+      {
+        id: 'clh-3',
+        roomNumber: '301',
+        roomType: 'Suite Presidencial Imperial (Piso 3)',
+        maid: 'Carmen Duarte',
+        finishedAt: 'Ayer 16:30 hs',
+        notes: 'Checklist 10/10 verificado. Jacuzzi sanitizado con precinto higiénico.',
+        status: 'Disponible'
+      }
+    ];
+  },
+
+  saveCleaningHistory(hist) {
+    try {
+      localStorage.setItem('hotel_hk_completed_history', JSON.stringify(hist));
+    } catch (e) {}
+  },
+
+  renderCleaningHistory() {
+    const tbody = document.getElementById('hk-history-table-body');
+    if (!tbody) return;
+    const list = this.getCleaningHistory();
+    if (!list || list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay registros previos en el historial de limpieza.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(item => `
+      <tr>
+        <td>
+          <div style="font-weight: 600; color: #1E293B; font-size: 13px;">${sanitizeInput(item.finishedAt)}</div>
+        </td>
+        <td>
+          <strong style="color: var(--primary-navy); font-size: 14px;">Habitación ${sanitizeInput(item.roomNumber)}</strong>
+        </td>
+        <td>
+          <span style="font-size: 12.5px; color: #334155;">${sanitizeInput(item.roomType || '-')}</span>
+        </td>
+        <td>
+          <div style="font-weight: 700; color: var(--primary-navy); display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-user-check" style="color: #10B981;"></i> ${sanitizeInput(item.maid)}
+          </div>
+        </td>
+        <td>
+          <span class="badge" style="background: #ECFDF5; color: #047857; font-size: 11px; margin-bottom: 3px; display: inline-block;">
+            <i class="fas fa-clipboard-check"></i> Protocolo Conforme
+          </span>
+          <div style="font-size: 11.5px; color: var(--text-muted); max-width: 280px;">${sanitizeInput(item.notes || '-')}</div>
+        </td>
+        <td>
+          <span class="badge badge-disponible"><i class="fas fa-check-double"></i> ${sanitizeInput(item.status || 'Disponible')}</span>
+        </td>
+      </tr>
+    `).join('');
+  },
+
   switchTab(tabName) {
     const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
     
+    // Tarea 7: Solo existen 'jefa' y 'mucama'
+    if (tabName !== 'jefa' && tabName !== 'mucama') {
+      tabName = 'jefa';
+    }
+
     // Si el usuario es mucama, queda bloqueada en 'mucama'
     if (currentRole === 'mucama') {
       tabName = 'mucama';
-    }
-
-    // Si intenta acceder a incidencias y no es admin, se bloquea y redirige
-    if (tabName === 'incidents' && currentRole !== 'administrador') {
-      showToast('Acceso denegado: La bitácora de incidencias es de auditoría exclusiva del Administrador General.', 'warning');
-      tabName = (currentRole === 'mucama') ? 'mucama' : 'jefa';
     }
 
     this.activeTab = tabName;
@@ -233,17 +313,14 @@ const HousekeepingModule = {
     if (targetBtn) targetBtn.classList.add('active');
 
     // Mostrar sección correspondiente
-    const tabs = ['jefa', 'mucama', 'keys', 'incidents'];
-    tabs.forEach(t => {
-      const el = document.getElementById(`hk-content-${t}`);
-      if (el) el.style.display = (t === tabName) ? 'block' : 'none';
-    });
+    const jefaEl = document.getElementById('hk-content-jefa');
+    const mucamaEl = document.getElementById('hk-content-mucama');
+    if (jefaEl) jefaEl.style.display = (tabName === 'jefa') ? 'block' : 'none';
+    if (mucamaEl) mucamaEl.style.display = (tabName === 'mucama') ? 'block' : 'none';
 
     // Renderizar datos de la pestaña
     if (tabName === 'jefa') this.renderJefaView();
     if (tabName === 'mucama') this.renderMucamaView();
-    if (tabName === 'keys') this.renderKeysMatrix();
-    if (tabName === 'incidents') this.renderIncidentsTable();
   },
 
   /**
@@ -251,7 +328,7 @@ const HousekeepingModule = {
    * - Orden estricto de prioridades (1, 2, 3)
    * - Si la habitación ya tiene tarea asignada: Botón "Editar Tarea"
    * - Si NO tiene tarea asignada: Botón "Asignar Tarea"
-   * - Se elimina el botón Checklist (que es exclusivo de la mucama)
+   * - Muestra estado y el Historial de Limpiezas Realizadas (Tarea 7)
    */
   renderJefaView() {
     const tbody = document.getElementById('hk-jefa-table-body');
@@ -343,11 +420,13 @@ const HousekeepingModule = {
     });
 
     tbody.innerHTML = html;
+    this.renderCleaningHistory();
   },
 
   /**
-   * TAB 2: VISTA MUCAMA / ASISTENTE DE LIMPIEZA
-   * - Las órdenes están estrictamente separadas por usuario (Mucama 1 NO ve las de Mucama 2)
+   * TAB 2: VISTA MUCAMA / ASISTENTE DE LIMPIEZA (Tarea 7)
+   * - Tareas estrictamente separadas por usuario (Usuario 1 NO ve las de Usuario 2)
+   * - La Jefa de limpieza solo visualiza en modo supervisión (no puede realizar acciones en el panel)
    */
   renderMucamaView() {
     const container = document.getElementById('hk-mucama-grid');
@@ -356,13 +435,14 @@ const HousekeepingModule = {
     const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
     const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
     const isMucama = (currentRole === 'mucama');
+    const isJefa = (currentRole === 'gobernanta');
     const orders = this.getOrders();
 
     let assignedList = [];
 
     if (isMucama) {
-      // La mucama SOLO puede ver las habitaciones asignadas a su propio usuario
-      const myName = (currentUser && currentUser.name) ? currentUser.name : 'Rosa Almada';
+      // La mucama SOLO puede ver las habitaciones asignadas a su propio usuario (Aislamiento RBAC estricto)
+      const myName = (currentUser && currentUser.name) ? currentUser.name : (currentUser?.username || 'Rosa Almada');
       const myFirstName = myName.toLowerCase().split(' ')[0].replace(/[^a-z]/g, '');
 
       assignedList = this.currentRooms.filter(room => {
@@ -376,7 +456,6 @@ const HousekeepingModule = {
       const filterMaid = document.getElementById('filter-mucama-select')?.value || 'ALL';
       assignedList = this.currentRooms.filter(room => {
         const ord = orders[String(room.id)];
-        // ¡Únicamente habitaciones que tengan una orden real asignada!
         if (!ord) return false;
         if (filterMaid === 'ALL') return true;
         return (ord.maid || '').toLowerCase().includes(filterMaid.toLowerCase());
@@ -411,7 +490,6 @@ const HousekeepingModule = {
       const ord = orders[String(room.id)];
       if (!ord) return;
       
-      // Cálculo de Estado Efectivo: Una habitación no puede estar 'Disponible' si requiere limpieza
       let effectiveStatus = room.estado;
       if (ord && (ord.priority === 1 || ord.priority === 2) && room.estado === 'Disponible') {
         effectiveStatus = (ord.status === 'En limpieza') ? 'En limpieza' : 'Sucia';
@@ -458,14 +536,22 @@ const HousekeepingModule = {
             </div>
           </div>
 
-          <div style="display: flex; gap: 8px; margin-top: auto;">
-            <button class="btn btn-sm btn-gold" style="flex: 2; padding: 8px 12px; font-weight: 600;" onclick="HousekeepingModule.openCleaningChecklist(${room.id})">
-              <i class="fas fa-clipboard-check"></i> Abrir Checklist 5/5
-            </button>
-            <button class="btn btn-sm btn-outline" style="flex: 1; padding: 8px; color: #D97706; border-color: #FCD34D;" onclick="HousekeepingModule.openIncidentModal(${room.numero})" title="Reportar avería o faltante con foto">
-              <i class="fas fa-camera"></i> Incidencia
-            </button>
-          </div>
+          ${isJefa ? `
+            <!-- Modo Supervisión Jefa de Limpieza: solo visualización de estado, sin ejecutar checklist -->
+            <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 8px 10px; font-size: 11.5px; color: #1E40AF; display: flex; align-items: center; gap: 6px; margin-top: auto;">
+              <i class="fas fa-eye" style="color: #2563EB;"></i>
+              <span><strong>Supervisión Jefa:</strong> Acción exclusiva de la mucama asignada (${sanitizeInput(ord.maid)}).</span>
+            </div>
+          ` : `
+            <div style="display: flex; gap: 8px; margin-top: auto;">
+              <button class="btn btn-sm btn-gold" style="flex: 2; padding: 8px 12px; font-weight: 600;" onclick="HousekeepingModule.openCleaningChecklist(${room.id})">
+                <i class="fas fa-clipboard-check"></i> Abrir Checklist
+              </button>
+              <button class="btn btn-sm btn-outline" style="flex: 1; padding: 8px; color: #D97706; border-color: #FCD34D;" onclick="HousekeepingModule.openIncidentModal(${room.numero})" title="Reportar avería o faltante con foto">
+                <i class="fas fa-camera"></i> Incidencia
+              </button>
+            </div>
+          `}
         </div>
       `;
     });
@@ -1027,8 +1113,9 @@ const HousekeepingModule = {
 
     const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
     const reporterInput = document.getElementById('incident-reporter');
-    if (reporterInput && currentUser) {
-      reporterInput.value = currentUser.name || 'Mucama de Turno';
+    if (reporterInput) {
+      reporterInput.value = (currentUser && currentUser.name) ? currentUser.name : (currentUser?.username || 'Rosa Almada (Mucama)');
+      reporterInput.readOnly = true;
     }
 
     // Limpiar formulario y foto
@@ -1128,11 +1215,6 @@ const HousekeepingModule = {
     this.clearIncidentPhoto();
 
     showToast(`¡Incidencia de Habitación ${roomNumber} registrada y derivada con éxito!`, 'success');
-
-    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
-    if (currentRole !== 'mucama') {
-      this.switchTab('incidents');
-    }
   },
 
   /**
@@ -1140,6 +1222,12 @@ const HousekeepingModule = {
    * - Nombre de la mucama fijado en readonly por seguridad y autoría
    */
   openCleaningChecklist(roomId) {
+    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
+    if (currentRole === 'gobernanta') {
+      showToast('Acceso restringido: La Jefa de Limpieza supervisa el progreso pero no realiza acciones dentro del panel de mucamas.', 'warning');
+      return;
+    }
+
     const room = this.currentRooms.find(r => String(r.id) === String(roomId));
     if (!room) return;
 

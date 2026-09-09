@@ -312,6 +312,28 @@ const InventoryModule = {
   /* =========================================================
      1. PESTAÑA PARA LA VENTA (SERVICIOS, ROOM SERVICE & APP)
      ========================================================= */
+  filterConsumptionsTab(cat, btn) {
+    if (btn) {
+      document.querySelectorAll('#view-consumptions .subtab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    this.selectedCategory = cat;
+    document.querySelectorAll('.sales-cat-btn').forEach(b => b.classList.remove('active'));
+    const target = document.getElementById(
+      cat === 'all' ? 'sales-filter-all' :
+      cat === 'Minibar' ? 'sales-filter-minibar' :
+      cat === 'Room Service' ? 'sales-filter-roomservice' :
+      cat === 'Spa & Bienestar' ? 'sales-filter-spa' : 'sales-filter-extra'
+    );
+    if (target) target.classList.add('active');
+    this.renderSalesCatalog();
+  },
+
+  syncSalesCatalogToRemote() {
+    this.saveSalesData();
+    showToast('✓ Catálogo de consumo y servicios sincronizado con la App Móvil con éxito.', 'success');
+  },
+
   filterSalesCategory(cat) {
     this.selectedCategory = cat;
     document.querySelectorAll('.sales-cat-btn').forEach(btn => btn.classList.remove('active'));
@@ -335,10 +357,12 @@ const InventoryModule = {
     const kpiTotal = document.getElementById('inv-sales-kpi-total');
     const kpiApp = document.getElementById('inv-sales-kpi-app');
     const kpiMinibar = document.getElementById('inv-sales-kpi-minibar');
+    const kpiRestaurant = document.getElementById('inv-sales-kpi-restaurant');
 
     if (kpiTotal) kpiTotal.innerText = this.salesItems.length;
     if (kpiApp) kpiApp.innerText = this.salesItems.filter(i => i.availableInApp).length;
     if (kpiMinibar) kpiMinibar.innerText = this.salesItems.filter(i => i.category === 'Minibar').length;
+    if (kpiRestaurant) kpiRestaurant.innerText = this.salesItems.filter(i => i.category !== 'Minibar').length;
 
     if (!tbody) return;
 
@@ -872,18 +896,43 @@ const InventoryModule = {
     this.renderInternalInventory();
   },
 
-  openStockMovementModal(itemId, type) {
-    const item = this.internalItems.find(i => i.id === itemId);
-    if (!item) return;
+  openStockMovementModal(itemIdOrType, type = null) {
+    let typeFinal = type;
+    let item = null;
 
-    document.getElementById('stock-move-item-id').value = item.id;
-    document.getElementById('stock-move-type').value = type; // 'IN' o 'OUT'
+    if (!typeFinal) {
+      if (itemIdOrType === 'egreso' || itemIdOrType === 'OUT') {
+        typeFinal = 'OUT';
+        item = this.internalItems[0];
+      } else if (itemIdOrType === 'ingreso' || itemIdOrType === 'IN') {
+        typeFinal = 'IN';
+        item = this.internalItems[0];
+      } else {
+        item = this.internalItems.find(i => i.id == itemIdOrType);
+        typeFinal = 'OUT';
+      }
+    } else {
+      item = this.internalItems.find(i => i.id == itemIdOrType);
+    }
+
+    if (!item && this.internalItems.length > 0) {
+      item = this.internalItems[0];
+    }
+    if (!item) {
+      showToast('No hay artículos en el pañol interno para realizar movimientos.', 'warning');
+      return;
+    }
+
+    const itemIdInput = document.getElementById('stock-move-item-id');
+    const typeInput = document.getElementById('stock-move-type');
+    if (itemIdInput) itemIdInput.value = item.id;
+    if (typeInput) typeInput.value = typeFinal;
 
     const titleEl = document.getElementById('stock-move-title');
     const badgeEl = document.getElementById('stock-move-badge');
     const submitBtn = document.getElementById('btn-confirm-stock-move');
 
-    if (type === 'IN') {
+    if (typeFinal === 'IN') {
       if (titleEl) titleEl.innerHTML = `<i class="fas fa-plus-circle" style="color: #10B981;"></i> Reponer Stock / Entrada a Pañol`;
       if (badgeEl) badgeEl.innerHTML = `<span class="badge" style="background: #DCFCE7; color: #166534;"><i class="fas fa-arrow-down"></i> Entrada / Compra de Bodega</span>`;
       if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-save"></i> Registrar Entrada de Stock';
@@ -893,10 +942,15 @@ const InventoryModule = {
       if (submitBtn) submitBtn.innerHTML = '<i class="fas fa-save"></i> Registrar Descuento de Stock';
     }
 
-    document.getElementById('stock-move-item-name').innerText = `${item.name} (${item.unit})`;
-    document.getElementById('stock-move-current-stock').innerText = `${item.currentStock} ${item.unit}`;
-    document.getElementById('stock-move-quantity').value = '1';
-    document.getElementById('stock-move-reason').value = type === 'OUT' ? 'Uso en limpieza de habitaciones (Mucamas)' : 'Compra y reposición desde proveedor';
+    const nameEl = document.getElementById('stock-move-item-name');
+    const stockEl = document.getElementById('stock-move-current-stock');
+    if (nameEl) nameEl.innerText = `${item.name} (${item.unit})`;
+    if (stockEl) stockEl.innerText = `${item.currentStock} ${item.unit}`;
+    
+    const qtyInput = document.getElementById('stock-move-quantity');
+    const reasonInput = document.getElementById('stock-move-reason');
+    if (qtyInput) qtyInput.value = '1';
+    if (reasonInput) reasonInput.value = typeFinal === 'OUT' ? 'Uso en limpieza de habitaciones (Mucamas)' : 'Compra y reposición desde proveedor';
 
     openModal('modal-stock-movement');
   },
@@ -1791,7 +1845,14 @@ const InventoryModule = {
   saveReception() {
     const orderId = document.getElementById('reception-order-select')?.value || 'DIRECTO';
     const provider = document.getElementById('reception-provider-name')?.value.trim() || 'Proveedor';
-    const receiver = document.getElementById('reception-receiver-select')?.value || 'Carlos Gómez (Recepción)';
+    
+    let defaultReceiver = 'Carlos Gómez (Recepción)';
+    try {
+      if (typeof AuthModule !== 'undefined' && AuthModule.getCurrentUser && AuthModule.getCurrentUser()?.nombre) {
+        defaultReceiver = AuthModule.getCurrentUser().nombre;
+      }
+    } catch(e) {}
+    const receiver = document.getElementById('reception-receiver-select')?.value || defaultReceiver;
     const docRef = document.getElementById('reception-doc-ref')?.value.trim();
     const status = document.getElementById('reception-status-select')?.value || 'Recibido Conforme';
     const itemsSummary = document.getElementById('reception-items-text')?.value.trim() || 'Insumos varios';
@@ -2001,8 +2062,12 @@ const InventoryModule = {
 
     const orderId = selVal.replace('OC:', '').replace('REC:', '');
 
-    // INTEGRACIÓN DIRECTA CON CAJA REGISTRADORA
+    // INTEGRACIÓN DIRECTA CON CAJA REGISTRADORA (BLOQUEO ESTRICTO SI CAJA CERRADA)
     if (method.includes('Efectivo')) {
+      if (typeof CashBillingModule !== 'undefined' && !CashBillingModule.isCashOpen()) {
+        showToast('⚠️ La caja física está CERRADA. Debe realizar la apertura de caja en mostrador antes de emitir pagos en efectivo a proveedores.', 'error');
+        return;
+      }
       if (typeof CashBillingModule !== 'undefined' && CashBillingModule.registrarEgresoProveedor) {
         CashBillingModule.registrarEgresoProveedor({
           monto: amount,

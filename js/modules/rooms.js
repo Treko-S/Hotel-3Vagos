@@ -172,8 +172,32 @@ const RoomsModule = {
             <div style="font-size: 11.5px; color: var(--text-muted);"><i class="fas fa-users" style="font-size: 10px;"></i> Capacidad: ${tipo.capacidad_personas || 1} huéspedes</div>
           </td>
           <td>
-            <div style="font-weight: 700; color: var(--accent-gold); font-size: 14.5px;">${formatGs(carac.precio_personalizado || tipo.precio_base_noche || 150000)}</div>
-            <small style="font-size: 10.5px; color: var(--text-muted);">${carac.precio_personalizado ? '<span style="color: #10B981; font-weight: 600;"><i class="fas fa-tag"></i> Tarifa propia</span>' : 'Base categoría'}</small>
+            ${(() => {
+              const basePrice = Number(carac.precio_personalizado || tipo.precio_base_noche || 180000);
+              const plans = (typeof RatesSeasonsModule !== 'undefined' && Array.isArray(RatesSeasonsModule.ratePlans))
+                ? RatesSeasonsModule.ratePlans.filter(p => p.active)
+                : [];
+              if (plans.length === 0) {
+                return `
+                  <div style="font-weight: 800; color: var(--accent-gold); font-size: 14.5px;">${formatGs(basePrice)}</div>
+                  <small style="font-size: 10.5px; color: var(--text-muted);">${carac.precio_personalizado ? '<span style="color: #10B981; font-weight: 600;"><i class="fas fa-tag"></i> Tarifa propia</span>' : 'Base categoría'}</small>
+                `;
+              }
+              return `
+                <div style="font-weight: 800; color: var(--accent-gold); font-size: 14px;">${formatGs(basePrice)} <span style="font-size: 10.5px; font-weight: 600; color: #64748B;">/ noche</span></div>
+                <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 4px;">
+                  ${plans.slice(0, 2).map(p => {
+                    const planRate = Math.round(basePrice * (1 - (p.discount || 0) / 100));
+                    return `
+                      <div style="font-size: 11px; display: flex; justify-content: space-between; gap: 8px; color: #475569; background: #F8FAFC; padding: 2px 6px; border-radius: 4px; border: 1px solid #E2E8F0;">
+                        <span>${sanitizeInput(p.badge || p.name)}:</span>
+                        <strong style="color: ${p.discount > 0 ? '#15803D' : 'var(--primary-navy)'};">${formatGs(planRate)}</strong>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              `;
+            })()}
           </td>
           <td>
             <div style="display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px;">

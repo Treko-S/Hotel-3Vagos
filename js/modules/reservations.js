@@ -2695,6 +2695,9 @@ const ReservationsModule = {
   /**
    * Apertura del Modal de Nueva Reserva con disponibilidad en tiempo real por fechas
    */
+  /**
+   * Apertura del Modal de Nueva Reserva con disponibilidad en tiempo real por fechas
+   */
   openNewReservationModal(presetRoomId = null) {
     const roomSelect = document.getElementById('new-res-room');
     if (!roomSelect) return;
@@ -2706,13 +2709,32 @@ const ReservationsModule = {
       return;
     }
 
+    const todayStr = getLocalDateStr(new Date());
+
     roomSelect.innerHTML = rooms.map(r => {
       const tipo = r.tipos_habitacion || {};
       const carac = (r.caracteristicas && typeof r.caracteristicas === 'object') ? r.caracteristicas : {};
       const price = carac.precio_personalizado || tipo.precio_base_noche || 150000;
+      const capacidad = tipo.capacidad_personas || 2;
       const isSelected = presetRoomId && r.id == presetRoomId ? 'selected' : '';
-      return `<option value="${r.id}" data-price="${price}" data-capacidad="${tipo.capacidad_personas || 2}" ${isSelected}>
-        Habitación ${sanitizeInput(r.numero)} - ${sanitizeInput(tipo.nombre || 'Estándar')} (${formatGs(price)}/noche) - [${sanitizeInput(r.estado)}]
+
+      // Buscar si tiene reserva activa hoy
+      const activeTodayBooking = (this.currentBookings || []).find(b => {
+        const st = (b.estado || '').toLowerCase();
+        if (st === 'cancelada' || st === 'finalizada') return false;
+        if (b.habitacion_id != r.id) return false;
+        return b.check_in_previsto <= todayStr && b.check_out_previsto > todayStr;
+      });
+
+      let statusDisplay = 'Disponible Hoy';
+      if (activeTodayBooking) {
+        statusDisplay = `Ocupada hasta ${formatDate(activeTodayBooking.check_out_previsto)} (Libre desde ${formatDate(activeTodayBooking.check_out_previsto)})`;
+      } else if (r.estado && r.estado !== 'Disponible') {
+        statusDisplay = r.estado;
+      }
+
+      return `<option value="${r.id}" data-price="${price}" data-capacidad="${capacidad}" data-tipo="${sanitizeInput(tipo.nombre || 'Habitación')}" ${isSelected}>
+        Habitación ${sanitizeInput(r.numero)} - ${sanitizeInput(tipo.nombre || 'Estándar')} (${formatGs(price)}/noche) - [${statusDisplay}]
       </option>`;
     }).join('');
 
@@ -2730,7 +2752,22 @@ const ReservationsModule = {
     if (checkInInput) checkInInput.value = toInputDate(tomorrow);
     if (checkOutInput) checkOutInput.value = toInputDate(dayAfter);
 
+    // Poblar Selector de Planes de Tarifa (Tarea 4)
+    const planSelect = document.getElementById('new-res-rate-plan');
+    if (planSelect) {
+      const activePlans = (typeof RatesSeasonsModule !== 'undefined' && Array.isArray(RatesSeasonsModule.ratePlans))
+        ? RatesSeasonsModule.ratePlans.filter(p => p.active)
+        : [
+            { code: 'flexible', name: 'Tarifa Flexible Estándar', discount: 0, badge: 'Sin Riesgo' },
+            { code: 'promo', name: 'Tarifa Promo No Reembolsable', discount: 10, badge: 'Ahorra 10% 🌟' }
+          ];
+      planSelect.innerHTML = activePlans.map(p => 
+        `<option value="${p.code}" data-discount="${p.discount || 0}">${p.name} (${p.discount > 0 ? `-${p.discount}% OFF` : 'Estándar'}) [${p.badge || 'Oficial'}]</option>`
+      ).join('');
+    }
+
     this.checkNewReservationAvailability();
+    this.onGuestsCountChange();
     openModal('modal-new-reservation');
   },
 
@@ -2763,7 +2800,7 @@ const ReservationsModule = {
 
     if (dOut <= dIn) {
       feedbackEl.innerHTML = `
-        <div style="background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 10px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; gap: 8px;">
+        <div style="background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 10px 14px; border-radius: 8px; font-size: 12.5px; display: flex; align-items: center; gap: 8px;">
           <i class="fas fa-exclamation-triangle"></i>
           <span>La fecha de Check-out debe ser posterior a la fecha de Check-in.</span>
         </div>
@@ -2773,7 +2810,7 @@ const ReservationsModule = {
     }
 
     // Buscar reservas existentes no canceladas para esta habitación
-    const existingBookings = this.currentBookings.filter(b => {
+    const existingBookings = (this.currentBookings || []).filter(b => {
       const bSt = (b.estado || '').toLowerCase();
       return b.habitacion_id == roomId && bSt !== 'cancelada' && bSt !== 'finalizada';
     });
@@ -2787,32 +2824,130 @@ const ReservationsModule = {
     });
 
     const selectedOption = roomSelect.options[roomSelect.selectedIndex];
-    const pricePerNight = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+    const basePricePerNight = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+    
+    // Obtener descuento del Plan de Tarifa seleccionado (Tarea 4)
+    const planSelect = document.getElementById('new-res-rate-plan');
+    const selectedPlanOpt = planSelect?.options[planSelect?.selectedIndex];
+    const planDiscount = selectedPlanOpt ? Number(selectedPlanOpt.getAttribute('data-discount') || 0) : 0;
+    const planName = selectedPlanOpt ? selectedPlanOpt.text.split('(')[0].trim() : 'Tarifa Estándar';
+
+    const pricePerNight = Math.round(basePricePerNight * (1 - (planDiscount / 100)));
     const nights = Math.max(1, Math.round((new Date(checkOutVal) - new Date(checkInVal)) / (1000 * 60 * 60 * 24)));
     const totalPrice = pricePerNight * nights;
 
     if (collision) {
       feedbackEl.innerHTML = `
-        <div style="background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 10px 14px; border-radius: 8px; font-size: 12px;">
+        <div style="background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 12px 14px; border-radius: 8px; font-size: 12.5px;">
           <div style="font-weight: bold; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
             <i class="fas fa-calendar-times"></i> Conflicto de Fechas: Habitación Ocupada / Reservada
           </div>
-          <div>Ya existe la reserva <strong>${sanitizeInput(collision.codigo_reserva)}</strong> del <strong>${formatDate(collision.check_in_previsto)}</strong> al <strong>${formatDate(collision.check_out_previsto)}</strong>. Por favor selecciona otro rango disponible.</div>
+          <div>Ya existe la reserva <strong>${sanitizeInput(collision.codigo_reserva)}</strong> del <strong>${formatDate(collision.check_in_previsto)}</strong> al <strong>${formatDate(collision.check_out_previsto)}</strong>.</div>
+          <div style="margin-top: 4px; font-size: 12px; color: #B91C1C;">
+            <i class="fas fa-info-circle"></i> Próxima disponibilidad para esta habitación: <strong>A partir del ${formatDate(collision.check_out_previsto)}</strong>.
+          </div>
         </div>
       `;
       if (confirmBtn) confirmBtn.disabled = true;
     } else {
       feedbackEl.innerHTML = `
-        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; padding: 10px 14px; border-radius: 8px; font-size: 12px;">
-          <div style="font-weight: bold; display: flex; align-items: center; gap: 6px; margin-bottom: 2px;">
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; padding: 12px 14px; border-radius: 8px; font-size: 12.5px;">
+          <div style="font-weight: bold; display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
             <i class="fas fa-check-circle"></i> ¡Habitación Totalmente Disponible para estas Fechas!
           </div>
           <div style="color: #15803D;">
             <strong>${nights} noche${nights > 1 ? 's' : ''}</strong> (${formatGs(pricePerNight)} x ${nights}) = <strong>Total: ${formatGs(totalPrice)}</strong>
+            <span class="badge" style="background: #DCFCE7; color: #166534; margin-left: 6px; font-size: 10.5px;">Plan: ${sanitizeInput(planName)}</span>
+            ${planDiscount > 0 ? `<span style="font-size: 11px; color: #15803D; font-weight: bold;">(-${planDiscount}% OFF)</span>` : ''}
           </div>
         </div>
       `;
       if (confirmBtn) confirmBtn.disabled = false;
+    }
+
+    this.onGuestsCountChange();
+  },
+
+  /**
+   * Gestión dinámica de Huéspedes, Capacidad, Justificación y Acompañantes (Tarea 1)
+   */
+  onGuestsCountChange() {
+    const roomSelect = document.getElementById('new-res-room');
+    const guestsInput = document.getElementById('new-res-guests-count');
+    const justContainer = document.getElementById('new-res-double-justification-container');
+    const compContainer = document.getElementById('new-res-companions-container');
+    const compList = document.getElementById('new-res-companions-list');
+
+    if (!roomSelect || !guestsInput) return;
+
+    const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+    const capacity = selectedOption ? parseInt(selectedOption.getAttribute('data-capacidad') || 2) : 2;
+    let count = parseInt(guestsInput.value || 1);
+
+    if (count < 1) {
+      count = 1;
+      guestsInput.value = 1;
+    }
+
+    // Si intenta ingresar más huéspedes que la capacidad máxima de la habitación
+    if (count > capacity) {
+      showToast(`Atención: La capacidad máxima para esta habitación es de ${capacity} huéspedes`, 'warning');
+      count = capacity;
+      guestsInput.value = capacity;
+    }
+
+    // Regla 1: Si es habitación Doble/Matrimonial/Familiar (capacidad >= 2) pero se hospeda solo 1 persona:
+    if (capacity >= 2 && count === 1) {
+      if (justContainer) justContainer.style.display = 'block';
+    } else {
+      if (justContainer) justContainer.style.display = 'none';
+    }
+
+    // Regla 2: Si la cantidad de personas es >= 2, exigir obligatoriamente datos de los acompañantes:
+    if (count >= 2) {
+      if (compContainer) compContainer.style.display = 'block';
+      if (compList) {
+        let html = '';
+        const companionsNeeded = count - 1;
+        for (let i = 1; i <= companionsNeeded; i++) {
+          html += `
+            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px;">
+              <div style="font-size: 11.5px; font-weight: 700; color: #4338CA; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-user"></i> Acompañante #${i} (Obligatorio)
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 6px;">
+                <input type="text" id="new-res-comp-name-${i}" class="form-control" placeholder="Nombre completo del acompañante *" style="font-size: 12px; padding: 6px 10px;" required>
+                <input type="text" id="new-res-comp-doc-${i}" class="form-control" placeholder="Doc / CI del acompañante *" style="font-size: 12px; padding: 6px 10px;" required>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <input type="text" id="new-res-comp-phone-${i}" class="form-control" placeholder="Teléfono de contacto" style="font-size: 12px; padding: 6px 10px;">
+                <select id="new-res-comp-rel-${i}" class="form-control" style="font-size: 12px; padding: 6px 10px;">
+                  <option value="Cónyuge / Pareja">Cónyuge / Pareja</option>
+                  <option value="Hijo/a">Hijo/a</option>
+                  <option value="Familiar">Familiar</option>
+                  <option value="Colega / Amigo">Colega / Amigo</option>
+                  <option value="Otro">Otro</option>
+                </select>
+              </div>
+            </div>
+          `;
+        }
+        compList.innerHTML = html;
+      }
+    } else {
+      if (compContainer) compContainer.style.display = 'none';
+      if (compList) compList.innerHTML = '';
+    }
+  },
+
+  onJustificationSelect(val) {
+    const customInput = document.getElementById('new-res-double-justification-custom');
+    if (!customInput) return;
+    if (val === 'OTRO') {
+      customInput.style.display = 'block';
+      customInput.focus();
+    } else {
+      customInput.style.display = 'none';
     }
   },
 
@@ -2836,6 +2971,13 @@ const ReservationsModule = {
 
       if (!guestName) {
         showToast('Ingresa el nombre del huésped titular', 'warning');
+        document.getElementById('new-res-guest-name')?.focus();
+        return;
+      }
+
+      if (!guestDoc) {
+        showToast('Ingresa el documento / cédula del huésped titular', 'warning');
+        document.getElementById('new-res-guest-doc')?.focus();
         return;
       }
 
@@ -2847,7 +2989,60 @@ const ReservationsModule = {
       }
 
       const selectedOption = roomSelect.options[roomSelect.selectedIndex];
-      const pricePerNight = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+      const capacity = selectedOption ? parseInt(selectedOption.getAttribute('data-capacidad') || 2) : 2;
+
+      // Validación 1: Justificación obligatoria para habitación doble individual
+      let justificationText = null;
+      if (capacity >= 2 && guestsCount === 1) {
+        const justSelect = document.getElementById('new-res-double-justification-select')?.value || '';
+        if (justSelect === 'OTRO') {
+          justificationText = (document.getElementById('new-res-double-justification-custom')?.value || '').trim();
+          if (!justificationText) {
+            showToast('Por favor ingrese la justificación obligatoria para uso individual en habitación doble', 'warning');
+            document.getElementById('new-res-double-justification-custom')?.focus();
+            return;
+          }
+        } else {
+          justificationText = justSelect;
+        }
+      }
+
+      // Validación 2: Acompañantes obligatorios si hay más de 1 huésped
+      const companionsToSave = [];
+      if (guestsCount >= 2) {
+        for (let i = 1; i <= (guestsCount - 1); i++) {
+          const compName = (document.getElementById(`new-res-comp-name-${i}`)?.value || '').trim();
+          const compDoc = (document.getElementById(`new-res-comp-doc-${i}`)?.value || '').trim();
+          const compPhone = (document.getElementById(`new-res-comp-phone-${i}`)?.value || '').trim();
+          const compRel = document.getElementById(`new-res-comp-rel-${i}`)?.value || 'Acompañante';
+
+          if (!compName) {
+            showToast(`Debe ingresar el Nombre completo del Acompañante #${i}`, 'warning');
+            document.getElementById(`new-res-comp-name-${i}`)?.focus();
+            return;
+          }
+          if (!compDoc) {
+            showToast(`Debe ingresar el Documento / CI del Acompañante #${i}`, 'warning');
+            document.getElementById(`new-res-comp-doc-${i}`)?.focus();
+            return;
+          }
+
+          companionsToSave.push({
+            full_name: compName,
+            document_number: compDoc,
+            phone: compPhone,
+            relationship: compRel
+          });
+        }
+      }
+
+      const basePricePerNight = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+      const planSelect = document.getElementById('new-res-rate-plan');
+      const selectedPlanOpt = planSelect?.options[planSelect?.selectedIndex];
+      const planDiscount = selectedPlanOpt ? Number(selectedPlanOpt.getAttribute('data-discount') || 0) : 0;
+      const planName = selectedPlanOpt ? selectedPlanOpt.text.split('(')[0].trim() : 'Tarifa Flexible Estándar';
+
+      const pricePerNight = Math.round(basePricePerNight * (1 - (planDiscount / 100)));
       const nights = Math.max(1, Math.round((new Date(checkOutVal) - new Date(checkInVal)) / (1000 * 60 * 60 * 24)));
       const totalPrice = pricePerNight * nights;
 
@@ -2870,29 +3065,50 @@ const ReservationsModule = {
 
       const codigoReserva = 'RES-' + Math.floor(100000 + Math.random() * 900000);
 
+      const reservationPayload = {
+        codigo_reserva: codigoReserva,
+        guest_id: guestId,
+        habitacion_id: roomId,
+        check_in_previsto: checkInVal,
+        check_out_previsto: checkOutVal,
+        cantidad_huespedes: guestsCount,
+        monto_total: totalPrice,
+        canal_venta: channel,
+        estado: 'Confirmada',
+        rate_plan_type: planName
+      };
+
       const { data: newBooking, error: bookErr } = await supabaseClient
         .from('reservas')
-        .insert({
-          codigo_reserva: codigoReserva,
-          guest_id: guestId,
-          habitacion_id: roomId,
-          check_in_previsto: checkInVal,
-          check_out_previsto: checkOutVal,
-          cantidad_huespedes: guestsCount,
-          monto_total: totalPrice,
-          canal_venta: channel,
-          estado: 'Confirmada'
-        })
+        .insert(reservationPayload)
         .select()
         .single();
 
       if (bookErr) throw bookErr;
 
+      // Inserción obligatoria de Acompañantes en public.acompanantes
+      if (companionsToSave.length > 0 && newBooking?.id) {
+        for (const comp of companionsToSave) {
+          try {
+            await supabaseClient.from('acompanantes').insert({
+              reserva_id: newBooking.id,
+              full_name: comp.full_name,
+              document_number: comp.document_number
+            });
+          } catch (compErr) {
+            console.warn('Error insertando acompanante en Supabase:', compErr);
+          }
+        }
+      }
+
       // Actualizar estado operativo de la habitación a 'Reservada'
       try {
         await supabaseClient
           .from('habitaciones')
-          .update({ estado: 'Reservada' })
+          .update({ 
+            estado: 'Reservada',
+            observaciones: justificationText ? `Justificación individual: ${justificationText}` : null
+          })
           .eq('id', roomId);
       } catch (e) {
         console.warn('No se pudo actualizar estado de habitacion a Reservada:', e);
@@ -2936,7 +3152,7 @@ const ReservationsModule = {
       }
 
       closeModal('modal-new-reservation');
-      showToast(`¡Reserva ${codigoReserva} confirmada con éxito!`, 'success');
+      showToast(`¡Reserva ${codigoReserva} confirmada con éxito! (${channel})`, 'success');
 
       if (typeof notifyDataChanged === 'function') {
         notifyDataChanged('reservas', { action: 'create', bookingId: newBooking.id });

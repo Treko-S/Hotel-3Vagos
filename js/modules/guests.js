@@ -209,11 +209,11 @@ const GuestsModule = {
           </td>
           <td style="text-align: center;">
             <div class="action-btn-group" style="justify-content: center;">
+              <button class="btn-action btn-action-view" onclick="GuestsModule.openGuestDossier('${r.guest_id || u.id || ''}', '${r.id}')" title="Ver Expediente y Acompañantes del Pasajero">
+                <i class="fas fa-id-card"></i> Ficha
+              </button>
               <button class="btn-action btn-action-folio" onclick="ReservationsModule.openFolioModal('${r.id}')" title="Ver Folio de Consumos y Liquidación">
                 <i class="fas fa-file-invoice-dollar"></i> Folio
-              </button>
-              <button class="btn-action btn-action-view" onclick="GuestsModule.viewGuestHistory('${u.id}')" title="Ver Historial Documental del Pasajero">
-                <i class="fas fa-history"></i> Historial
               </button>
             </div>
           </td>
@@ -275,9 +275,14 @@ const GuestsModule = {
               </span>
             </td>
             <td style="text-align: center;">
-              <button class="btn-action btn-action-folio" onclick="ReservationsModule.openFolioModal('${r.id}')" title="Ver Folio de la Habitación">
-                <i class="fas fa-file-invoice-dollar"></i> Folio
-              </button>
+              <div class="action-btn-group" style="justify-content: center;">
+                <button class="btn-action btn-action-view" onclick="GuestsModule.openGuestDossier('${r.guest_id || u.id || ''}', '${r.id}')" title="Ver Expediente de la Habitación">
+                  <i class="fas fa-id-card"></i> Ficha
+                </button>
+                <button class="btn-action btn-action-folio" onclick="ReservationsModule.openFolioModal('${r.id}')" title="Ver Folio de la Habitación">
+                  <i class="fas fa-file-invoice-dollar"></i> Folio
+                </button>
+              </div>
             </td>
           </tr>
         `;
@@ -467,10 +472,15 @@ const GuestsModule = {
           </td>
           <td style="text-align: center;">
             <div class="action-btn-group" style="justify-content: center;">
-              <button class="btn-action btn-action-view" onclick="GuestsModule.viewGuestHistory('${g.id}')" title="Ver Historial, Ficha, Cuenta Corriente y Fidelidad">
-                <i class="fas fa-history"></i> Ficha
+              <button class="btn-action btn-action-view" onclick="GuestsModule.openGuestDossier('${g.id}', '${(reservas[0] || {}).id || ''}')" title="Ver Expediente, Acompañantes y Ficha">
+                <i class="fas fa-id-card"></i> Ficha
               </button>
-              <button class="btn-action btn-action-folio" onclick="GuestsModule.syncGuestToBrevo('${g.id}')" title="Sincronizar con Brevo CRM">
+              ${reservas.length > 0 ? `
+                <button class="btn-action btn-action-folio" onclick="ReservationsModule.openFolioModal('${(reservas[0] || {}).id || ''}')" title="Ver Folio de Cargos y Saldos">
+                  <i class="fas fa-file-invoice-dollar"></i> Folio
+                </button>
+              ` : ''}
+              <button class="btn-action btn-action-status" onclick="GuestsModule.syncGuestToBrevo('${g.id}')" title="Sincronizar con Brevo CRM">
                 <i class="fas fa-address-book"></i> Brevo
               </button>
             </div>
@@ -576,6 +586,203 @@ const GuestsModule = {
     } catch (err) {
       console.error('Error al registrar nuevo huésped:', err);
       showToast('Error al registrar huésped: ' + err.message, 'error');
+    }
+  },
+
+  /**
+   * Expediente Oficial & Ficha Integral del Pasajero y sus Acompañantes (Tarea 2)
+   */
+  async openGuestDossier(guestId, reservaId = null) {
+    try {
+      openModal('modal-guest-dossier');
+      const bodyEl = document.getElementById('guest-dossier-body');
+      const titleEl = document.getElementById('guest-dossier-title');
+      const subEl = document.getElementById('guest-dossier-subtitle');
+      const footerEl = document.getElementById('guest-dossier-footer-actions');
+
+      if (bodyEl) {
+        bodyEl.innerHTML = `<div style="text-align: center; padding: 40px;"><i class="fas fa-spinner fa-spin fa-2x" style="color: var(--accent-gold);"></i><p style="margin-top: 12px; color: var(--text-muted); font-size: 13px;">Cargando expediente del pasajero y sus acompañantes...</p></div>`;
+      }
+
+      // Buscar datos del huésped y reserva
+      let guest = (this.guests || []).find(g => String(g.id) === String(guestId));
+      let booking = null;
+
+      if (reservaId) {
+        const { data: bData } = await supabaseClient
+          .from('reservas')
+          .select('*, users(*), habitaciones(*, tipos_habitacion(*)), folios(*), acompanantes(*)')
+          .eq('id', reservaId)
+          .maybeSingle();
+        if (bData) {
+          booking = bData;
+          if (!guest && booking.users) guest = booking.users;
+        }
+      }
+
+      if (!guest && guestId) {
+        const { data: uData } = await supabaseClient
+          .from('users')
+          .select('*, reservas(*, habitaciones(*, tipos_habitacion(*)), folios(*), acompanantes(*))')
+          .eq('id', guestId)
+          .maybeSingle();
+        if (uData) guest = uData;
+      }
+
+      const titularName = guest?.full_name || booking?.users?.full_name || 'Huésped Titular';
+      const docType = guest?.document_type || 'CI';
+      const docNum = guest?.document_number || 'S/D';
+      const phone = guest?.phone || 'S/D';
+      const email = guest?.email || 'Sin correo registrado';
+      const nationality = guest?.nationality || 'Paraguaya';
+
+      if (titleEl) titleEl.innerText = `Expediente Oficial: ${titularName}`;
+      if (subEl) subEl.innerText = `${docType}: ${docNum} • Tel: ${phone} • ${email}`;
+
+      // Acompañantes
+      let companions = [];
+      if (booking && Array.isArray(booking.acompanantes) && booking.acompanantes.length > 0) {
+        companions = booking.acompanantes;
+      } else if (guest && Array.isArray(guest.reservas) && guest.reservas.length > 0) {
+        const firstWithComp = guest.reservas.find(r => Array.isArray(r.acompanantes) && r.acompanantes.length > 0);
+        if (firstWithComp) companions = firstWithComp.acompanantes;
+      }
+
+      // Reservas del huésped
+      let allBookings = [];
+      if (guest && Array.isArray(guest.reservas)) {
+        allBookings = guest.reservas;
+      } else if (booking) {
+        allBookings = [booking];
+      }
+
+      const loyalty = this.calculateGuestLoyalty(allBookings);
+      const balance = this.calculateGuestBalance(allBookings);
+
+      let companionsHtml = '';
+      if (companions.length > 0) {
+        companionsHtml = companions.map((c, i) => `
+          <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #6366F1, #A855F7); color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; flex-shrink: 0;">
+                ${(c.full_name || c.nombre_completo || 'A').charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <strong style="color: var(--primary-navy); font-size: 13.5px;">${sanitizeInput(c.full_name || c.nombre_completo || 'Acompañante')}</strong>
+                <div style="font-size: 11.5px; color: var(--text-muted); margin-top: 1px;">
+                  <span><i class="fas fa-id-card"></i> Doc / CI: <strong>${sanitizeInput(c.document_number || c.numero_documento || 'S/D')}</strong></span>
+                  <span style="margin-left: 10px;"><i class="fas fa-user-tag"></i> ${sanitizeInput(c.relationship || 'Acompañante')}</span>
+                </div>
+              </div>
+            </div>
+            <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 11px; font-weight: 700;">
+              <i class="fas fa-shield-alt"></i> Registro Policial OK
+            </span>
+          </div>
+        `).join('');
+      } else {
+        companionsHtml = `
+          <div style="background: #F8FAFC; border: 1px dashed #CBD5E1; border-radius: 8px; padding: 16px; text-align: center; color: var(--text-muted); font-size: 12.5px;">
+            <i class="fas fa-user-shield" style="font-size: 20px; margin-bottom: 6px; display: block; opacity: 0.5; color: var(--primary-blue);"></i>
+            Estadía individual registrada sin acompañantes adicionales.
+          </div>
+        `;
+      }
+
+      // Folio / Estadía actual card
+      const targetBooking = booking || allBookings[0] || {};
+      const hab = targetBooking.habitaciones || {};
+      const tipoHab = hab.tipos_habitacion?.nombre || hab.tipo_nombre || 'Estándar';
+      const targetResId = targetBooking.id || reservaId;
+
+      if (bodyEl) {
+        bodyEl.innerHTML = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px;">
+            <!-- Ficha Titular -->
+            <div style="background: #1E293B; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; color: #FFF;">
+              <div style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700; margin-bottom: 6px;">
+                <i class="fas fa-id-card" style="color: var(--accent-gold);"></i> Documentación Titular
+              </div>
+              <div style="font-size: 15px; font-weight: 800; color: #F8FAFC;">${sanitizeInput(titularName)}</div>
+              <div style="font-size: 12px; color: #CBD5E1; margin-top: 4px;">
+                <strong>${sanitizeInput(docType)}:</strong> ${sanitizeInput(docNum)}
+              </div>
+              <div style="font-size: 11px; color: #94A3B8; margin-top: 2px;">
+                <i class="fas fa-globe"></i> ${sanitizeInput(nationality)} • <i class="fas fa-phone"></i> ${sanitizeInput(phone)}
+              </div>
+            </div>
+
+            <!-- Club 3V Lealtad -->
+            <div style="background: #1E293B; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; color: #FFF;">
+              <div style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700; margin-bottom: 6px;">
+                <i class="fas fa-crown" style="color: ${loyalty.tierColor};"></i> Nivel Club 3 Vagos
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="badge" style="background: ${loyalty.tierBg}; color: ${loyalty.tierColor}; border: 1px solid ${loyalty.tierBorder}; font-weight: 800; font-size: 12px;">
+                  ${loyalty.tier}
+                </span>
+                <strong style="font-size: 16px; color: #F8FAFC;">${loyalty.points} pts</strong>
+              </div>
+              <div style="font-size: 11px; color: #94A3B8; margin-top: 6px;">
+                Programa de lealtad y puntos activos
+              </div>
+            </div>
+
+            <!-- Cuenta Corriente / Saldo -->
+            <div style="background: #1E293B; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; color: #FFF;">
+              <div style="font-size: 11px; text-transform: uppercase; color: #94A3B8; font-weight: 700; margin-bottom: 6px;">
+                <i class="fas fa-wallet" style="color: #34D399;"></i> Saldo / Folio
+              </div>
+              <div style="font-size: 16px; font-weight: 800; color: ${balance.pendingBalance > 0 ? '#F87171' : '#34D399'};">
+                ${balance.pendingBalance > 0 ? formatGs(balance.pendingBalance) : '0 Gs. (Al Día)'}
+              </div>
+              <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">
+                Facturado Histórico: <strong>${formatGs(balance.totalBilled)}</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Estadía Actual / Última Reserva -->
+          <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px; margin-bottom: 18px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+              <h4 style="margin: 0; font-size: 13.5px; color: var(--primary-navy); font-weight: 700;">
+                <i class="fas fa-bed" style="color: var(--primary-blue);"></i> Habitación & Estadía Asociada
+              </h4>
+              <span class="badge" style="background: #E0F2FE; color: #0284C7; font-weight: 700; font-size: 11px;">
+                Canal: ${sanitizeInput(targetBooking.canal_venta || 'Recepción Mostrador')}
+              </span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 12.5px;">
+              <div><strong>Habitación:</strong> Hab. ${hab.numero || '-'} (${sanitizeInput(tipoHab)})</div>
+              <div><strong>Check-in:</strong> ${formatDate(targetBooking.check_in_previsto || targetBooking.fecha_checkin)}</div>
+              <div><strong>Check-out:</strong> ${formatDate(targetBooking.check_out_previsto || targetBooking.fecha_checkout)}</div>
+              <div><strong>Estado:</strong> <span class="badge badge-confirmada">${targetBooking.estado || 'Confirmada'}</span></div>
+            </div>
+          </div>
+
+          <!-- Acompañantes Registrados -->
+          <div style="margin-bottom: 18px;">
+            <h4 style="margin: 0 0 10px 0; font-size: 13.5px; color: var(--primary-navy); font-weight: 700; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-user-friends" style="color: #8B5CF6;"></i> Acompañante(s) Registrados en la Habitación (${companions.length})
+            </h4>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              ${companionsHtml}
+            </div>
+          </div>
+        `;
+      }
+
+      if (footerEl) {
+        footerEl.innerHTML = targetResId ? `
+          <button class="btn btn-primary btn-sm" onclick="closeModal('modal-guest-dossier'); ReservationsModule.openFolioModal('${targetResId}')">
+            <i class="fas fa-file-invoice-dollar"></i> Ver Folio Completo de Consumos y Liquidación
+          </button>
+        ` : '';
+      }
+
+    } catch (err) {
+      console.error('Error al abrir expediente del huésped:', err);
+      showToast('Error al abrir ficha: ' + err.message, 'error');
     }
   },
 

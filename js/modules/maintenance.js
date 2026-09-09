@@ -9,6 +9,126 @@ const MaintenanceModule = {
   async init() {
     await this.loadOrders();
     await this.loadRoomsSelect();
+    this.loadIncidentsInbox();
+  },
+
+  loadIncidentsInbox() {
+    const tbody = document.getElementById('maint-incidents-table-body');
+    if (!tbody) return;
+
+    try {
+      const raw = localStorage.getItem('hotel_hk_incidents');
+      let incidents = raw ? JSON.parse(raw) : [];
+
+      // Filtrar incidencias dirigidas a mantenimiento pendientes
+      const maintIncidents = incidents.filter(inc => {
+        const isMaint = inc.nature === 'mantenimiento' || 
+                        (inc.type && inc.type.toLowerCase().includes('mantenimiento')) || 
+                        (inc.type && inc.type.toLowerCase().includes('avería'));
+        return isMaint && inc.status !== 'Resuelto por Mantenimiento';
+      });
+
+      if (maintIncidents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);"><i class="fas fa-check-circle" style="color: #10B981;"></i> No hay incidencias técnicas pendientes reportadas por mucamas.</td></tr>`;
+        return;
+      }
+
+      let html = '';
+      maintIncidents.forEach(inc => {
+        const photoHtml = inc.photoUrl 
+          ? `<div style="width: 44px; height: 44px; border-radius: 8px; overflow: hidden; border: 1px solid #CBD5E1; cursor: pointer; display: flex; align-items: center; justify-content: center; background: #F1F5F9;" onclick="MaintenanceModule.previewPhoto('${inc.photoUrl}', 'Habitación ${inc.roomNumber}')" title="Ver foto ampliada">
+               <img src="${inc.photoUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none';">
+             </div>`
+          : `<span style="font-size: 11px; color: var(--text-muted);"><i class="fas fa-camera-slash"></i> Sin foto</span>`;
+
+        html += `
+          <tr>
+            <td style="font-size: 12px; color: var(--text-muted);">${sanitizeInput(inc.timestamp || inc.fecha || 'Hoy')}</td>
+            <td><strong style="color: var(--primary-navy); font-size: 13.5px;">Habitación ${sanitizeInput(inc.roomNumber || inc.roomId)}</strong></td>
+            <td>
+              <div style="font-weight: 700; color: #991B1B; font-size: 12.5px;"><i class="fas fa-tools"></i> ${sanitizeInput(inc.type || 'Avería Técnica')}</div>
+              <div style="font-size: 12px; color: #334155; margin-top: 2px;">${sanitizeInput(inc.description || inc.desc || '-')}</div>
+            </td>
+            <td>${photoHtml}</td>
+            <td>
+              <span class="badge" style="background: #EFF6FF; color: #1D4ED8; font-weight: 700;">
+                <i class="fas fa-user-circle"></i> ${sanitizeInput(inc.reporter || 'Mucama')}
+              </span>
+            </td>
+            <td>
+              <span class="badge" style="background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; font-weight: 700;">
+                <i class="fas fa-clock"></i> ${sanitizeInput(inc.status || 'Pendiente')}
+              </span>
+            </td>
+            <td style="text-align: center;">
+              <button class="btn btn-sm btn-primary" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;" onclick="MaintenanceModule.openOrderFromIncident('${inc.id}')">
+                <i class="fas fa-wrench"></i> Asignar Técnico
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    } catch (e) {
+      console.warn('Error loading incidents inbox:', e);
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">No se pudieron cargar las incidencias.</td></tr>`;
+    }
+  },
+
+  openOrderFromIncident(incidentId) {
+    try {
+      const raw = localStorage.getItem('hotel_hk_incidents');
+      const incidents = raw ? JSON.parse(raw) : [];
+      const inc = incidents.find(i => String(i.id) === String(incidentId));
+      if (!inc) {
+        this.openNewOrderModal();
+        return;
+      }
+
+      this.populateTechniciansSelect('maint-tech-select');
+      
+      const roomSelect = document.getElementById('maint-room-select');
+      if (roomSelect) {
+        for (let i = 0; i < roomSelect.options.length; i++) {
+          if (roomSelect.options[i].text.includes(String(inc.roomNumber)) || roomSelect.options[i].value == inc.roomId) {
+            roomSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+
+      const typeSelect = document.getElementById('maint-type');
+      if (typeSelect) {
+        typeSelect.value = inc.type || 'Climatización & Split';
+      }
+
+      const prioritySelect = document.getElementById('maint-priority');
+      if (prioritySelect) {
+        prioritySelect.value = 'Alta';
+      }
+
+      const descInput = document.getElementById('maint-desc');
+      if (descInput) {
+        descInput.value = `[Reportado por ${inc.reporter || 'Mucama'}]: ${inc.description || ''}`;
+      }
+
+      const costInput = document.getElementById('maint-cost');
+      if (costInput) costInput.value = '0';
+
+      openModal('modal-new-maintenance');
+      showToast(`Asignando orden técnica para avería en Habitación ${inc.roomNumber}`, 'info');
+    } catch (e) {
+      this.openNewOrderModal();
+    }
+  },
+
+  previewPhoto(url, title = 'Evidencia de Incidencia') {
+    if (typeof InventoryModule !== 'undefined' && InventoryModule.previewImageModal) {
+      InventoryModule.previewImageModal(url, title);
+    } else {
+      window.open(url, '_blank');
+    }
   },
 
   async loadRoomsSelect() {

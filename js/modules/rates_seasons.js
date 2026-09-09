@@ -17,14 +17,50 @@ const RatesSeasonsModule = {
     weekendSurchargePercent: 15
   },
 
-  // Cupones y Convenios Corporativos
+  // Cupones y Promociones Climáticas / Corporativas (Tarea 3)
   promotions: [
-    { code: 'VERANO2026', type: 'percent', value: 20, desc: 'Promoción Temporada Verano', active: true },
+    { code: 'INVIERNO2026', type: 'temporada', value: 15, desc: 'Promoción Temporada Invierno Climatizada', active: true, seasonKey: 'invierno' },
+    { code: 'PRIMAVERA2026', type: 'temporada', value: 15, desc: 'Promoción Temporada Primavera Floral', active: false, seasonKey: 'primavera' },
+    { code: 'VERANO2026', type: 'temporada', value: 20, desc: 'Promoción Temporada Alta Verano & Sol', active: false, seasonKey: 'verano' },
+    { code: 'OTONO2026', type: 'temporada', value: 10, desc: 'Promoción Temporada Media Otoño', active: false, seasonKey: 'otono' },
     { code: 'UTCDPROMO', type: 'percent', value: 15, desc: 'Descuento Estudiantes y Docentes UTCD', active: true },
-    { code: 'BIENVENIDA10', type: 'percent', value: 10, desc: 'Bienvenida Nuevos Clientes', active: true },
+    { code: 'BIENVENIDA10', type: 'percent', value: 10, desc: 'Bienvenida Nuevos Clientes App/Web', active: true },
     { code: 'CORP_UTCD', type: 'corporate', value: 20, desc: 'Convenio Corporativo UTCD', active: true },
-    { code: 'CORP_ITAU', type: 'corporate', value: 15, desc: 'Convenio Banco Itaú', active: true },
-    { code: 'CORP_GOBIERNO', type: 'corporate', value: 15, desc: 'Convenio Sector Público', active: true }
+    { code: 'CORP_ITAU', type: 'corporate', value: 15, desc: 'Convenio Banco Itaú', active: true }
+  ],
+
+  // Planes de Tarifa & Políticas Comerciales Oficiales (Tarea 4)
+  ratePlans: [
+    {
+      id: 'plan-flex',
+      code: 'flexible',
+      name: 'Tarifa Flexible Estándar',
+      badge: 'Sin Riesgo',
+      discount: 0,
+      cancellation: 'Cancelación 100% gratuita hasta 24 hs previas al check-in. Máxima flexibilidad.',
+      channels: 'todos',
+      active: true
+    },
+    {
+      id: 'plan-promo',
+      code: 'promo',
+      name: 'Tarifa Promo No Reembolsable',
+      badge: 'Ahorra 10% 🌟',
+      discount: 10,
+      cancellation: 'Pago anticipado garantizado. No admite reembolso en caso de cancelación o no-show.',
+      channels: 'todos',
+      active: true
+    },
+    {
+      id: 'plan-corp',
+      code: 'corporativo',
+      name: 'Tarifa Corporativa & Larga Estadía',
+      badge: 'Ahorra 15% 💼',
+      discount: 15,
+      cancellation: 'Tarifa corporativa preferencial aplicable para convenios o estadías superiores a 3 noches.',
+      channels: 'todos',
+      active: true
+    }
   ],
 
   // Catálogo Oficial de Add-ons y Servicios Adicionales
@@ -39,9 +75,12 @@ const RatesSeasonsModule = {
   async init() {
     this.loadSavedRules();
     await this.loadSeasons();
+    this.syncSeasonalPromotions();
     this.renderPromotionsTable();
+    this.renderRatePlansTable();
     this.renderAddOnsCatalog();
     this.initSimulator();
+    this.loadRatePlansFromRemote();
   },
 
   loadSavedRules() {
@@ -54,6 +93,10 @@ const RatesSeasonsModule = {
       if (savedPromos) {
         this.promotions = JSON.parse(savedPromos);
       }
+      const savedPlans = localStorage.getItem('hotel_rate_plans');
+      if (savedPlans) {
+        this.ratePlans = JSON.parse(savedPlans);
+      }
     } catch (e) {
       console.warn('Usando reglas por defecto:', e);
     }
@@ -63,9 +106,30 @@ const RatesSeasonsModule = {
     try {
       localStorage.setItem('hotel_rate_rules', JSON.stringify(this.rules));
       localStorage.setItem('hotel_rate_promos', JSON.stringify(this.promotions));
+      localStorage.setItem('hotel_rate_plans', JSON.stringify(this.ratePlans));
+      this.syncRatePlansToStorage();
     } catch (e) {
       console.error('Error guardando reglas:', e);
     }
+  },
+
+  /**
+   * Sincroniza promociones climáticas por defecto según la temporada activa
+   */
+  syncSeasonalPromotions() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const activeSeason = this.seasons.find(s => todayStr >= s.fecha_inicio && todayStr <= s.fecha_fin);
+    if (!activeSeason) return;
+
+    const seasonNameLower = (activeSeason.nombre || '').toLowerCase();
+    this.promotions.forEach(p => {
+      if (p.type === 'temporada' && p.seasonKey) {
+        if (seasonNameLower.includes(p.seasonKey)) {
+          p.active = true;
+        }
+      }
+    });
+    this.renderPromotionsTable();
   },
 
   /**
@@ -341,6 +405,213 @@ const RatesSeasonsModule = {
     document.getElementById('new-promo-code').value = '';
     document.getElementById('new-promo-desc').value = '';
     showToast(`¡Promoción ${code} registrada exitosamente!`, 'success');
+  },
+
+  /**
+   * ========================================================
+   * GESTIÓN INTEGRAL DE PLANES DE TARIFA (TAREA 4)
+   * ========================================================
+   */
+  renderRatePlansTable() {
+    const tbody = document.getElementById('rate-plans-table-body');
+    if (!tbody) return;
+
+    if (!Array.isArray(this.ratePlans) || this.ratePlans.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay planes de tarifa registrados. Haga clic en "+ Nuevo Plan de Tarifa" para crear uno.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = this.ratePlans.map((p) => {
+      const discountText = p.discount > 0 ? `<strong style="color: #10B981;">-${p.discount}% OFF</strong>` : '<span style="color: #64748B; font-weight: 500;">Tarifa Estándar (0%)</span>';
+      const badgeHtml = p.badge ? `<span class="badge" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; font-weight: 600;">${sanitizeInput(p.badge)}</span>` : '<span style="color: #94A3B8;">-</span>';
+      
+      let channelsText = 'Todos (App y Web)';
+      if (p.channels === 'app') channelsText = '<i class="fas fa-mobile-alt" style="color: #0284C7;"></i> Solo App Móvil';
+      else if (p.channels === 'recepcion') channelsText = '<i class="fas fa-desktop" style="color: #B45309;"></i> Solo Recepción';
+
+      return `
+        <tr>
+          <td>
+            <div style="font-weight: 700; color: var(--primary-navy); font-size: 14px;">${sanitizeInput(p.name)}</div>
+            <div style="font-family: monospace; font-size: 11.5px; color: #6366F1; font-weight: bold;">código: ${sanitizeInput(p.code)}</div>
+          </td>
+          <td>${badgeHtml}</td>
+          <td>${discountText}</td>
+          <td style="max-width: 280px;"><span style="font-size: 12px; color: var(--text-muted); line-height: 1.35; display: block;">${sanitizeInput(p.cancellation)}</span></td>
+          <td><span style="font-size: 12px; font-weight: 500;">${channelsText}</span></td>
+          <td>
+            <span class="badge ${p.active ? 'badge-success' : 'badge-danger'}">
+              ${p.active ? '<span class="status-dot"></span> Activo' : 'Inactivo'}
+            </span>
+          </td>
+          <td>
+            <div class="action-btn-group">
+              <button class="btn-action btn-action-edit" onclick="RatesSeasonsModule.openRatePlanModal('${p.id}')" title="Editar Plan">
+                <i class="fas fa-edit"></i> Editar
+              </button>
+              <button class="btn-action ${p.active ? 'btn-action-status' : 'btn-action-reserve'}" onclick="RatesSeasonsModule.toggleRatePlan('${p.id}')" title="${p.active ? 'Pausar' : 'Activar'}">
+                ${p.active ? '<i class="fas fa-ban"></i>' : '<i class="fas fa-check"></i>'}
+              </button>
+              <button class="btn-action btn-action-checkout" onclick="RatesSeasonsModule.deleteRatePlan('${p.id}')" title="Eliminar Plan" style="background: rgba(220, 38, 38, 0.1); color: #DC2626; border-color: rgba(220, 38, 38, 0.3);">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  },
+
+  openRatePlanModal(planId = null) {
+    document.getElementById('rate-plan-id').value = planId || '';
+    if (planId) {
+      const p = this.ratePlans.find(x => x.id === planId);
+      if (p) {
+        document.getElementById('rate-plan-modal-title').innerHTML = '<i class="fas fa-layer-group" style="color: var(--accent-gold);"></i> Editar Plan de Tarifa';
+        document.getElementById('rate-plan-name').value = p.name || '';
+        document.getElementById('rate-plan-code').value = p.code || '';
+        document.getElementById('rate-plan-badge').value = p.badge || '';
+        document.getElementById('rate-plan-discount').value = p.discount || 0;
+        document.getElementById('rate-plan-cancellation').value = p.cancellation || '';
+        document.getElementById('rate-plan-channels').value = p.channels || 'todos';
+        document.getElementById('rate-plan-active').value = p.active ? 'true' : 'false';
+      }
+    } else {
+      document.getElementById('rate-plan-modal-title').innerHTML = '<i class="fas fa-layer-group" style="color: var(--accent-gold);"></i> Nuevo Plan de Tarifa';
+      document.getElementById('rate-plan-name').value = '';
+      document.getElementById('rate-plan-code').value = '';
+      document.getElementById('rate-plan-badge').value = '';
+      document.getElementById('rate-plan-discount').value = '0';
+      document.getElementById('rate-plan-cancellation').value = 'Cancelación flexible según políticas generales del hotel.';
+      document.getElementById('rate-plan-channels').value = 'todos';
+      document.getElementById('rate-plan-active').value = 'true';
+    }
+    openModal('modal-rate-plan-editor');
+  },
+
+  saveRatePlan() {
+    const id = document.getElementById('rate-plan-id').value.trim();
+    const name = document.getElementById('rate-plan-name').value.trim();
+    const code = document.getElementById('rate-plan-code').value.trim().toLowerCase().replace(/\s+/g, '_');
+    const badge = document.getElementById('rate-plan-badge').value.trim();
+    const discount = parseInt(document.getElementById('rate-plan-discount').value) || 0;
+    const cancellation = document.getElementById('rate-plan-cancellation').value.trim();
+    const channels = document.getElementById('rate-plan-channels').value;
+    const active = document.getElementById('rate-plan-active').value === 'true';
+
+    if (!name || !code || !cancellation) {
+      showToast('Complete todos los campos obligatorios del plan', 'warning');
+      return;
+    }
+
+    if (id) {
+      const idx = this.ratePlans.findIndex(x => x.id === id);
+      if (idx !== -1) {
+        this.ratePlans[idx] = { ...this.ratePlans[idx], name, code, badge, discount, cancellation, channels, active };
+        showToast('Plan de tarifa actualizado con éxito', 'success');
+      }
+    } else {
+      const existingCode = this.ratePlans.find(x => x.code === code);
+      if (existingCode) {
+        showToast(`Ya existe un plan con el código "${code}"`, 'warning');
+        return;
+      }
+      const newPlan = {
+        id: 'plan_' + Date.now().toString(36),
+        name,
+        code,
+        badge,
+        discount,
+        cancellation,
+        channels,
+        active
+      };
+      this.ratePlans.push(newPlan);
+      showToast(`Nuevo plan "${name}" registrado exitosamente`, 'success');
+    }
+
+    this.saveRulesToStorage();
+    this.renderRatePlansTable();
+    closeModal('modal-rate-plan-editor');
+
+    if (typeof RoomsModule !== 'undefined' && RoomsModule.rooms && RoomsModule.rooms.length > 0) {
+      RoomsModule.renderRoomsTable();
+    }
+  },
+
+  async deleteRatePlan(id) {
+    const p = this.ratePlans.find(x => x.id === id);
+    if (!p) return;
+
+    const ok = await CustomDialog.confirm({
+      title: 'Eliminar Plan de Tarifa',
+      message: `¿Está seguro de eliminar el plan "${p.name}"? Las reservas previas mantendrán sus importes pactados.`,
+      icon: 'fa-trash-alt',
+      confirmText: 'Sí, Eliminar',
+      isDanger: true
+    });
+    if (!ok) return;
+
+    this.ratePlans = this.ratePlans.filter(x => x.id !== id);
+    this.saveRulesToStorage();
+    this.renderRatePlansTable();
+    showToast(`Plan "${p.name}" eliminado`, 'info');
+
+    if (typeof RoomsModule !== 'undefined' && RoomsModule.rooms && RoomsModule.rooms.length > 0) {
+      RoomsModule.renderRoomsTable();
+    }
+  },
+
+  toggleRatePlan(id) {
+    const p = this.ratePlans.find(x => x.id === id);
+    if (p) {
+      p.active = !p.active;
+      this.saveRulesToStorage();
+      this.renderRatePlansTable();
+      showToast(`Plan ${p.name} ${p.active ? 'activado' : 'pausado'}`, 'info');
+
+      if (typeof RoomsModule !== 'undefined' && RoomsModule.rooms && RoomsModule.rooms.length > 0) {
+        RoomsModule.renderRoomsTable();
+      }
+    }
+  },
+
+  async syncRatePlansToStorage() {
+    try {
+      if (typeof supabaseClient !== 'undefined') {
+        const payload = JSON.stringify(this.ratePlans, null, 2);
+        const blob = new Blob([payload], { type: 'application/json' });
+        await supabaseClient.storage.from('hotel-rooms').upload('config/rate_plans.json', blob, {
+          upsert: true,
+          contentType: 'application/json'
+        });
+
+        // Broadcast a la app móvil
+        await supabaseClient.channel('hotel_universal_sync').send({
+          type: 'broadcast',
+          event: 'rate_plans_updated',
+          payload: { timestamp: Date.now(), plans: this.ratePlans }
+        });
+      }
+    } catch (e) {
+      console.warn('Sync de planes a Supabase Storage diferido:', e);
+    }
+  },
+
+  async loadRatePlansFromRemote() {
+    try {
+      const res = await fetch('https://nfbiqdhiowroosvfazid.supabase.co/storage/v1/object/public/hotel-rooms/config/rate_plans.json?t=' + Date.now());
+      if (res.ok) {
+        const remotePlans = await res.json();
+        if (Array.isArray(remotePlans) && remotePlans.length > 0) {
+          this.ratePlans = remotePlans;
+          localStorage.setItem('hotel_rate_plans', JSON.stringify(this.ratePlans));
+          this.renderRatePlansTable();
+        }
+      }
+    } catch (e) {
+      console.warn('Planes remotos no disponibles todavía, usando locales:', e);
+    }
   },
 
   renderAddOnsCatalog() {

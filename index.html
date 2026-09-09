@@ -101,9 +101,9 @@
         <i class="fas fa-tools"></i>
         <span>Mantenimiento</span>
       </a>
-      <a class="nav-item" data-view="consumptions" data-allowed-roles="admin,receptionist,housekeeping" title="Consumos, Frigobar y Room Service">
-        <i class="fas fa-utensils"></i>
-        <span>Consumos & Frigobar</span>
+      <a class="nav-item" data-view="consumptions" data-allowed-roles="admin,receptionist,housekeeping" title="Consumo & Servicios (Minibar, Restaurante, Extras)">
+        <i class="fas fa-concierge-bell"></i>
+        <span>Consumo & Servicios</span>
       </a>
 
       <!-- 4. LOGÍSTICA & COMPRAS -->
@@ -548,19 +548,13 @@
             </div>
           </div>
 
-          <!-- Pestañas Operativas de Housekeeping -->
+          <!-- Pestañas Operativas de Housekeeping (Tarea 7: Solo Tablero Jefa y Panel de Mucamas) -->
           <div id="hk-tabs-nav" style="display: flex; gap: 6px; border-bottom: 2px solid #E2E8F0; padding: 0 20px; overflow-x: auto; background: #F8FAFC;">
             <button id="hk-tab-jefa" class="hk-tab-btn active" onclick="HousekeepingModule.switchTab('jefa')">
-              <i class="fas fa-clipboard-list"></i> Tablero Jefa de Limpieza (Prioridades)
+              <i class="fas fa-clipboard-list"></i> Tablero Jefa de Limpieza
             </button>
             <button id="hk-tab-mucama" class="hk-tab-btn" onclick="HousekeepingModule.switchTab('mucama')">
-              <i class="fas fa-broom"></i> Panel de Mucamas (Mis Tareas & Checklist)
-            </button>
-            <button id="hk-tab-keys" class="hk-tab-btn" onclick="HousekeepingModule.switchTab('keys')">
-              <i class="fas fa-key"></i> Matriz de Control de Llaves & RFID
-            </button>
-            <button id="hk-tab-incidents" class="hk-tab-btn" onclick="HousekeepingModule.switchTab('incidents')">
-              <i class="fas fa-exclamation-triangle"></i> Bitácora de Incidencias & Fotos
+              <i class="fas fa-broom"></i> Panel de Mucamas
             </button>
           </div>
 
@@ -577,7 +571,7 @@
                 </div>
               </div>
 
-              <div style="overflow-x: auto;">
+              <div style="overflow-x: auto; margin-bottom: 30px;">
                 <table class="custom-table">
                   <thead>
                     <tr>
@@ -594,6 +588,40 @@
                     <!-- Dinámico -->
                   </tbody>
                 </table>
+              </div>
+
+              <!-- Historial de Limpiezas Realizadas (Tarea 7) -->
+              <div style="border-top: 1px solid #E2E8F0; padding-top: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                  <div>
+                    <h4 style="font-size: 16px; font-weight: 700; color: var(--primary-navy); margin: 0; display: flex; align-items: center; gap: 8px;">
+                      <i class="fas fa-history" style="color: #10B981;"></i> Historial de Limpiezas Realizadas & Supervisión
+                    </h4>
+                    <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">
+                      Registro de tareas concluidas por el equipo de mucamas con verificación de protocolo
+                    </p>
+                  </div>
+                  <button class="btn btn-outline btn-xs" onclick="HousekeepingModule.renderCleaningHistory()">
+                    <i class="fas fa-sync-alt"></i> Refrescar Historial
+                  </button>
+                </div>
+                <div style="overflow-x: auto;">
+                  <table class="custom-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha / Hora Finalizado</th>
+                        <th>Habitación</th>
+                        <th>Tipo / Piso</th>
+                        <th>Mucama Responsable</th>
+                        <th>Inspección & Protocolo</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody id="hk-history-table-body">
+                      <!-- Dinámico -->
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
@@ -621,70 +649,61 @@
               </div>
             </div>
 
-            <!-- TAB 3: CONTROL DE LLAVES -->
-            <div id="hk-content-keys" class="hk-tab-content" style="display: none;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-                <div>
-                  <h4 style="font-size: 16px; color: var(--primary-navy); margin: 0 0 4px 0;">Matriz de Custodia de Llaves Físicas & Tarjetas RFID</h4>
-                  <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Control de entrega de llaves a recepción, huéspedes, mucamas y mantenimiento en tiempo real.</p>
-                </div>
-                <div style="display: flex; gap: 8px;">
-                  <button class="btn btn-sm btn-outline" onclick="HousekeepingModule.renderKeysMatrix()">
-                    <i class="fas fa-sync-alt"></i> Actualizar Llaves
-                  </button>
-                </div>
-              </div>
-
-              <div id="hk-keys-grid" class="keys-grid">
-                <!-- Dinámico -->
-              </div>
-            </div>
-
-            <!-- TAB 4: BITÁCORA DE INCIDENCIAS -->
-            <div id="hk-content-incidents" class="hk-tab-content" style="display: none;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
-                <div>
-                  <h4 style="font-size: 16px; color: var(--primary-navy); margin: 0 0 4px 0;">Bitácora de Incidencias & Faltantes Reportados</h4>
-                  <p style="font-size: 12px; color: var(--text-muted); margin: 0;">Reportes con respaldo fotográfico derivados a Mantenimiento o Inventario/Administración.</p>
-                </div>
-                <button class="btn btn-warning" onclick="HousekeepingModule.openIncidentModal()" style="background: #D97706; color: #FFFFFF; border-color: #D97706;">
-                  <i class="fas fa-camera"></i> Nueva Incidencia con Foto
-                </button>
-              </div>
-
-              <div style="overflow-x: auto;">
-                <table class="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Fecha / Hora</th>
-                      <th>Habitación</th>
-                      <th>Naturaleza / Destino</th>
-                      <th>Motivo / Descripción</th>
-                      <th>Foto Respaldo</th>
-                      <th>Reportado Por</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody id="hk-incidents-table-body">
-                    <!-- Dinámico -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
           </div>
         </div>
       </section>
 
       <!-- =====================================================
-           VIEW 5: MANTENIMIENTO & INCIDENCIAS
+           VIEW 5: MANTENIMIENTO & INCIDENCIAS (Tarea 8)
            ===================================================== -->
       <section id="view-maintenance" class="view-section">
+        <!-- Bandeja de Incidencias Técnicas Reportadas por Mucamas -->
+        <div class="card-panel" style="margin-bottom: 24px; border-left: 4px solid #D97706;">
+          <div class="panel-header" style="margin-bottom: 14px;">
+            <div>
+              <h3 class="panel-title" style="color: #92400E; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-exclamation-triangle" style="color: #D97706;"></i> Incidencias Reportadas por Mucamas (Pendientes de Reparación / Trabajo)
+              </h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">
+                Reportes generados desde habitaciones durante tareas de limpieza que requieren asignación técnica y costeo
+              </p>
+            </div>
+            <button class="btn btn-outline btn-xs" onclick="MaintenanceModule.loadIncidentsInbox()">
+              <i class="fas fa-sync-alt"></i> Refrescar Incidencias
+            </button>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Fecha / Hora</th>
+                  <th>Habitación</th>
+                  <th>Detalle / Avería Reportada</th>
+                  <th>Foto Respaldo</th>
+                  <th>Reportado Por (Mucama)</th>
+                  <th>Estado</th>
+                  <th style="text-align: center;">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="maint-incidents-table-body">
+                <!-- Dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Órdenes de Mantenimiento Activas & Resueltas -->
         <div class="card-panel">
           <div class="panel-header">
-            <h3 class="panel-title">Órdenes de Trabajo & Mantenimiento</h3>
+            <div>
+              <h3 class="panel-title">Órdenes de Trabajo & Mantenimiento</h3>
+              <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">
+                Asignación de técnicos, órdenes de trabajo y liquidación contable de costos con caja registradora
+              </p>
+            </div>
             <button class="btn btn-primary" onclick="MaintenanceModule.openNewOrderModal()">
-              <i class="fas fa-plus"></i> Registrar Incidencia
+              <i class="fas fa-plus"></i> Nueva Orden Manual
             </button>
           </div>
 
@@ -714,105 +733,28 @@
            ===================================================== -->
       <section id="view-inventory" class="view-section">
         <div class="card-panel" style="margin-bottom: 24px;">
-          <!-- Barra de Pestañas (Tabs) de Inventario -->
+          <!-- Barra de Pestañas (Tabs) de Inventario (Tarea 9: Uso Interno y Kardex) -->
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-              <button id="inv-tab-sales" class="inv-tab-btn active" onclick="InventoryModule.switchTab('sales')">
-                <i class="fas fa-shopping-bag"></i> Para la Venta (App & Room Service)
-              </button>
-              <button id="inv-tab-internal" class="inv-tab-btn" onclick="InventoryModule.switchTab('internal')">
+              <button id="inv-tab-internal" class="inv-tab-btn active" onclick="InventoryModule.switchTab('internal')">
                 <i class="fas fa-boxes"></i> Uso Interno (Insumos & Pañol)
               </button>
               <button id="inv-tab-kardex" class="inv-tab-btn" onclick="InventoryModule.switchTab('kardex')">
                 <i class="fas fa-history"></i> Kardex de Movimientos
               </button>
-              <button id="inv-tab-providers" class="inv-tab-btn" onclick="InventoryModule.switchTab('providers')">
-                <i class="fas fa-truck"></i> Compras & Proveedores
-              </button>
             </div>
-            <div>
-              <span class="badge" style="background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; font-size: 11.5px; padding: 4px 10px;">
-                <i class="fas fa-sync-alt"></i> Sincronizado en tiempo real con App Móvil
-              </span>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-outline btn-sm" onclick="InventoryModule.openStockMovementModal('egreso')">
+                <i class="fas fa-arrow-up" style="color: #DC2626;"></i> Registrar Retiro (Salida)
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="InventoryModule.openStockMovementModal('ingreso')">
+                <i class="fas fa-arrow-down" style="color: #16A34A;"></i> Registrar Reposición (Entrada)
+              </button>
             </div>
           </div>
 
-          <!-- CONTENIDO PESTAÑA 1: PARA LA VENTA -->
-          <div id="inv-content-sales">
-            <!-- KPIs Catálogo Venta -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
-              <div class="kpi-card" style="border-left: 4px solid var(--primary-gold);">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Total Productos / Servicios</p>
-                <h3 id="inv-sales-kpi-total" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">6</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Catálogo activo del hotel</p>
-              </div>
-              <div class="kpi-card" style="border-left: 4px solid #10B981;">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Disponibles en App Móvil</p>
-                <h3 id="inv-sales-kpi-app" style="font-size: 22px; font-weight: 800; color: #059669; margin: 6px 0 2px;">5</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Visibles para pedir desde celular</p>
-              </div>
-              <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ítems de Minibar</p>
-                <h3 id="inv-sales-kpi-minibar" style="font-size: 22px; font-weight: 800; color: #2563EB; margin: 6px 0 2px;">2</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Bebidas y snacks en habitación</p>
-              </div>
-            </div>
-
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
-              <div>
-                <h3 class="panel-title"><i class="fas fa-tag" style="color: var(--primary-gold);"></i> Catálogo Oficial de Productos y Servicios</h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Precios en Guaraníes, soporte multimedia y sincronización en tiempo real con la App Móvil</p>
-              </div>
-              <button class="btn btn-primary" onclick="InventoryModule.openSalesItemModal()">
-                <i class="fas fa-plus"></i> Nuevo Ítem para Venta
-              </button>
-            </div>
-
-            <!-- Barra de Filtros por Categoría y Ordenación -->
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; background: #F8FAFC; padding: 10px 14px; border-radius: 12px; border: 1px solid #E2E8F0;">
-              <!-- Categorías Tabs -->
-              <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 4px;">Categoría:</span>
-                <button type="button" id="sales-filter-all" class="btn btn-sm sales-cat-btn active" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('all')">Todos</button>
-                <button type="button" id="sales-filter-minibar" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Minibar')"><i class="fas fa-cocktail"></i> Minibar</button>
-                <button type="button" id="sales-filter-roomservice" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Room Service')"><i class="fas fa-utensils"></i> Room Service</button>
-                <button type="button" id="sales-filter-spa" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Spa & Bienestar')"><i class="fas fa-spa"></i> Spa & Relax</button>
-                <button type="button" id="sales-filter-extra" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Servicios Extra')"><i class="fas fa-concierge-bell"></i> Servicios Extra</button>
-              </div>
-
-              <!-- Selector de Ordenación -->
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;"><i class="fas fa-sort-amount-down"></i> Ordenar:</span>
-                <select id="sales-sort-select" class="form-control" style="font-size: 12px; height: 32px; padding: 2px 10px; width: auto; border-radius: 8px;" onchange="InventoryModule.sortSalesCatalog(this.value)">
-                  <option value="category">Por Categoría (A-Z)</option>
-                  <option value="price-asc">Precio: Menor a Mayor</option>
-                  <option value="price-desc">Precio: Mayor a Menor</option>
-                  <option value="name">Nombre (A-Z)</option>
-                </select>
-              </div>
-            </div>
-
-            <div style="overflow-x: auto;">
-              <table class="custom-table">
-                <thead>
-                  <tr>
-                    <th>Producto / Servicio & Marca</th>
-                    <th>Categoría & Código</th>
-                    <th>Costo vs Precio Oficial</th>
-                    <th>Lista & Promoción</th>
-                    <th>Disponibilidad en App Móvil</th>
-                    <th style="text-align: center;">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody id="inv-sales-table-body">
-                  <!-- Dinámico -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- CONTENIDO PESTAÑA 2: USO INTERNO (PAÑOL & CONTROL DE FUGAS) -->
-          <div id="inv-content-internal" style="display: none;">
+          <!-- CONTENIDO PESTAÑA: USO INTERNO (PAÑOL & CONTROL DE FUGAS) -->
+          <div id="inv-content-internal" style="display: block;">
             <!-- KPIs Uso Interno -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
               <div class="kpi-card" style="border-left: 4px solid #6366F1;">
@@ -940,223 +882,6 @@
             </div>
           </div>
 
-          <!-- CONTENIDO PESTAÑA 4: COMPRAS & PROVEEDORES (Checklist Parte 5) -->
-          <div id="inv-content-providers" style="display: none;">
-            
-            <!-- Resumen Ejecutivo KPIs de Compras -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-bottom: 22px;">
-              <div class="kpi-card" style="border-left: 4px solid #3B82F6; padding: 14px 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                  <div>
-                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Órdenes de Compra</span>
-                    <h3 id="compras-kpi-orders" style="font-size: 20px; font-weight: 800; color: #1D4ED8; margin: 4px 0 2px;">0 Emitidas</h3>
-                    <small style="font-size: 11px; color: var(--text-muted);">Solicitudes a proveedores</small>
-                  </div>
-                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #EFF6FF; color: #3B82F6; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                    <i class="fas fa-file-invoice"></i>
-                  </div>
-                </div>
-              </div>
-
-              <div class="kpi-card" style="border-left: 4px solid #10B981; padding: 14px 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                  <div>
-                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Recepciones a Stock</span>
-                    <h3 id="compras-kpi-receptions" style="font-size: 20px; font-weight: 800; color: #047857; margin: 4px 0 2px;">0 Ingresadas</h3>
-                    <small style="font-size: 11px; color: var(--text-muted);">Auditadas con remisión</small>
-                  </div>
-                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #ECFDF5; color: #10B981; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                    <i class="fas fa-dolly"></i>
-                  </div>
-                </div>
-              </div>
-
-              <div class="kpi-card" style="border-left: 4px solid #F59E0B; padding: 14px 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                  <div>
-                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Pagos / Egresos Caja</span>
-                    <h3 id="compras-kpi-payments" style="font-size: 18px; font-weight: 800; color: #B45309; margin: 4px 0 2px;">0 Gs.</h3>
-                    <small style="font-size: 11px; color: var(--text-muted);">Deducidos de arqueo</small>
-                  </div>
-                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #FEF3C7; color: #D97706; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                    <i class="fas fa-receipt"></i>
-                  </div>
-                </div>
-              </div>
-
-              <div class="kpi-card" style="border-left: 4px solid #8B5CF6; padding: 14px 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                  <div>
-                    <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Proveedores Activos</span>
-                    <h3 id="compras-kpi-providers" style="font-size: 20px; font-weight: 800; color: #6D28D9; margin: 4px 0 2px;">0 Empresas</h3>
-                    <small style="font-size: 11px; color: var(--text-muted);">Homologadas con RUC</small>
-                  </div>
-                  <div style="width: 36px; height: 36px; border-radius: 8px; background: #F5F3FF; color: #8B5CF6; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                    <i class="fas fa-truck"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Sub-navegación Principal de Compras (Checklist Parte 5) -->
-            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px 10px; border-radius: 12px;">
-              <button id="btn-compras-sub-orders" class="btn btn-sm active" style="background: var(--primary-navy); color: #FFFFFF; font-weight: 700; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.switchComprasSubTab('orders')">
-                <i class="fas fa-file-invoice"></i> 1. Órdenes de Compra
-              </button>
-              <button id="btn-compras-sub-receptions" class="btn btn-sm" style="background: transparent; color: #475569; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.switchComprasSubTab('receptions')">
-                <i class="fas fa-dolly"></i> 2. Recepción de Mercaderías
-              </button>
-              <button id="btn-compras-sub-payments" class="btn btn-sm" style="background: transparent; color: #475569; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.switchComprasSubTab('payments')">
-                <i class="fas fa-receipt"></i> 3. Pagos a Proveedores (Egresos Caja)
-              </button>
-              <button id="btn-compras-sub-providers" class="btn btn-sm" style="background: transparent; color: #475569; font-weight: 600; padding: 8px 16px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.switchComprasSubTab('providers')">
-                <i class="fas fa-truck"></i> 4. Directorio de Proveedores
-              </button>
-            </div>
-
-            <!-- 1. SUB-SECCIÓN ÓRDENES DE COMPRA (Checklist Parte 5) -->
-            <div id="compras-subview-orders" style="display: block;">
-              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
-                <div>
-                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-file-invoice" style="color: #3B82F6;"></i>
-                    <span>Órdenes de Compra Emitidas</span>
-                  </h3>
-                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                    Emisión de pedidos seleccionando proveedores homologados, responsable emisor auditado y detalle de insumos
-                  </p>
-                </div>
-                <button class="btn btn-primary" onclick="InventoryModule.openNewOrderModal()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
-                  <i class="fas fa-plus-circle"></i> Generar Orden de Compra
-                </button>
-              </div>
-              <div style="overflow-x: auto;">
-                <table class="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Proveedor Seleccionado</th>
-                      <th>Quién Realiza (Emisor)</th>
-                      <th>Fecha Emisión</th>
-                      <th>Detalle de Insumos</th>
-                      <th style="text-align: right;">Total Estimado</th>
-                      <th style="text-align: center;">Estado</th>
-                      <th style="text-align: center;">Acciones Operativas</th>
-                    </tr>
-                  </thead>
-                  <tbody id="compras-orders-tbody">
-                    <!-- Filas dinámicas -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- 2. SUB-SECCIÓN RECEPCIONES DE MERCADERÍA (Checklist Parte 5) -->
-            <div id="compras-subview-receptions" style="display: none;">
-              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
-                <div>
-                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-dolly" style="color: #10B981;"></i>
-                    <span>Recepción de Mercaderías & Control de Stock</span>
-                  </h3>
-                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                    Control de entrega física, registro de remisión/factura del proveedor, responsable receptor e ingreso al Kardex
-                  </p>
-                </div>
-                <button class="btn btn-primary" style="background: #10B981; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.openNewReceptionModal()">
-                  <i class="fas fa-check-double"></i> Registrar Recepción
-                </button>
-              </div>
-              <div style="overflow-x: auto;">
-                <table class="custom-table">
-                  <thead>
-                    <tr>
-                      <th>N° Recepción</th>
-                      <th>Orden Asoc.</th>
-                      <th>Proveedor</th>
-                      <th>Remisión / Factura</th>
-                      <th>Fecha / Hora</th>
-                      <th>Quién Recepciona</th>
-                      <th>Artículos Recibidos</th>
-                      <th>Impacto Stock</th>
-                      <th style="text-align: center;">Estado</th>
-                      <th style="text-align: center;">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody id="compras-receptions-tbody">
-                    <!-- Filas dinámicas -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- 3. SUB-SECCIÓN PAGOS A PROVEEDORES (EGRESOS DE CAJA) (Checklist Parte 5) -->
-            <div id="compras-subview-payments" style="display: none;">
-              <div style="background: #FEF3C7; border: 1px solid #FCD34D; border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; color: #92400E; font-size: 12.5px; display: flex; align-items: center; gap: 12px;">
-                <i class="fas fa-info-circle" style="font-size: 18px; color: #D97706;"></i>
-                <div>
-                  <strong>Vinculación Directa con Caja Registradora:</strong> Los pagos a proveedores registrados en <em>Efectivo</em> se deducen automáticamente del saldo físico en cajón de la sesión de caja activa y emiten su correspondiente <strong>Vale Oficial de Egreso</strong>.
-                </div>
-              </div>
-
-              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
-                <div>
-                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-receipt" style="color: #F59E0B;"></i>
-                    <span>Pagos y Vales de Egreso a Proveedores</span>
-                  </h3>
-                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                    Liquidación de facturas de abastecimiento, comprobantes de pago y egresos de caja registradora
-                  </p>
-                </div>
-                <button class="btn btn-primary" style="background: #F59E0B; border-color: #D97706; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.openNewPaymentModal()">
-                  <i class="fas fa-plus-circle"></i> Registrar Pago a Proveedor
-                </button>
-              </div>
-              <div style="overflow-x: auto;">
-                <table class="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Vale / Comprobante</th>
-                      <th>Proveedor Beneficiario</th>
-                      <th>Factura / Orden Ref.</th>
-                      <th style="text-align: right;">Monto Abonado</th>
-                      <th>Medio de Pago</th>
-                      <th>Quién Autorizó / Pagó</th>
-                      <th>Fecha / Hora</th>
-                      <th style="text-align: center;">Estado</th>
-                      <th style="text-align: center;">Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody id="compras-payments-tbody">
-                    <!-- Filas dinámicas -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- 4. SUB-SECCIÓN DIRECTORIO DE PROVEEDORES (Checklist Parte 5) -->
-            <div id="compras-subview-providers" style="display: none;">
-              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
-                <div>
-                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-truck" style="color: #0284C7;"></i>
-                    <span>Directorio Oficial de Proveedores Homologados</span>
-                  </h3>
-                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                    Empresas registradas con RUC para provisión de bebidas, lencería hotelera, químicos de limpieza y mantenimiento
-                  </p>
-                </div>
-                <button class="btn btn-primary" onclick="InventoryModule.openNewProviderModal()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
-                  <i class="fas fa-plus-circle"></i> Registrar Nuevo Proveedor
-                </button>
-              </div>
-              <div id="providers-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;">
-                <!-- Tarjetas dinámicas de proveedores -->
-              </div>
-            </div>
-
-          </div>
         </div>
       </section>
 
@@ -1479,22 +1204,16 @@
             </div>
           </div>
 
-          <!-- Barra de Pestañas (Tabs) -->
+          <!-- Barra de Pestañas (Tabs) - Depurado a solo Temporadas, Promociones y Planes (Tareas 3 y 4) -->
           <div style="display: flex; gap: 6px; border-bottom: 2px solid #E2E8F0; padding: 0 20px; overflow-x: auto; background: #F8FAFC;">
             <button class="rates-tab-btn active" data-tab="tab-seasons" onclick="RatesSeasonsModule.switchTab('tab-seasons')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: var(--primary-navy); cursor: pointer; border-bottom: 3px solid var(--primary-blue); margin-bottom: -2px;">
               <i class="fas fa-calendar-alt"></i> Temporadas & Calendario
             </button>
-            <button class="rates-tab-btn" data-tab="tab-occupancy" onclick="RatesSeasonsModule.switchTab('tab-occupancy')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
-              <i class="fas fa-users"></i> Huéspedes & Fines de Semana
-            </button>
             <button class="rates-tab-btn" data-tab="tab-promos" onclick="RatesSeasonsModule.switchTab('tab-promos')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
-              <i class="fas fa-tags"></i> Promociones & Corporativos
+              <i class="fas fa-percent"></i> Promociones
             </button>
-            <button class="rates-tab-btn" data-tab="tab-addons" onclick="RatesSeasonsModule.switchTab('tab-addons')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
-              <i class="fas fa-concierge-bell"></i> Paquetes & Add-ons
-            </button>
-            <button class="rates-tab-btn" data-tab="tab-simulator" onclick="RatesSeasonsModule.switchTab('tab-simulator')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
-              <i class="fas fa-calculator"></i> Cotizador / Simulador en Vivo
+            <button class="rates-tab-btn" data-tab="tab-rate-plans" onclick="RatesSeasonsModule.switchTab('tab-rate-plans')" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;">
+              <i class="fas fa-layer-group"></i> Planes
             </button>
           </div>
 
@@ -1521,68 +1240,23 @@
               </div>
             </div>
 
-            <!-- TAB 2: REGLAS DE OCUPACIÓN Y FIN DE SEMANA -->
-            <div id="tab-occupancy" class="rates-tab-content" style="display: none;">
-              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px;">
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-                  <h4 style="font-size: 15px; font-weight: 600; color: var(--primary-navy); margin: 0 0 14px 0;">
-                    <i class="fas fa-users-cog" style="color: var(--primary-blue);"></i> Política de Ocupación y Huéspedes Adicionales
-                  </h4>
-                  <div class="form-group">
-                    <label>Huéspedes Base Incluidos en Tarifa</label>
-                    <input type="number" id="rule-base-guests" class="form-control" value="2" min="1" max="6">
-                    <small style="color: var(--text-muted); font-size: 11px;">Capacidad base antes de aplicar suplementos</small>
-                  </div>
-                  <div class="form-group">
-                    <label>Recargo por Adulto Adicional (Gs. / noche)</label>
-                    <input type="number" id="rule-extra-adult" class="form-control" value="60000" step="5000">
-                    <small style="color: var(--text-muted); font-size: 11px;">Aplica para mayores de 12 años</small>
-                  </div>
-                  <div class="form-group">
-                    <label>Recargo por Niño Adicional (Gs. / noche)</label>
-                    <input type="number" id="rule-extra-child" class="form-control" value="30000" step="5000">
-                    <small style="color: var(--text-muted); font-size: 11px;">Tarifa familiar bonificada para menores de 12 años</small>
-                  </div>
-                </div>
-
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between;">
-                  <div>
-                    <h4 style="font-size: 15px; font-weight: 600; color: var(--primary-navy); margin: 0 0 14px 0;">
-                      <i class="fas fa-glass-cheers" style="color: var(--accent-gold);"></i> Regla de Fines de Semana (Viernes & Sábado)
-                    </h4>
-                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 16px;">
-                      <input type="checkbox" id="rule-weekend-enabled" checked style="width: 18px; height: 18px;">
-                      <span style="font-size: 13.5px; font-weight: 600; color: var(--primary-navy);">Habilitar recargo automático de fin de semana</span>
-                    </label>
-                    <div class="form-group">
-                      <label>Porcentaje de Recargo de Fin de Semana (%)</label>
-                      <input type="number" id="rule-weekend-pct" class="form-control" value="15" min="0" max="100">
-                      <small style="color: var(--text-muted); font-size: 11px;">Se aplica automáticamente a las noches de viernes y sábado</small>
-                    </div>
-                  </div>
-                  <button class="btn btn-primary" onclick="RatesSeasonsModule.saveGeneralRules()" style="margin-top: 20px;">
-                    <i class="fas fa-save"></i> Guardar Políticas de Precios
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- TAB 3: PROMOCIONES & CONVENIOS CORPORATIVOS -->
+            <!-- TAB 2: PROMOCIONES (SINCRONIZADAS CON LAS 4 ESTACIONES CLIMÁTICAS & TOGGLE MANUAL) -->
             <div id="tab-promos" class="rates-tab-content" style="display: none;">
               <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
                 <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
                   <h4 style="font-size: 15px; font-weight: 600; color: var(--primary-navy); margin: 0 0 14px 0;">
-                    <i class="fas fa-ticket-alt" style="color: var(--primary-blue);"></i> Crear Nueva Promoción / Convenio
+                    <i class="fas fa-ticket-alt" style="color: var(--primary-blue);"></i> Crear Nueva Promoción
                   </h4>
                   <div class="form-group">
-                    <label>Código del Cupón / Empresa *</label>
-                    <input type="text" id="new-promo-code" class="form-control" placeholder="Ej: PROMOVERANO, CORP_BANCO" style="text-transform: uppercase; font-family: monospace; font-weight: bold;">
+                    <label>Código del Cupón *</label>
+                    <input type="text" id="new-promo-code" class="form-control" placeholder="Ej: PRIMAVERA2026, CORP_UTCD" style="text-transform: uppercase; font-family: monospace; font-weight: bold;">
                   </div>
                   <div class="form-group">
                     <label>Tipo de Beneficio</label>
                     <select id="new-promo-type" class="form-control">
+                      <option value="temporada">Promoción de Temporada Climática</option>
                       <option value="percent">Promoción Abierta (Cupón Huésped)</option>
-                      <option value="corporate">Convenio Corporativo / Empresa</option>
+                      <option value="corporate">Convenio Corporativo</option>
                     </select>
                   </div>
                   <div class="form-group">
@@ -1590,8 +1264,8 @@
                     <input type="number" id="new-promo-val" class="form-control" value="15" min="1" max="50">
                   </div>
                   <div class="form-group">
-                    <label>Descripción / Observación</label>
-                    <input type="text" id="new-promo-desc" class="form-control" placeholder="Ej: Convenio especial 2026">
+                    <label>Descripción / Política</label>
+                    <input type="text" id="new-promo-desc" class="form-control" placeholder="Ej: Válido para reservas en primavera">
                   </div>
                   <button class="btn btn-primary" onclick="RatesSeasonsModule.addNewPromo()" style="width: 100%;">
                     <i class="fas fa-plus"></i> Registrar Promoción
@@ -1599,6 +1273,10 @@
                 </div>
 
                 <div>
+                  <div style="background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; color: #92400E; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-cloud-sun" style="font-size: 15px;"></i>
+                    <span>Las promociones climáticas por defecto (Verano, Otoño, Invierno, Primavera) se activan automáticamente con su temporada, pero pueden pausarse o activarse manualmente en todo momento.</span>
+                  </div>
                   <div style="overflow-x: auto;">
                     <table class="custom-table">
                       <thead>
@@ -1620,211 +1298,145 @@
               </div>
             </div>
 
-            <!-- TAB 4: ADD-ONS & PAQUETES -->
-            <div id="tab-addons" class="rates-tab-content" style="display: none;">
-              <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
-                Servicios adicionales y paquetes opcionales que se suman de forma transparente a la reserva y a la cuenta del huésped (Folio).
-              </p>
-              <div id="addons-cards-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
-                <!-- Dinámico -->
-              </div>
-            </div>
-
-            <!-- TAB 5: SIMULADOR DE TARIFAS EN TIEMPO REAL -->
-            <div id="tab-simulator" class="rates-tab-content" style="display: none;">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 14px; padding: 20px;">
-                  <h4 style="font-size: 15px; font-weight: 600; color: var(--primary-navy); margin: 0 0 14px 0;">
-                    <i class="fas fa-sliders-h" style="color: var(--primary-blue);"></i> Parámetros de Simulación de Reserva
+            <!-- TAB 3: PLANES DE TARIFA (NUEVO SUBMENÚ ESTRATÉGICO - TAREA 4) -->
+            <div id="tab-rate-plans" class="rates-tab-content" style="display: none;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                <div>
+                  <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--primary-navy);">
+                    <i class="fas fa-layer-group" style="color: var(--accent-gold);"></i> Planes de Tarifa & Políticas Comerciales
                   </h4>
-
-                  <div class="form-group">
-                    <label>Habitación Seleccionada</label>
-                    <select id="sim-room" class="form-control" onchange="RatesSeasonsModule.calculateSimulation()">
-                      <!-- Opciones dinámicas -->
-                    </select>
-                  </div>
-
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
-                    <div class="form-group" style="margin: 0;">
-                      <label>Check-in</label>
-                      <input type="date" id="sim-checkin" class="form-control" onchange="RatesSeasonsModule.calculateSimulation()">
-                    </div>
-                    <div class="form-group" style="margin: 0;">
-                      <label>Check-out</label>
-                      <input type="date" id="sim-checkout" class="form-control" onchange="RatesSeasonsModule.calculateSimulation()">
-                    </div>
-                  </div>
-
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-                    <div class="form-group" style="margin: 0;">
-                      <label>Adultos</label>
-                      <input type="number" id="sim-adults" class="form-control" value="2" min="1" max="6" onchange="RatesSeasonsModule.calculateSimulation()">
-                    </div>
-                    <div class="form-group" style="margin: 0;">
-                      <label>Niños (&lt; 12 años)</label>
-                      <input type="number" id="sim-children" class="form-control" value="0" min="0" max="4" onchange="RatesSeasonsModule.calculateSimulation()">
-                    </div>
-                  </div>
-
-                  <div class="form-group">
-                    <label>Código Promocional o Corporativo (Opcional)</label>
-                    <input type="text" id="sim-promocode" class="form-control" placeholder="Ej: VERANO2026, CORP_UTCD" style="text-transform: uppercase; font-family: monospace;" oninput="RatesSeasonsModule.calculateSimulation()">
-                  </div>
-
-                  <div class="form-group" style="margin-bottom: 0;">
-                    <label>Agregar Servicios & Add-ons</label>
-                    <div id="sim-addons-list">
-                      <!-- Checkboxes dinámicos -->
-                    </div>
-                  </div>
+                  <p style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">
+                    Configuración de planes vinculados a las tarifas de habitaciones y sincronizados con la App Móvil y Recepción
+                  </p>
                 </div>
+                <button class="btn btn-primary btn-sm" onclick="RatesSeasonsModule.openRatePlanModal()">
+                  <i class="fas fa-plus-circle"></i> Nuevo Plan de Tarifa
+                </button>
+              </div>
 
-                <!-- Resultado del Cálculo -->
-                <div id="sim-breakdown-result">
-                  <!-- Renderizado dinámico de la cotización -->
-                </div>
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Plan & Código</th>
+                      <th>Etiqueta / Badge</th>
+                      <th>Condición / Descuento</th>
+                      <th>Política de Cancelación</th>
+                      <th>Canales Habilitados</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="rate-plans-table-body">
+                    <!-- Dinámico -->
+                  </tbody>
+                </table>
               </div>
             </div>
 
           </div>
         </div>
       <!-- =====================================================
-           VIEW: CONSUMOS & FRIGOBAR (SERVICIOS & MANTENIMIENTO)
+           VIEW: CONSUMO & SERVICIOS (SERVICIOS & MANTENIMIENTO) - TAREA 6
            ===================================================== -->
       <section id="view-consumptions" class="view-section">
         <div class="card-panel">
           <div class="panel-header" style="flex-wrap: wrap; gap: 14px;">
             <div>
-              <h3 class="panel-title"><i class="fas fa-utensils" style="color: var(--accent-gold);"></i> Consumos, Frigobar & Room Service</h3>
+              <h3 class="panel-title"><i class="fas fa-utensils" style="color: var(--accent-gold);"></i> Consumo & Servicios</h3>
               <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
-                Gestión de consumos en habitación, reposición de frigobar, pedidos de Room Service y cargos automáticos al folio
+                Catálogo oficial de Minibar, Restaurante / Room Service y Servicios Adicionales sincronizado en tiempo real con la App Móvil
               </p>
             </div>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-primary" onclick="if(typeof openAddConsumoModal==='function'){openAddConsumoModal();}else if(typeof ReservationsModule!=='undefined'&&ReservationsModule.openAddConsumoDirectModal){ReservationsModule.openAddConsumoDirectModal();}else{showToast('Seleccione una reserva activa en Recepción para cargar consumos', 'info');}">
-                <i class="fas fa-plus"></i> Cargar Consumo a Folio
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="btn btn-outline" onclick="InventoryModule.syncSalesCatalogToRemote()" title="Forzar sincronización de catálogo con la App Móvil">
+                <i class="fas fa-sync-alt"></i> Sincronizar App Móvil
+              </button>
+              <button class="btn btn-primary" onclick="InventoryModule.openSalesItemModal()">
+                <i class="fas fa-plus"></i> Nuevo Ítem / Servicio
               </button>
             </div>
           </div>
 
           <!-- Luxury Sub-tabs -->
-          <div class="luxury-subtabs">
-            <button class="subtab-btn active" onclick="switchConsumptionsSubtab('minibar', this)">
-              <i class="fas fa-cocktail"></i> Reposición de Frigobar / Minibar
+          <div class="luxury-subtabs" style="margin-bottom: 20px;">
+            <button class="subtab-btn active" onclick="InventoryModule.filterConsumptionsTab('all', this)">
+              <i class="fas fa-th-large"></i> Todos los Ítems
             </button>
-            <button class="subtab-btn" onclick="switchConsumptionsSubtab('roomservice', this)">
-              <i class="fas fa-concierge-bell"></i> Room Service & Bebidas
+            <button class="subtab-btn" onclick="InventoryModule.filterConsumptionsTab('Minibar', this)">
+              <i class="fas fa-cocktail"></i> Minibar & Frigobar
             </button>
-            <button class="subtab-btn" onclick="switchConsumptionsSubtab('quickcharges', this)">
-              <i class="fas fa-receipt"></i> Historial de Consumos en Folios
+            <button class="subtab-btn" onclick="InventoryModule.filterConsumptionsTab('Room Service', this)">
+              <i class="fas fa-utensils"></i> Restaurante & Room Service
+            </button>
+            <button class="subtab-btn" onclick="InventoryModule.filterConsumptionsTab('Spa & Bienestar', this)">
+              <i class="fas fa-spa"></i> Servicios Adicionales & Spa
             </button>
           </div>
 
-          <!-- Subtab 1: Minibar -->
-          <div id="subtab-consumptions-minibar" class="subtab-content active">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px;">
-              <div class="kpi-card" style="border-left: 4px solid var(--accent-gold);">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ítems de Frigobar</p>
-                <h3 style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">8 Productos</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Bebidas, snacks y kits en habitación</p>
-              </div>
-              <div class="kpi-card" style="border-left: 4px solid #10B981;">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Reposición Diaria</p>
-                <h3 style="font-size: 22px; font-weight: 800; color: #059669; margin: 6px 0 2px;">Al Día</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Monitoreado por Housekeeping</p>
-              </div>
-              <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
-                <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Facturación Automática</p>
-                <h3 style="font-size: 22px; font-weight: 800; color: #2563EB; margin: 6px 0 2px;">Directo a Folio</h3>
-                <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Liquidación al Check-out</p>
-              </div>
+          <!-- KPIs Catálogo Venta -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+            <div class="kpi-card" style="border-left: 4px solid var(--primary-gold);">
+              <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Total Productos / Servicios</p>
+              <h3 id="inv-sales-kpi-total" style="font-size: 22px; font-weight: 800; color: var(--primary-navy); margin: 6px 0 2px;">6</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Catálogo activo del hotel</p>
             </div>
-
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 12px;">
-                <i class="fas fa-boxes" style="color: var(--accent-gold);"></i> Catálogo Estandarizado de Frigobar (Precios Oficiales)
-              </h4>
-              <div style="overflow-x: auto;">
-                <table class="custom-table">
-                  <thead>
-                    <tr>
-                      <th>Artículo</th>
-                      <th>Categoría</th>
-                      <th>Ubicación</th>
-                      <th style="text-align: right;">Precio Venta</th>
-                      <th>Control de Stock</th>
-                      <th style="text-align: center;">Acción Rápida</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td><strong>Agua Mineral con/sin gas 500ml</strong></td>
-                      <td><span class="badge" style="background: #EFF6FF; color: #1D4ED8;">Bebidas</span></td>
-                      <td>Frigobar Habitación</td>
-                      <td style="text-align: right; font-weight: 700;">8.000 Gs.</td>
-                      <td><span class="badge" style="background: #F0FDF4; color: #166534;">En Stock (Pañol)</span></td>
-                      <td style="text-align: center;"><button class="btn btn-sm btn-outline" onclick="switchView('inventory')"><i class="fas fa-eye"></i> Ver Stock</button></td>
-                    </tr>
-                    <tr>
-                      <td><strong>Gaseosa Coca-Cola / Guaraná 350ml</strong></td>
-                      <td><span class="badge" style="background: #EFF6FF; color: #1D4ED8;">Bebidas</span></td>
-                      <td>Frigobar Habitación</td>
-                      <td style="text-align: right; font-weight: 700;">12.000 Gs.</td>
-                      <td><span class="badge" style="background: #F0FDF4; color: #166534;">En Stock</span></td>
-                      <td style="text-align: center;"><button class="btn btn-sm btn-outline" onclick="switchView('inventory')"><i class="fas fa-eye"></i> Ver Stock</button></td>
-                    </tr>
-                    <tr>
-                      <td><strong>Cerveza Heineken / Corona 330ml</strong></td>
-                      <td><span class="badge" style="background: #FEF3C7; color: #B45309;">Alcohol</span></td>
-                      <td>Frigobar Habitación</td>
-                      <td style="text-align: right; font-weight: 700;">18.000 Gs.</td>
-                      <td><span class="badge" style="background: #F0FDF4; color: #166534;">En Stock</span></td>
-                      <td style="text-align: center;"><button class="btn btn-sm btn-outline" onclick="switchView('inventory')"><i class="fas fa-eye"></i> Ver Stock</button></td>
-                    </tr>
-                    <tr>
-                      <td><strong>Papas Pringles / Snacks 40g</strong></td>
-                      <td><span class="badge" style="background: #FDF2F8; color: #9D174D;">Snacks</span></td>
-                      <td>Bandeja de Habitación</td>
-                      <td style="text-align: right; font-weight: 700;">15.000 Gs.</td>
-                      <td><span class="badge" style="background: #F0FDF4; color: #166534;">En Stock</span></td>
-                      <td style="text-align: center;"><button class="btn btn-sm btn-outline" onclick="switchView('inventory')"><i class="fas fa-eye"></i> Ver Stock</button></td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            <div class="kpi-card" style="border-left: 4px solid #10B981;">
+              <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Disponibles en App Móvil</p>
+              <h3 id="inv-sales-kpi-app" style="font-size: 22px; font-weight: 800; color: #059669; margin: 6px 0 2px;">5</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Visibles para pedir desde celular</p>
+            </div>
+            <div class="kpi-card" style="border-left: 4px solid #3B82F6;">
+              <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Ítems de Minibar</p>
+              <h3 id="inv-sales-kpi-minibar" style="font-size: 22px; font-weight: 800; color: #2563EB; margin: 6px 0 2px;">2</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Bebidas y snacks en habitación</p>
+            </div>
+            <div class="kpi-card" style="border-left: 4px solid #8B5CF6;">
+              <p style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin: 0;">Restaurante & Extras</p>
+              <h3 id="inv-sales-kpi-restaurant" style="font-size: 22px; font-weight: 800; color: #7C3AED; margin: 6px 0 2px;">4</h3>
+              <p style="font-size: 11px; color: var(--text-muted); margin: 0;">Platos, cocina y experiencias</p>
             </div>
           </div>
 
-          <!-- Subtab 2: Room Service -->
-          <div id="subtab-consumptions-roomservice" class="subtab-content">
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 8px;">
-                <i class="fas fa-concierge-bell" style="color: var(--primary-blue);"></i> Servicios Gastronómicos y Pedidos desde App Móvil
-              </h4>
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
-                Los huéspedes pueden ordenar desde la app móvil o contactar a Front Desk. Todos los pedidos sincronizan con la cuenta de la habitación.
-              </p>
-              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button class="btn btn-outline" onclick="switchView('inventory')"><i class="fas fa-utensils"></i> Modificar Menú en Catálogo</button>
-                <button class="btn btn-outline" onclick="switchView('reservations')"><i class="fas fa-concierge-bell"></i> Ver Folios Activos</button>
-              </div>
+          <!-- Barra de Filtros y Ordenación -->
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; background: #F8FAFC; padding: 10px 14px; border-radius: 12px; border: 1px solid #E2E8F0;">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+              <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-right: 4px;">Filtrar:</span>
+              <button type="button" id="sales-filter-all" class="btn btn-sm sales-cat-btn active" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('all')">Todos</button>
+              <button type="button" id="sales-filter-minibar" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Minibar')"><i class="fas fa-cocktail"></i> Minibar</button>
+              <button type="button" id="sales-filter-roomservice" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Room Service')"><i class="fas fa-utensils"></i> Restaurante & Room Service</button>
+              <button type="button" id="sales-filter-spa" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Spa & Bienestar')"><i class="fas fa-spa"></i> Spa & Relax</button>
+              <button type="button" id="sales-filter-extra" class="btn btn-sm sales-cat-btn" style="padding: 4px 12px; font-size: 12px; border-radius: 8px;" onclick="InventoryModule.filterSalesCategory('Servicios Extra')"><i class="fas fa-concierge-bell"></i> Servicios Extra</button>
+            </div>
+
+            <!-- Selector de Ordenación -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 11.5px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;"><i class="fas fa-sort-amount-down"></i> Ordenar:</span>
+              <select id="sales-sort-select" class="form-control" style="font-size: 12px; height: 32px; padding: 2px 10px; width: auto; border-radius: 8px;" onchange="InventoryModule.sortSalesCatalog(this.value)">
+                <option value="category">Por Categoría (A-Z)</option>
+                <option value="price-asc">Precio: Menor a Mayor</option>
+                <option value="price-desc">Precio: Mayor a Menor</option>
+                <option value="name">Nombre (A-Z)</option>
+              </select>
             </div>
           </div>
 
-          <!-- Subtab 3: Cargos al Folio -->
-          <div id="subtab-consumptions-quickcharges" class="subtab-content">
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 8px;">
-                <i class="fas fa-file-invoice-dollar" style="color: #10B981;"></i> Liquidación de Extras y Consumos
-              </h4>
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
-                Para registrar consumos extra directamente a un huésped, dirígete al módulo de <strong>Recepción & Reservas</strong> o <strong>Huéspedes & CRM</strong> y abre el Folio de la habitación.
-              </p>
-              <button class="btn btn-primary" onclick="switchView('reservations')">
-                <i class="fas fa-arrow-right"></i> Ir al Rack de Recepción
-              </button>
-            </div>
+          <div style="overflow-x: auto;">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Producto / Servicio & Marca</th>
+                  <th>Categoría & Código</th>
+                  <th>Costo vs Precio Oficial</th>
+                  <th>Lista & Promoción</th>
+                  <th>Disponibilidad en App Móvil</th>
+                  <th style="text-align: center;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="inv-sales-table-body">
+                <!-- Dinámico desde InventoryModule -->
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -1851,49 +1463,138 @@
             </div>
           </div>
 
-          <!-- Luxury Sub-tabs -->
-          <div class="luxury-subtabs">
-            <button class="subtab-btn active" onclick="switchPurchasesSubtab('providers', this)">
-              <i class="fas fa-truck"></i> Directorio de Proveedores
+          <!-- Sub-navegación Principal de Compras (Tarea 10: 3 Submenús Estructurados) -->
+          <div style="display: flex; gap: 8px; border-bottom: 2px solid #E2E8F0; padding: 0 20px; overflow-x: auto; background: #F8FAFC; margin-bottom: 20px;">
+            <button id="btn-compras-sub-orders" class="rates-tab-btn active" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: var(--primary-navy); cursor: pointer; border-bottom: 3px solid var(--primary-blue); margin-bottom: -2px;" onclick="InventoryModule.switchComprasSubTab('orders')">
+              <i class="fas fa-file-invoice"></i> 1. Órdenes de Compra
             </button>
-            <button class="subtab-btn" onclick="switchPurchasesSubtab('orders', this)">
-              <i class="fas fa-file-alt"></i> Órdenes de Compra
+            <button id="btn-compras-sub-receptions" class="rates-tab-btn" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;" onclick="InventoryModule.switchComprasSubTab('receptions')">
+              <i class="fas fa-dolly"></i> 2. Recepciones de Órdenes
             </button>
-            <button class="subtab-btn" onclick="switchPurchasesSubtab('receptions', this)">
-              <i class="fas fa-box-open"></i> Recepción de Insumos & Pañol
+            <button id="btn-compras-sub-providers" class="rates-tab-btn" style="padding: 12px 18px; border: none; background: none; font-weight: 600; font-size: 13px; color: #64748B; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px;" onclick="InventoryModule.switchComprasSubTab('providers')">
+              <i class="fas fa-truck"></i> 3. Gestión de Proveedores
             </button>
           </div>
 
-          <div id="subtab-purchases-providers" class="subtab-content active">
-            <div id="purchases-providers-container">
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">Proveedores homologados para insumos de limpieza, amenities, alimentos y mantenimiento.</p>
-              <div id="purchases-providers-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
-                <!-- Rellenado por JavaScript -->
+          <div style="padding: 0 20px 20px 20px;">
+            <!-- KPIs Ejecutivos de Compras -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px;">
+              <div class="kpi-card" style="border-left: 4px solid #3B82F6; padding: 12px 16px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Órdenes de Compra</span>
+                <h3 id="compras-kpi-orders" style="font-size: 20px; font-weight: 800; color: #1D4ED8; margin: 4px 0 2px;">0 Emitidas</h3>
+                <small style="font-size: 11px; color: var(--text-muted);">Solicitudes a proveedores</small>
+              </div>
+              <div class="kpi-card" style="border-left: 4px solid #10B981; padding: 12px 16px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Recepciones Auditadas</span>
+                <h3 id="compras-kpi-receptions" style="font-size: 20px; font-weight: 800; color: #047857; margin: 4px 0 2px;">0 Ingresadas</h3>
+                <small style="font-size: 11px; color: var(--text-muted);">Con remisión e identidad de receptor</small>
+              </div>
+              <div class="kpi-card" style="border-left: 4px solid #F59E0B; padding: 12px 16px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Egresos en Caja</span>
+                <h3 id="compras-kpi-payments" style="font-size: 18px; font-weight: 800; color: #B45309; margin: 4px 0 2px;">0 Gs.</h3>
+                <small style="font-size: 11px; color: var(--text-muted);">Sujeto a caja física abierta</small>
+              </div>
+              <div class="kpi-card" style="border-left: 4px solid #8B5CF6; padding: 12px 16px;">
+                <span style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Proveedores Homologados</span>
+                <h3 id="compras-kpi-providers" style="font-size: 20px; font-weight: 800; color: #6D28D9; margin: 4px 0 2px;">0 Empresas</h3>
+                <small style="font-size: 11px; color: var(--text-muted);">Con RUC y contacto verificado</small>
               </div>
             </div>
-          </div>
 
-          <div id="subtab-purchases-orders" class="subtab-content">
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 8px;">
-                <i class="fas fa-clipboard-check" style="color: var(--primary-blue);"></i> Control de Órdenes y Cotizaciones
-              </h4>
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">Emisión de solicitudes de compra con control presupuestario y autorización de gerencia.</p>
-              <button class="btn btn-primary" onclick="InventoryModule.openPurchaseOrderModal()">
-                <i class="fas fa-plus"></i> Crear Orden de Compra
-              </button>
+            <!-- 1. SUB-SECCIÓN: ÓRDENES DE COMPRA (Tarea 10 - Submenú 1) -->
+            <div id="compras-subview-orders" style="display: block;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                <div>
+                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-file-invoice" style="color: #3B82F6;"></i>
+                    <span>Órdenes de Compra Emitidas</span>
+                  </h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    Emisión de pedidos detallados con control de costos, proveedor homologado y estado operativo
+                  </p>
+                </div>
+                <button class="btn btn-primary" onclick="InventoryModule.openNewOrderModal()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-plus-circle"></i> Generar Orden de Compra
+                </button>
+              </div>
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Proveedor Seleccionado</th>
+                      <th>Quién Realiza (Emisor)</th>
+                      <th>Fecha Emisión</th>
+                      <th>Detalle de Insumos</th>
+                      <th style="text-align: right;">Total Estimado</th>
+                      <th style="text-align: center;">Estado</th>
+                      <th style="text-align: center;">Acciones Operativas</th>
+                    </tr>
+                  </thead>
+                  <tbody id="compras-orders-tbody">
+                    <!-- Filas dinámicas -->
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-          <div id="subtab-purchases-receptions" class="subtab-content">
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px;">
-              <h4 style="font-size: 14px; font-weight: 700; color: var(--primary-navy); margin-bottom: 8px;">
-                <i class="fas fa-dolly" style="color: #10B981;"></i> Ingreso de Mercadería a Almacén
-              </h4>
-              <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">Ingresa remisiones y facturas de compras para actualizar el Kardex valorizado en tiempo real.</p>
-              <button class="btn btn-outline" onclick="switchView('inventory')">
-                <i class="fas fa-boxes"></i> Ir al Kardex de Almacén
-              </button>
+            <!-- 2. SUB-SECCIÓN: RECEPCIONES DE ÓRDENES (Tarea 10 - Submenú 2) -->
+            <div id="compras-subview-receptions" style="display: none;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                <div>
+                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-dolly" style="color: #10B981;"></i>
+                    <span>Recepciones de Mercadería & Pañol</span>
+                  </h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    Control de entrega física en pañol, auditoría de remisión del proveedor e identificación obligatoria de <strong>quién realizó la recepción</strong>
+                  </p>
+                </div>
+                <button class="btn btn-primary" style="background: #10B981; border-color: #059669; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;" onclick="InventoryModule.openNewReceptionModal()">
+                  <i class="fas fa-check-double"></i> Registrar Recepción
+                </button>
+              </div>
+              <div style="overflow-x: auto;">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>N° Recepción</th>
+                      <th>Orden Asoc.</th>
+                      <th>Proveedor</th>
+                      <th>Remisión / Factura</th>
+                      <th>Fecha / Hora</th>
+                      <th style="background: #ECFDF5; color: #065F46; font-weight: 800;"><i class="fas fa-user-check"></i> Recepcionado Por</th>
+                      <th>Artículos Recibidos</th>
+                      <th>Impacto Stock</th>
+                      <th style="text-align: center;">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody id="compras-receptions-tbody">
+                    <!-- Filas dinámicas -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- 3. SUB-SECCIÓN: GESTIÓN DE PROVEEDORES (Tarea 10 - Submenú 3) -->
+            <div id="compras-subview-providers" style="display: none;">
+              <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                <div>
+                  <h3 class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-truck" style="color: #0284C7;"></i>
+                    <span>Gestión de Proveedores Homologados</span>
+                  </h3>
+                  <p style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
+                    Directorio completo de empresas proveedoras con RUC paraguayo, rubros, teléfono y contactos de pedidos
+                  </p>
+                </div>
+                <button class="btn btn-primary" onclick="InventoryModule.openNewProviderModal()" style="font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-plus-circle"></i> Registrar Nuevo Proveedor
+                </button>
+              </div>
+              <div id="providers-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px;">
+                <!-- Tarjetas dinámicas de proveedores -->
+              </div>
             </div>
           </div>
         </div>
@@ -2313,17 +2014,51 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
             <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-users"></i> Cantidad Huéspedes</label>
-            <input type="number" id="new-res-guests-count" class="form-control" value="1" min="1" max="6">
+            <input type="number" id="new-res-guests-count" class="form-control" value="1" min="1" max="6" onchange="ReservationsModule.onGuestsCountChange()" oninput="ReservationsModule.onGuestsCountChange()">
           </div>
           <div class="form-group">
             <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-concierge-bell"></i> Canal de Venta</label>
             <select id="new-res-channel" class="form-control">
               <option value="Recepción / Walk-in">Recepción / Walk-in</option>
-              <option value="Reserva Telefónica">Reserva Telefónica</option>
               <option value="WhatsApp Corporativo">WhatsApp Corporativo</option>
+              <option value="Reserva Telefónica">Reserva Telefónica</option>
               <option value="Web Administrativa">Web Administrativa</option>
+              <option value="Booking.com">Booking.com</option>
+              <option value="Airbnb">Airbnb</option>
+              <option value="App Móvil">App Móvil</option>
             </select>
           </div>
+        </div>
+
+        <!-- Selector de Plan de Tarifa Asociado (Tarea 4) -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-layer-group" style="color: var(--accent-gold);"></i> Plan de Tarifa Contratado</label>
+          <select id="new-res-rate-plan" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()">
+            <!-- Dinámico desde RatesSeasonsModule.ratePlans -->
+          </select>
+        </div>
+
+        <!-- Justificación Obligatoria para Habitación Doble / Matrimonial con 1 Huésped -->
+        <div id="new-res-double-justification-container" style="display: none; margin-bottom: 14px; background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 8px; padding: 12px;">
+          <label style="font-weight: 700; font-size: 12.5px; color: #B45309; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+            <i class="fas fa-exclamation-triangle"></i> Justificación de uso individual en Habitación Doble / Matrimonial (Obligatorio)
+          </label>
+          <select id="new-res-double-justification-select" class="form-control" style="font-size: 13px;" onchange="ReservationsModule.onJustificationSelect(this.value)">
+            <option value="Preferencia por cama matrimonial amplia y confort">Preferencia por cama matrimonial amplia y confort</option>
+            <option value="Viaje de negocios corporativo individual">Viaje de negocios corporativo individual</option>
+            <option value="Acompañante canceló viaje">Acompañante canceló viaje</option>
+            <option value="OTRO">Otro motivo (especificar abajo)</option>
+          </select>
+          <input type="text" id="new-res-double-justification-custom" class="form-control" placeholder="Especifique el motivo de uso individual..." style="display: none; margin-top: 8px; font-size: 13px;">
+        </div>
+
+        <!-- Contenedor dinámico de acompañantes obligatorios si guestsCount >= 2 -->
+        <div id="new-res-companions-container" style="display: none; margin-bottom: 14px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 14px;">
+          <div style="font-weight: 700; font-size: 13px; color: var(--primary-navy); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+            <span><i class="fas fa-user-friends" style="color: var(--accent-gold);"></i> Registro Obligatorio de Acompañante(s)</span>
+            <span class="badge" style="background: #E0E7FF; color: #3730A3; font-size: 10.5px; font-weight: 700;">Requerido por Ley</span>
+          </div>
+          <div id="new-res-companions-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
         </div>
 
         <div class="form-group">
@@ -2352,6 +2087,31 @@
         <button id="new-res-confirm-btn" class="btn btn-primary" onclick="ReservationsModule.confirmNewReservation()">
           <i class="fas fa-check-circle"></i> Confirmar Reserva
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Expediente & Ficha Detallada del Huésped y Acompañantes (Tarea 2) -->
+  <div id="modal-guest-dossier" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 750px; border-radius: var(--radius-xl); padding: 24px;">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+            <i class="fas fa-id-card"></i>
+          </div>
+          <div>
+            <h3 id="guest-dossier-title" style="margin: 0; font-size: 17px; color: var(--primary-navy);">Ficha & Expediente del Pasajero</h3>
+            <p id="guest-dossier-subtitle" style="margin: 2px 0 0; font-size: 12px; color: var(--text-muted);">Documentación de identidad, registro de acompañantes y cuenta corriente</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-guest-dossier')">&times;</button>
+      </div>
+      <div class="modal-body" id="guest-dossier-body">
+        <!-- Rellenado dinámicamente por GuestsModule.openGuestDossier -->
+      </div>
+      <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: space-between;">
+        <div id="guest-dossier-footer-actions"></div>
+        <button class="btn btn-outline" onclick="closeModal('modal-guest-dossier')">Cerrar Expediente</button>
       </div>
     </div>
   </div>
@@ -3074,8 +2834,8 @@
               </select>
             </div>
             <div class="form-group" style="margin: 0;">
-              <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">Reportado Por</label>
-              <input type="text" id="incident-reporter" class="form-control" value="Rosa Almada (Mucama)" required>
+              <label style="font-weight: 600; font-size: 12.5px; color: #1E293B; margin-bottom: 6px; display: block;">Reportado Por (Automático)</label>
+              <input type="text" id="incident-reporter" class="form-control" value="Rosa Almada (Mucama)" readonly style="background: #F1F5F9; color: #475569; font-weight: 600; cursor: not-allowed; border-color: #CBD5E1;" required title="Cargado automáticamente según el usuario que reporta">
             </div>
           </div>
 
@@ -4982,6 +4742,72 @@
           <button type="button" class="btn btn-outline" onclick="closeModal('modal-season-editor')">Cancelar</button>
           <button type="submit" id="btn-save-season" class="btn btn-primary">
             <i class="fas fa-save"></i> Guardar Temporada
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Editor de Planes de Tarifa (Tarea 4) -->
+  <div id="modal-rate-plan-editor" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 540px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <h3 id="rate-plan-modal-title" style="font-size: 18px; color: var(--primary-navy); margin: 0;">
+          <i class="fas fa-layer-group" style="color: var(--accent-gold);"></i> Nuevo Plan de Tarifa
+        </h3>
+        <button class="modal-close" onclick="closeModal('modal-rate-plan-editor')">&times;</button>
+      </div>
+      <form id="form-rate-plan-editor" onsubmit="event.preventDefault(); RatesSeasonsModule.saveRatePlan();">
+        <input type="hidden" id="rate-plan-id">
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Nombre Comercial del Plan *</label>
+            <input type="text" id="rate-plan-name" class="form-control" placeholder="Ej: Tarifa Flexible Estándar" required>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Código Único *</label>
+            <input type="text" id="rate-plan-code" class="form-control" placeholder="Ej: flexible" required style="font-family: monospace; text-transform: lowercase;">
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Etiqueta / Badge Visual</label>
+            <input type="text" id="rate-plan-badge" class="form-control" placeholder="Ej: Sin Riesgo, Ahorra 10% 🌟">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Descuento s/ Tarifa Base (%)</label>
+            <input type="number" id="rate-plan-discount" class="form-control" min="0" max="60" value="0" step="1">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 12px; font-weight: 600;">Política de Cancelación & Reembolso *</label>
+          <textarea id="rate-plan-cancellation" class="form-control" rows="2" placeholder="Ej: Cancelación 100% gratuita hasta 24 hs previas al check-in. Máxima flexibilidad." required></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Canales Habilitados</label>
+            <select id="rate-plan-channels" class="form-control">
+              <option value="todos">Todos (App Móvil, Web y Recepción)</option>
+              <option value="app">Solo App Móvil</option>
+              <option value="recepcion">Solo Recepción / Mostrador</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label style="font-size: 12px; font-weight: 600;">Estado del Plan</label>
+            <select id="rate-plan-active" class="form-control">
+              <option value="true">Activo (Visible para Reservas)</option>
+              <option value="false">Inactivo (Pausado)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px; display: flex; justify-content: flex-end; gap: 8px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-rate-plan-editor')">Cancelar</button>
+          <button type="submit" id="btn-save-rate-plan" class="btn btn-primary">
+            <i class="fas fa-save"></i> Guardar Plan de Tarifa
           </button>
         </div>
       </form>
