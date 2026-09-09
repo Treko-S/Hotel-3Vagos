@@ -2738,19 +2738,26 @@ const ReservationsModule = {
       </option>`;
     }).join('');
 
-    // Fechas por defecto: mañana a 3 días
+    // Fechas por defecto: hoy/mañana a 3 días con min estricto a hoy
     const today = new Date();
+    const todayDateStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(today) : today.toISOString().split('T')[0];
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(tomorrow) : tomorrow.toISOString().split('T')[0];
     const dayAfter = new Date(tomorrow);
     dayAfter.setDate(dayAfter.getDate() + 2);
-
-    const toInputDate = (d) => d.toISOString().split('T')[0];
+    const dayAfterStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(dayAfter) : dayAfter.toISOString().split('T')[0];
 
     const checkInInput = document.getElementById('new-res-checkin');
     const checkOutInput = document.getElementById('new-res-checkout');
-    if (checkInInput) checkInInput.value = toInputDate(tomorrow);
-    if (checkOutInput) checkOutInput.value = toInputDate(dayAfter);
+    if (checkInInput) {
+      checkInInput.min = todayDateStr;
+      checkInInput.value = tomorrowStr;
+    }
+    if (checkOutInput) {
+      checkOutInput.min = tomorrowStr;
+      checkOutInput.value = dayAfterStr;
+    }
 
     // Poblar Selector de Planes de Tarifa (Tarea 4)
     const planSelect = document.getElementById('new-res-rate-plan');
@@ -2766,6 +2773,7 @@ const ReservationsModule = {
       ).join('');
     }
 
+    this.renderRoomInlineCard();
     this.checkNewReservationAvailability();
     this.onGuestsCountChange();
     openModal('modal-new-reservation');
@@ -2774,6 +2782,390 @@ const ReservationsModule = {
   openNewReservationModalForRoom(roomId) {
     closeModal('modal-room-details');
     this.openNewReservationModal(roomId);
+  },
+
+  currentPreviewRoomId: null,
+  calendarMonthOffset: 0,
+
+  getRoomImage(room) {
+    if (!room) return 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800';
+    const tipo = room.tipos_habitacion || {};
+    const carac = (room.caracteristicas && typeof room.caracteristicas === 'object') ? room.caracteristicas : {};
+    if (carac.imagenCover) return carac.imagenCover;
+    if (Array.isArray(carac.imagenes) && carac.imagenes.length > 0) return carac.imagenes[0];
+    if (tipo.imagen_cover) return tipo.imagen_cover;
+
+    const tipoId = room.tipo_id || tipo.id || 1;
+    if (tipoId === 3) return 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800';
+    if (tipoId === 2) return 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800';
+    return 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800';
+  },
+
+  onRoomChange() {
+    this.renderRoomInlineCard();
+    this.checkNewReservationAvailability();
+    this.onGuestsCountChange();
+  },
+
+  onCheckInChange() {
+    const checkInInput = document.getElementById('new-res-checkin');
+    const checkOutInput = document.getElementById('new-res-checkout');
+    if (!checkInInput) return;
+
+    const todayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(new Date()) : new Date().toISOString().split('T')[0];
+    if (checkInInput.value && checkInInput.value < todayStr) {
+      showToast(`No se permite seleccionar una fecha anterior a hoy (${formatDate(todayStr)})`, 'warning');
+      checkInInput.value = todayStr;
+    }
+
+    if (checkInInput.value && checkOutInput) {
+      const dIn = new Date(checkInInput.value + 'T12:00:00');
+      dIn.setDate(dIn.getDate() + 1);
+      const nextDayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(dIn) : dIn.toISOString().split('T')[0];
+      checkOutInput.min = nextDayStr;
+      if (!checkOutInput.value || checkOutInput.value <= checkInInput.value) {
+        checkOutInput.value = nextDayStr;
+      }
+    }
+
+    this.checkNewReservationAvailability();
+  },
+
+  renderRoomInlineCard() {
+    const cardEl = document.getElementById('new-res-room-inline-card');
+    const roomSelect = document.getElementById('new-res-room');
+    if (!cardEl || !roomSelect) return;
+
+    const roomId = parseInt(roomSelect.value);
+    const rooms = RoomsModule.rooms || [];
+    const room = rooms.find(r => r.id == roomId) || rooms[0];
+    if (!room) {
+      cardEl.innerHTML = '';
+      return;
+    }
+
+    const tipo = room.tipos_habitacion || {};
+    const carac = (room.caracteristicas && typeof room.caracteristicas === 'object') ? room.caracteristicas : {};
+    const price = carac.precio_personalizado || tipo.precio_base_noche || 150000;
+    const capacidad = tipo.capacidad_personas || 2;
+    const imgUrl = this.getRoomImage(room);
+    const todayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(new Date()) : new Date().toISOString().split('T')[0];
+
+    const upcomingBookings = (this.currentBookings || [])
+      .filter(b => {
+        const st = (b.estado || '').toLowerCase();
+        return b.habitacion_id == room.id && st !== 'cancelada' && st !== 'finalizada' && b.check_out_previsto > todayStr;
+      })
+      .sort((a, b) => (a.check_in_previsto || '').localeCompare(b.check_in_previsto || ''));
+
+    let badgeStatus = `<span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); font-size: 11px;"><i class="fas fa-check-circle"></i> Libre Hoy</span>`;
+    let upcomingInfo = '';
+
+    if (upcomingBookings.length > 0) {
+      const nextBooking = upcomingBookings[0];
+      if (nextBooking.check_in_previsto <= todayStr) {
+        badgeStatus = `<span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); font-size: 11px;"><i class="fas fa-user-lock"></i> Ocupada hasta ${formatDate(nextBooking.check_out_previsto)}</span>`;
+      } else {
+        upcomingInfo = `<span style="color: #fbbf24; font-size: 11px; margin-left: 6px;"><i class="fas fa-calendar-check"></i> Próx. reserva: ${formatDate(nextBooking.check_in_previsto)}</span>`;
+      }
+    }
+
+    cardEl.innerHTML = `
+      <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 12px; backdrop-filter: blur(8px); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);">
+        <div style="width: 76px; height: 58px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid rgba(255, 255, 255, 0.15); position: relative; cursor: pointer;" onclick="ReservationsModule.openRoomPreviewModal(${room.id})" title="Click para ver fotos y calendario">
+          <img src="${imgUrl}" alt="Habitación ${room.numero}" style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'">
+          <span style="position: absolute; bottom: 2px; right: 2px; background: rgba(0,0,0,0.75); color: #fff; font-size: 9.5px; padding: 1px 4px; border-radius: 3px; font-weight: bold;">Piso ${room.piso || 1}</span>
+        </div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 2px;">
+            <strong style="font-size: 13.5px; color: #F8FAFC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              Hab. ${sanitizeInput(room.numero)} · ${sanitizeInput(tipo.nombre || 'Habitación')}
+            </strong>
+            <span style="font-size: 13px; font-weight: 700; color: var(--accent-gold); white-space: nowrap;">
+              ${formatGs(price)}<small style="font-weight: 400; color: #94A3B8; font-size: 10.5px;">/noche</small>
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 11px; color: #94A3B8;">
+            <span><i class="fas fa-users" style="color: #60a5fa;"></i> Cap. ${capacidad} pers.</span>
+            <span>·</span>
+            ${badgeStatus}
+            ${upcomingInfo}
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm" onclick="ReservationsModule.openRoomPreviewModal(${room.id})" style="background: rgba(212, 175, 55, 0.15); color: var(--accent-gold); border: 1px solid rgba(212, 175, 55, 0.35); padding: 6px 11px; font-size: 11.5px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; flex-shrink: 0; font-weight: 600; transition: all 0.2s;">
+          <i class="fas fa-calendar-alt"></i> Ficha & Fechas
+        </button>
+      </div>
+    `;
+  },
+
+  openRoomPreviewModal(targetRoomId = null) {
+    const roomSelect = document.getElementById('new-res-room');
+    const roomId = targetRoomId || (roomSelect ? parseInt(roomSelect.value) : null);
+    if (!roomId) return;
+
+    this.currentPreviewRoomId = roomId;
+    this.calendarMonthOffset = 0;
+    this.renderRoomPreviewModalContent();
+    openModal('modal-room-preview-calendar');
+  },
+
+  changePreviewCalendarMonth(delta) {
+    const newOffset = this.calendarMonthOffset + delta;
+    if (newOffset < 0) return; // No permitir meses pasados
+    this.calendarMonthOffset = newOffset;
+    this.renderRoomPreviewModalContent();
+  },
+
+  selectDateFromCalendar(dateStr) {
+    const checkInInput = document.getElementById('new-res-checkin');
+    const checkOutInput = document.getElementById('new-res-checkout');
+    const todayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(new Date()) : new Date().toISOString().split('T')[0];
+    
+    if (dateStr < todayStr) {
+      showToast('No se puede reservar en fechas anteriores a hoy', 'warning');
+      return;
+    }
+
+    if (checkInInput) {
+      checkInInput.value = dateStr;
+      const dIn = new Date(dateStr + 'T12:00:00');
+      dIn.setDate(dIn.getDate() + 1);
+      const nextDayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(dIn) : dIn.toISOString().split('T')[0];
+      if (checkOutInput) {
+        checkOutInput.min = nextDayStr;
+        checkOutInput.value = nextDayStr;
+      }
+    }
+
+    closeModal('modal-room-preview-calendar');
+    this.checkNewReservationAvailability();
+    showToast(`Check-in establecido para el ${formatDate(dateStr)}`, 'success');
+  },
+
+  renderRoomPreviewModalContent() {
+    const bodyEl = document.getElementById('room-preview-modal-body');
+    const titleEl = document.getElementById('room-preview-modal-title');
+    if (!bodyEl) return;
+
+    const roomId = this.currentPreviewRoomId;
+    const rooms = RoomsModule.rooms || [];
+    const room = rooms.find(r => r.id == roomId) || rooms[0];
+    if (!room) {
+      bodyEl.innerHTML = `<p style="color: #94a3b8; text-align: center;">No se encontró información de la habitación.</p>`;
+      return;
+    }
+
+    const tipo = room.tipos_habitacion || {};
+    const carac = (room.caracteristicas && typeof room.caracteristicas === 'object') ? room.caracteristicas : {};
+    const price = carac.precio_personalizado || tipo.precio_base_noche || 150000;
+    const capacidad = tipo.capacidad_personas || 2;
+    const imgUrl = this.getRoomImage(room);
+    const todayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(new Date()) : new Date().toISOString().split('T')[0];
+
+    if (titleEl) {
+      titleEl.innerHTML = `<i class="fas fa-door-open" style="color: var(--accent-gold);"></i> Habitación ${sanitizeInput(room.numero)} · ${sanitizeInput(tipo.nombre || 'Habitación')}`;
+    }
+
+    // Calcular mes y año a mostrar
+    const baseDate = new Date();
+    baseDate.setDate(1);
+    baseDate.setMonth(baseDate.getMonth() + this.calendarMonthOffset);
+    const dispYear = baseDate.getFullYear();
+    const dispMonth = baseDate.getMonth();
+
+    const monthNames = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const dispMonthName = monthNames[dispMonth];
+
+    const daysInMonth = new Date(dispYear, dispMonth + 1, 0).getDate();
+    let firstDayIndex = new Date(dispYear, dispMonth, 1).getDay();
+    firstDayIndex = (firstDayIndex === 0) ? 6 : (firstDayIndex - 1);
+
+    const activeBookings = (this.currentBookings || []).filter(b => {
+      const st = (b.estado || '').toLowerCase();
+      return b.habitacion_id == room.id && st !== 'cancelada' && st !== 'finalizada';
+    });
+
+    let calendarDaysHtml = '';
+    for (let i = 0; i < firstDayIndex; i++) {
+      calendarDaysHtml += `<div style="height: 48px; border-radius: 8px; background: rgba(255,255,255,0.02); opacity: 0.2;"></div>`;
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayPad = day.toString().padStart(2, '0');
+      const monthPad = (dispMonth + 1).toString().padStart(2, '0');
+      const dateStr = `${dispYear}-${monthPad}-${dayPad}`;
+
+      const isPast = dateStr < todayStr;
+      const isToday = dateStr === todayStr;
+      const booking = activeBookings.find(b => b.check_in_previsto <= dateStr && b.check_out_previsto > dateStr);
+
+      if (isPast) {
+        calendarDaysHtml += `
+          <div style="height: 48px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.06); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.4; cursor: not-allowed;" title="Fecha pasada no permitida">
+            <span style="font-size: 12px; font-weight: 600; color: #64748B;">${day}</span>
+            <span style="font-size: 8.5px; color: #475569;">Pasado</span>
+          </div>
+        `;
+      } else if (booking) {
+        calendarDaysHtml += `
+          <div style="height: 48px; border-radius: 8px; background: rgba(239, 68, 68, 0.18); border: 1px solid rgba(239, 68, 68, 0.45); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: not-allowed; transition: all 0.2s;" title="Reservada: ${booking.codigo_reserva} (${formatDate(booking.check_in_previsto)} al ${formatDate(booking.check_out_previsto)})">
+            <span style="font-size: 12px; font-weight: 700; color: #FCA5A5;">${day}</span>
+            <span style="font-size: 8.5px; font-weight: 600; color: #EF4444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">
+              <i class="fas fa-lock" style="font-size: 7.5px;"></i> Ocupada
+            </span>
+          </div>
+        `;
+      } else {
+        calendarDaysHtml += `
+          <div onclick="ReservationsModule.selectDateFromCalendar('${dateStr}')" style="height: 48px; border-radius: 8px; background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(34, 197, 94, 0.4); display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(34, 197, 94, 0.28)'; this.style.borderColor='#22c55e'; this.style.transform='translateY(-2px)'" onmouseout="this.style.background='rgba(34, 197, 94, 0.14)'; this.style.borderColor='rgba(34, 197, 94, 0.4)'; this.style.transform='none'" title="¡Fecha Disponible! Haz clic para fijar como Check-in">
+            <span style="font-size: 12.5px; font-weight: 700; color: ${isToday ? '#FDE047' : '#86EFAC'};">${day}${isToday ? ' ★' : ''}</span>
+            <span style="font-size: 8.5px; font-weight: 600; color: #22C55E;">
+              <i class="fas fa-check" style="font-size: 7.5px;"></i> Libre
+            </span>
+          </div>
+        `;
+      }
+    }
+
+    const bedConfig = tipo.id == 3 ? '1 Cama King Size Premium + Sala' : (tipo.id == 2 ? '1 Cama Queen Size o 2 Dobles' : '1 Cama Sommier Single');
+
+    bodyEl.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 18px;">
+        <!-- Ficha Visual Hero -->
+        <div style="position: relative; height: 210px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 8px 24px rgba(0,0,0,0.4);">
+          <img src="${imgUrl}" alt="Habitación ${room.numero}" style="width: 100%; height: 100%; object-fit: cover;">
+          <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15,23,42,0.1) 0%, rgba(15,23,42,0.85) 100%); display: flex; flex-direction: column; justify-content: flex-end; padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <span class="badge" style="background: rgba(212, 175, 55, 0.25); color: var(--accent-gold); border: 1px solid rgba(212, 175, 55, 0.5); font-size: 11px; margin-bottom: 4px; display: inline-block;">
+                  <i class="fas fa-star"></i> Categoría Oficial
+                </span>
+                <h4 style="margin: 0; color: #F8FAFC; font-size: 20px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.6);">
+                  Habitación ${sanitizeInput(room.numero)} · ${sanitizeInput(tipo.nombre || 'Habitación')}
+                </h4>
+                <div style="color: #CBD5E1; font-size: 12.5px; margin-top: 2px;">
+                  Piso ${room.piso || 1} · Capacidad: ${capacidad} personas · ${bedConfig}
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 22px; font-weight: 800; color: var(--accent-gold); text-shadow: 0 2px 4px rgba(0,0,0,0.6);">
+                  ${formatGs(price)}
+                </div>
+                <small style="color: #94A3B8; font-size: 11px;">Tarifa Oficial por noche</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cuadrícula de Características Principales -->
+        <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 14px 16px;">
+          <h5 style="margin: 0 0 10px; font-size: 13px; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-concierge-bell" style="color: var(--accent-gold);"></i> Características & Equipamiento de Lujo
+          </h5>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; font-size: 12.5px; color: #E2E8F0;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-snowflake" style="color: #38bdf8; width: 16px;"></i>
+              <span>Climatizador Inverter Frío/Calor</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-wifi" style="color: #4ade80; width: 16px;"></i>
+              <span>WiFi 6 de Ultra Alta Velocidad</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-tv" style="color: #a78bfa; width: 16px;"></i>
+              <span>Smart TV 4K 55" con Streaming</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-shower" style="color: #60a5fa; width: 16px;"></i>
+              <span>Baño Privado con Ducha Termocalefón</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-wine-bottle" style="color: #f43f5e; width: 16px;"></i>
+              <span>Frigobar & Minibar Surtido</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-shield-alt" style="color: #fbbf24; width: 16px;"></i>
+              <span>Caja Fuerte Digital & Insonorización</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-smoking-ban" style="color: #f87171; width: 16px;"></i>
+              <span>100% Libre de Humo (No fumadores)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-clock" style="color: #34d399; width: 16px;"></i>
+              <span>Check-in 14:00 · Check-out 11:00</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mini Calendario de Ocupación Posterior a Hoy -->
+        <div style="background: rgba(30, 41, 59, 0.75); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <h5 style="margin: 0; font-size: 14.5px; font-weight: 700; color: #F8FAFC; display: flex; align-items: center; gap: 6px;">
+                <i class="fas fa-calendar-alt" style="color: #38bdf8;"></i> Disponibilidad & Reservas: ${dispMonthName} ${dispYear}
+              </h5>
+              <p style="margin: 2px 0 0; font-size: 11.5px; color: #94A3B8;">
+                Haz clic sobre cualquier fecha en verde para fijar el Check-in de la reserva.
+              </p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button type="button" class="btn btn-sm" onclick="ReservationsModule.changePreviewCalendarMonth(-1)" ${this.calendarMonthOffset === 0 ? 'disabled style="opacity: 0.35; cursor: not-allowed;"' : 'style="cursor: pointer;"'} title="Mes anterior">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <span style="font-size: 12px; font-weight: 600; color: var(--accent-gold); min-width: 90px; text-align: center;">
+                ${dispMonthName.substring(0, 3)} ${dispYear}
+              </span>
+              <button type="button" class="btn btn-sm" onclick="ReservationsModule.changePreviewCalendarMonth(1)" style="cursor: pointer;" title="Mes siguiente">
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Cabecera de Días de la semana -->
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; margin-bottom: 6px;">
+            <div style="font-size: 11px; font-weight: 700; color: #94A3B8;">Lun</div>
+            <div style="font-size: 11px; font-weight: 700; color: #94A3B8;">Mar</div>
+            <div style="font-size: 11px; font-weight: 700; color: #94A3B8;">Mié</div>
+            <div style="font-size: 11px; font-weight: 700; color: #94A3B8;">Jue</div>
+            <div style="font-size: 11px; font-weight: 700; color: #94A3B8;">Vie</div>
+            <div style="font-size: 11px; font-weight: 700; color: #38BDF8;">Sáb</div>
+            <div style="font-size: 11px; font-weight: 700; color: #F43F5E;">Dom</div>
+          </div>
+
+          <!-- Cuadrícula de Días -->
+          <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;">
+            ${calendarDaysHtml}
+          </div>
+
+          <!-- Leyenda -->
+          <div style="display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); font-size: 11px; color: #94A3B8; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(34, 197, 94, 0.3); border: 1px solid #22c55e;"></span>
+              <span>Libre (Click para elegir Check-in)</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(239, 68, 68, 0.3); border: 1px solid #ef4444;"></span>
+              <span>Ocupada / Reservada</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <span style="width: 12px; height: 12px; border-radius: 3px; background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2);"></span>
+              <span>Fecha Pasada (Bloqueada)</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px;">
+          <button type="button" class="btn btn-primary" onclick="closeModal('modal-room-preview-calendar')" style="background: var(--accent-gold); color: #0F172A; font-weight: 700; border: none; padding: 8px 18px; border-radius: 8px; cursor: pointer;">
+            <i class="fas fa-arrow-left"></i> Volver al Formulario de Reserva
+          </button>
+        </div>
+      </div>
+    `;
   },
 
   checkNewReservationAvailability() {
@@ -2791,6 +3183,20 @@ const ReservationsModule = {
 
     if (!roomId || !checkInVal || !checkOutVal) {
       feedbackEl.innerHTML = '';
+      if (confirmBtn) confirmBtn.disabled = true;
+      return;
+    }
+
+    const todayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(new Date()) : new Date().toISOString().split('T')[0];
+    if (checkInVal < todayStr) {
+      feedbackEl.innerHTML = `
+        <div style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; padding: 12px 14px; border-radius: 8px; font-size: 12.5px; display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-ban" style="font-size: 16px;"></i>
+          <div>
+            <strong>Fecha no permitida:</strong> No se pueden registrar reservas con fecha de Check-in anterior a la fecha actual (${formatDate(todayStr)}).
+          </div>
+        </div>
+      `;
       if (confirmBtn) confirmBtn.disabled = true;
       return;
     }
@@ -2957,6 +3363,7 @@ const ReservationsModule = {
       const roomId = parseInt(roomSelect?.value);
       const checkInVal = document.getElementById('new-res-checkin')?.value;
       const checkOutVal = document.getElementById('new-res-checkout')?.value;
+      const guestsCount = parseInt(document.getElementById('new-res-guests-count')?.value || 1);
       const rawChannel = document.getElementById('new-res-channel')?.value || 'Recepción';
       const sanitizeCanal = (val) => {
         if (!val) return 'Recepción';
@@ -2972,6 +3379,12 @@ const ReservationsModule = {
       const guestDoc = (document.getElementById('new-res-guest-doc')?.value || '').trim();
       const guestPhone = (document.getElementById('new-res-guest-phone')?.value || '').trim();
       const guestEmail = (document.getElementById('new-res-guest-email')?.value || '').trim();
+
+      const todayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(new Date()) : new Date().toISOString().split('T')[0];
+      if (checkInVal < todayStr) {
+        showToast(`No se permite realizar reservas para fechas anteriores a hoy (${formatDate(todayStr)})`, 'error');
+        return;
+      }
 
       if (!roomId || !checkInVal || !checkOutVal) {
         showToast('Completa la habitación y las fechas de estadía', 'warning');

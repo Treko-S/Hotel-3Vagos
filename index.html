@@ -2333,18 +2333,25 @@
         <h3><i class="fas fa-calendar-plus" style="color: var(--primary-navy);"></i> Crear Nueva Reserva</h3>
         <button class="modal-close" onclick="closeModal('modal-new-reservation')">&times;</button>
       </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-bed"></i> Habitación</label>
-          <select id="new-res-room" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()">
+        <div class="form-group" style="margin-bottom: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label style="font-weight: 600; font-size: 13px; margin-bottom: 0;"><i class="fas fa-bed"></i> Habitación</label>
+            <button type="button" class="btn btn-sm" onclick="ReservationsModule.openRoomPreviewModal()" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 3px 10px; font-size: 11.5px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; transition: all 0.2s;">
+              <i class="fas fa-calendar-alt"></i> Ver Ficha & Calendario
+            </button>
+          </div>
+          <select id="new-res-room" class="form-control" onchange="ReservationsModule.onRoomChange()">
             <!-- Dinámico -->
           </select>
         </div>
 
+        <!-- Tarjeta Preview Enriquecida de la Habitación Cargada (Inline) -->
+        <div id="new-res-room-inline-card" style="margin-bottom: 14px;"></div>
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
             <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-sign-in-alt" style="color: var(--success);"></i> Check-in</label>
-            <input type="date" id="new-res-checkin" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()">
+            <input type="date" id="new-res-checkin" class="form-control" onchange="ReservationsModule.onCheckInChange()">
           </div>
           <div class="form-group">
             <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-sign-out-alt" style="color: var(--danger);"></i> Check-out</label>
@@ -2431,6 +2438,21 @@
         <button id="new-res-confirm-btn" class="btn btn-primary" onclick="ReservationsModule.confirmNewReservation()">
           <i class="fas fa-check-circle"></i> Confirmar Reserva
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Ficha Técnica de Habitación & Mini Calendario de Ocupación -->
+  <div id="modal-room-preview-calendar" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 680px; padding: 0; overflow: hidden; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.12); background: #0F172A; color: #F8FAFC; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.65);">
+      <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; background: #1E293B;">
+        <h3 id="room-preview-modal-title" style="margin: 0; font-size: 15.5px; font-weight: 700; color: #F8FAFC; display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-door-open" style="color: var(--accent-gold);"></i> Ficha de Habitación & Calendario de Disponibilidad
+        </h3>
+        <button class="modal-close" onclick="closeModal('modal-room-preview-calendar')" style="color: #94A3B8; font-size: 22px; cursor: pointer; background: transparent; border: none;">&times;</button>
+      </div>
+      <div id="room-preview-modal-body" class="modal-body" style="padding: 20px; max-height: 82vh; overflow-y: auto;">
+        <!-- Dinámico desde ReservationsModule.renderRoomPreviewModalContent() -->
       </div>
     </div>
   </div>
