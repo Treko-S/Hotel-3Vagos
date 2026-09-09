@@ -95,6 +95,13 @@ const RoomsModule = {
         }
       }
 
+      // Pre-cargar temporadas para reflejar el multiplicador vigente en las tarifas
+      if (typeof RatesSeasonsModule !== 'undefined' && (!RatesSeasonsModule.seasons || RatesSeasonsModule.seasons.length === 0)) {
+        try {
+          await RatesSeasonsModule.loadSeasons();
+        } catch (_) {}
+      }
+
       const { data, error } = await supabaseClient
         .from('habitaciones')
         .select('*, tipos_habitacion(*), reservas(*)')
@@ -133,35 +140,31 @@ const RoomsModule = {
       const statusClass = (r.estado || '').toLowerCase().replace(/\s+/g, '-');
 
       // Obtener imagen de miniatura
-      let thumbImg = 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=300';
-      if (Array.isArray(carac.imagenes) && carac.imagenes.length > 0) {
-        thumbImg = carac.imagenes[0];
+      let thumbUrl = 'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=120';
+      if (carac.imagenes && Array.isArray(carac.imagenes) && carac.imagenes.length > 0) {
+        thumbUrl = carac.imagenes[0];
       } else if (tipo.imagen_cover) {
-        thumbImg = tipo.imagen_cover;
+        thumbUrl = tipo.imagen_cover;
       }
 
-      // Badges dinámicos de equipamiento
+      // Amenities badges
       const amenitiesBadges = [];
-      if (carac.wifi) amenitiesBadges.push('<span class="badge badge-info" title="Wi-Fi de Alta Velocidad"><i class="fas fa-wifi"></i> WiFi</span>');
-      if (carac.ac) amenitiesBadges.push('<span class="badge badge-info" title="Aire Acondicionado Split"><i class="fas fa-snowflake"></i> A/C</span>');
-      if (carac.tv) amenitiesBadges.push('<span class="badge badge-info" title="Smart TV"><i class="fas fa-tv"></i> Smart TV</span>');
-      if (carac.minibar) amenitiesBadges.push('<span class="badge badge-info" title="Minibar / Frigobar"><i class="fas fa-cocktail"></i> Minibar</span>');
-      if (carac.caja_fuerte) amenitiesBadges.push('<span class="badge badge-info" title="Caja Fuerte"><i class="fas fa-vault"></i> Caja</span>');
-      if (carac.balcon) amenitiesBadges.push('<span class="badge badge-info" title="Balcón Privado"><i class="fas fa-door-open"></i> Balcón</span>');
-      if (carac.jacuzzi) amenitiesBadges.push('<span class="badge badge-warning" title="Jacuzzi / Hidromasaje"><i class="fas fa-hot-tub"></i> Jacuzzi</span>');
-
-      const photoCount = Array.isArray(carac.imagenes) ? carac.imagenes.length : 0;
+      if (carac.wifi) amenitiesBadges.push('<span class="badge" style="background: #F1F5F9; color: #475569; font-size: 10.5px;"><i class="fas fa-wifi"></i> WiFi</span>');
+      if (carac.ac) amenitiesBadges.push('<span class="badge" style="background: #F1F5F9; color: #475569; font-size: 10.5px;"><i class="fas fa-snowflake"></i> A/C</span>');
+      if (carac.tv) amenitiesBadges.push('<span class="badge" style="background: #F1F5F9; color: #475569; font-size: 10.5px;"><i class="fas fa-tv"></i> Smart TV</span>');
+      if (carac.minibar) amenitiesBadges.push('<span class="badge" style="background: #F1F5F9; color: #475569; font-size: 10.5px;"><i class="fas fa-wine-bottle"></i> Minibar</span>');
+      if (carac.jacuzzi) amenitiesBadges.push('<span class="badge" style="background: #FEF3C7; color: #B45309; font-size: 10.5px;"><i class="fas fa-hot-tub"></i> Jacuzzi</span>');
 
       html += `
         <tr>
           <td>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="position: relative; width: 62px; height: 50px; border-radius: 8px; overflow: hidden; background: #e2e8f0; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-                <img src="${thumbImg}" alt="Hab ${sanitizeInput(r.numero)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=300'">
-                ${photoCount > 0 ? `<span style="position: absolute; bottom: 2px; right: 2px; background: rgba(15,23,42,0.85); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: bold;"><i class="fas fa-camera"></i> ${photoCount}</span>` : ''}
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="position: relative; width: 42px; height: 42px; flex-shrink: 0;">
+                <img src="${thumbUrl}" alt="${r.numero}" style="width: 100%; height: 100%; border-radius: 6px; object-fit: cover; border: 1px solid var(--border-color);" onerror="this.src='https://images.unsplash.com/photo-1590490360182-c33d57733427?w=120'">
+                ${(carac.imagenes && carac.imagenes.length > 1) ? `<span style="position: absolute; bottom: -2px; right: -2px; background: rgba(0,0,0,0.7); color: #FFF; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 700;"><i class="fas fa-camera"></i> ${carac.imagenes.length}</span>` : ''}
               </div>
               <div>
-                <strong style="color: var(--primary-navy); font-size: 16px;">Habitación ${sanitizeInput(r.numero)}</strong>
+                <strong style="font-size: 14.5px; color: var(--primary-navy);">Habitación ${r.numero}</strong>
                 <div style="font-size: 11px; color: var(--text-muted);">${carac.camas || 'Camas estándar'} ${carac.tamano_m2 ? '• ' + carac.tamano_m2 + ' m²' : ''}</div>
               </div>
             </div>
@@ -173,17 +176,31 @@ const RoomsModule = {
           </td>
           <td>
             ${(() => {
-              const basePrice = Number(carac.precio_personalizado || tipo.precio_base_noche || 180000);
+              const rawBasePrice = Number(carac.precio_personalizado || tipo.precio_base_noche || 180000);
+              const seasonMult = (typeof RatesSeasonsModule !== 'undefined' && typeof RatesSeasonsModule.getActiveSeasonMultiplier === 'function')
+                ? RatesSeasonsModule.getActiveSeasonMultiplier()
+                : 1.0;
+              const activeSeason = (typeof RatesSeasonsModule !== 'undefined' && typeof RatesSeasonsModule.getActiveSeason === 'function')
+                ? RatesSeasonsModule.getActiveSeason()
+                : null;
+              const basePrice = Math.round(rawBasePrice * seasonMult);
               const plans = (typeof RatesSeasonsModule !== 'undefined' && Array.isArray(RatesSeasonsModule.ratePlans))
                 ? RatesSeasonsModule.ratePlans.filter(p => p.active)
                 : [];
+
+              const seasonBadge = seasonMult !== 1.0
+                ? `<div style="margin-bottom: 4px;"><span class="badge" style="background: ${seasonMult > 1 ? '#FEF3C7' : '#DCFCE7'}; color: ${seasonMult > 1 ? '#B45309' : '#15803D'}; font-size: 10px; font-weight: 700; border: 1px solid ${seasonMult > 1 ? '#FDE68A' : '#BBF7D0'};"><i class="fas fa-calendar-check"></i> ${activeSeason?.nombre ? sanitizeInput(activeSeason.nombre) : 'Temporada'} (x${seasonMult.toFixed(2)})</span></div>`
+                : '';
+
               if (plans.length === 0) {
                 return `
+                  ${seasonBadge}
                   <div style="font-weight: 800; color: var(--accent-gold); font-size: 14.5px;">${formatGs(basePrice)}</div>
-                  <small style="font-size: 10.5px; color: var(--text-muted);">${carac.precio_personalizado ? '<span style="color: #10B981; font-weight: 600;"><i class="fas fa-tag"></i> Tarifa propia</span>' : 'Base categoría'}</small>
+                  <small style="font-size: 10.5px; color: var(--text-muted);">${carac.precio_personalizado ? '<span style="color: #10B981; font-weight: 600;"><i class="fas fa-tag"></i> Tarifa propia</span>' : (seasonMult !== 1.0 ? 'Tarifa con Temporada' : 'Base categoría')}</small>
                 `;
               }
               return `
+                ${seasonBadge}
                 <div style="font-weight: 800; color: var(--accent-gold); font-size: 14px;">${formatGs(basePrice)} <span style="font-size: 10.5px; font-weight: 600; color: #64748B;">/ noche</span></div>
                 <div style="display: flex; flex-direction: column; gap: 3px; margin-top: 4px;">
                   ${plans.slice(0, 2).map(p => {

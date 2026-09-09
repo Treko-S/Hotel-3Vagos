@@ -134,6 +134,16 @@ const RatesSeasonsModule = {
     this.renderPromotionsTable();
   },
 
+  getActiveSeason(dateStr) {
+    const targetDate = dateStr || new Date().toISOString().split('T')[0];
+    return this.seasons.find(s => targetDate >= s.fecha_inicio && targetDate <= s.fecha_fin) || null;
+  },
+
+  getActiveSeasonMultiplier(dateStr) {
+    const season = this.getActiveSeason(dateStr);
+    return season ? (parseFloat(season.multiplicador_tarifa) || 1.0) : 1.0;
+  },
+
   /**
    * Cargar Temporadas desde Supabase
    */
@@ -154,6 +164,11 @@ const RatesSeasonsModule = {
       this.seasons = data || [];
       this.renderSeasonsTable();
       this.populateSimulatorRooms();
+
+      // Si RoomsModule ya está cargado, refrescar la tabla para reflejar la tarifa de temporada activa
+      if (typeof RoomsModule !== 'undefined' && RoomsModule.rooms && RoomsModule.rooms.length > 0) {
+        RoomsModule.renderRoomsTable(RoomsModule.rooms);
+      }
 
     } catch (err) {
       console.error('Error al cargar temporadas:', err);

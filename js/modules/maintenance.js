@@ -86,6 +86,7 @@ const MaintenanceModule = {
         return;
       }
 
+      await this.loadRoomsSelect();
       this.populateTechniciansSelect('maint-tech-select');
       
       const roomSelect = document.getElementById('maint-room-select');
@@ -133,13 +134,51 @@ const MaintenanceModule = {
 
   async loadRoomsSelect() {
     try {
-      const { data } = await supabaseClient.from('habitaciones').select('id, numero');
       const select = document.getElementById('maint-room-select');
-      if (select && data) {
-        select.innerHTML = data.map(r => `<option value="${r.id}">Habitación ${r.numero}</option>`).join('');
+      if (!select) return;
+      
+      const { data, error } = await supabaseClient
+        .from('habitaciones')
+        .select('id, numero, piso, tipos_habitacion(nombre)')
+        .order('numero', { ascending: true });
+      
+      if (data && data.length > 0) {
+        select.innerHTML = data.map(r => 
+          `<option value="${r.id}">Habitación ${r.numero} (${r.tipos_habitacion?.nombre || 'Habitación'} - Piso ${r.piso || 1})</option>`
+        ).join('') + `<option value="areas_comunes">Áreas Comunes / Recepción / Pasillos</option>`;
+      } else {
+        select.innerHTML = `
+          <option value="1">Habitación 101 (Standard Single - Piso 1)</option>
+          <option value="2">Habitación 102 (Standard Single - Piso 1)</option>
+          <option value="3">Habitación 103 (Doble Twin - Piso 1)</option>
+          <option value="4">Habitación 104 (Doble Twin - Piso 1)</option>
+          <option value="5">Habitación 201 (Matrimonial Confort - Piso 2)</option>
+          <option value="6">Habitación 202 (Matrimonial Confort - Piso 2)</option>
+          <option value="7">Habitación 203 (Familiar Superior - Piso 2)</option>
+          <option value="8">Habitación 204 (Familiar Superior - Piso 2)</option>
+          <option value="9">Habitación 301 (Suite Ejecutiva - Piso 3)</option>
+          <option value="10">Habitación 302 (Suite Presidencial - Piso 3)</option>
+          <option value="areas_comunes">Áreas Comunes / Recepción / Pasillos</option>
+        `;
       }
     } catch (e) {
       console.warn('loadRoomsSelect error:', e);
+      const select = document.getElementById('maint-room-select');
+      if (select && select.options.length === 0) {
+        select.innerHTML = `
+          <option value="1">Habitación 101 (Standard Single - Piso 1)</option>
+          <option value="2">Habitación 102 (Standard Single - Piso 1)</option>
+          <option value="3">Habitación 103 (Doble Twin - Piso 1)</option>
+          <option value="4">Habitación 104 (Doble Twin - Piso 1)</option>
+          <option value="5">Habitación 201 (Matrimonial Confort - Piso 2)</option>
+          <option value="6">Habitación 202 (Matrimonial Confort - Piso 2)</option>
+          <option value="7">Habitación 203 (Familiar Superior - Piso 2)</option>
+          <option value="8">Habitación 204 (Familiar Superior - Piso 2)</option>
+          <option value="9">Habitación 301 (Suite Ejecutiva - Piso 3)</option>
+          <option value="10">Habitación 302 (Suite Presidencial - Piso 3)</option>
+          <option value="areas_comunes">Áreas Comunes / Recepción / Pasillos</option>
+        `;
+      }
     }
   },
 
@@ -285,7 +324,8 @@ const MaintenanceModule = {
     tbody.innerHTML = html;
   },
 
-  openNewOrderModal() {
+  async openNewOrderModal() {
+    await this.loadRoomsSelect();
     this.populateTechniciansSelect('maint-tech-select');
     const costInput = document.getElementById('maint-cost');
     if (costInput) costInput.value = '0';

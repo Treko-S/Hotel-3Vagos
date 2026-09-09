@@ -202,7 +202,7 @@ const HousekeepingModule = {
         if (dispatchBtn) dispatchBtn.style.display = 'inline-flex';
         if (filterCont) filterCont.style.display = 'flex';
 
-        this.switchTab(this.activeTab === 'mucama' ? 'jefa' : (this.activeTab || 'jefa'));
+        this.switchTab(this.activeTab || 'jefa');
       }
 
     } catch (err) {
@@ -334,6 +334,11 @@ const HousekeepingModule = {
     const tbody = document.getElementById('hk-jefa-table-body');
     if (!tbody) return;
 
+    if (!this.currentRooms || this.currentRooms.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Sincronizando inventario de habitaciones...</td></tr>';
+      return;
+    }
+
     const orders = this.getOrders();
 
     // Ordenar habitaciones: primero las con órdenes asignadas por prioridad (1, 2, 3) y luego el resto
@@ -452,27 +457,27 @@ const HousekeepingModule = {
         return ordMaidFirst === myFirstName;
       });
     } else {
-      // Jefa o Administrador pueden filtrar o ver todas las tareas efectivamente asignadas
+      // Jefa o Administrador pueden filtrar o ver todas las habitaciones en supervisión
       const filterMaid = document.getElementById('filter-mucama-select')?.value || 'ALL';
       assignedList = this.currentRooms.filter(room => {
         const ord = orders[String(room.id)];
-        if (!ord) return false;
         if (filterMaid === 'ALL') return true;
+        if (!ord) return false;
         return (ord.maid || '').toLowerCase().includes(filterMaid.toLowerCase());
       });
     }
 
-    // Ordenar estrictamente por prioridad 1, 2, 3
+    // Ordenar por prioridad
     assignedList.sort((a, b) => {
-      const prioA = orders[String(a.id)]?.priority || 2;
-      const prioB = orders[String(b.id)]?.priority || 2;
+      const prioA = orders[String(a.id)]?.priority || (a.estado === 'Sucia' ? 2 : (a.estado === 'Ocupada' ? 3 : 2));
+      const prioB = orders[String(b.id)]?.priority || (b.estado === 'Sucia' ? 2 : (b.estado === 'Ocupada' ? 3 : 2));
       return prioA - prioB;
     });
 
     if (assignedList.length === 0) {
       const emptyMsg = isMucama
         ? 'No tienes habitaciones asignadas para tu turno en este momento.'
-        : 'No hay habitaciones asignadas bajo el filtro seleccionado.';
+        : 'No hay habitaciones bajo el filtro seleccionado.';
 
       container.innerHTML = `
         <div style="grid-column: 1/-1; text-align: center; padding: 48px; background: #F8FAFC; border-radius: 14px; border: 1px dashed #CBD5E1;">
@@ -487,8 +492,16 @@ const HousekeepingModule = {
     let html = '';
     assignedList.forEach(room => {
       const tipo = room.tipos_habitacion || {};
-      const ord = orders[String(room.id)];
-      if (!ord) return;
+      let ord = orders[String(room.id)];
+      if (!ord) {
+        ord = {
+          priority: room.estado === 'Sucia' ? 2 : (room.estado === 'Ocupada' ? 3 : 2),
+          maid: 'Supervisión Administrador',
+          notes: 'Preparación y verificación de protocolo',
+          status: room.estado === 'En limpieza' ? 'En limpieza' : (room.estado === 'Sucia' ? 'Pendiente' : 'Listo'),
+          assignedAt: 'Hoy'
+        };
+      }
       
       let effectiveStatus = room.estado;
       if (ord && (ord.priority === 1 || ord.priority === 2) && room.estado === 'Disponible') {
@@ -563,9 +576,19 @@ const HousekeepingModule = {
    * TAB 3: MATRIZ DE CONTROL DE LLAVES FÍSICAS & TARJETAS RFID
    * - Control detallado de despacho, horarios de salida, poseedor actual y bitácora de custodia
    */
-  renderKeysMatrix() {
+  async renderKeysMatrix() {
     const container = document.getElementById('hk-keys-grid');
     if (!container) return;
+
+    if (!this.currentRooms || this.currentRooms.length === 0) {
+      try {
+        const { data } = await supabaseClient
+          .from('habitaciones')
+          .select('*, tipos_habitacion(*)')
+          .order('numero', { ascending: true });
+        this.currentRooms = data || [];
+      } catch (_) {}
+    }
 
     const keys = this.getKeys();
     let html = '';

@@ -19,21 +19,26 @@ const ReservationsModule = {
     const tableContainer = document.getElementById('reservations-table-container');
     const rackContainer = document.getElementById('reservations-rack-container');
     const historyContainer = document.getElementById('reservations-history-container');
+    const keysContainer = document.getElementById('reservations-keys-container');
     const btnTable = document.getElementById('btn-view-res-table');
     const btnRack = document.getElementById('btn-view-res-rack');
     const btnHistory = document.getElementById('btn-view-res-history');
+    const btnKeys = document.getElementById('btn-view-res-keys');
     const filterStatus = document.getElementById('filter-res-status');
+    const searchBox = document.getElementById('search-reservations')?.parentElement;
 
     if (btnTable) btnTable.classList.toggle('active', viewType === 'table');
     if (btnRack) btnRack.classList.toggle('active', viewType === 'rack');
     if (btnHistory) btnHistory.classList.toggle('active', viewType === 'history');
+    if (btnKeys) btnKeys.classList.toggle('active', viewType === 'keys');
 
     if (tableContainer) tableContainer.style.display = viewType === 'table' ? 'block' : 'none';
     if (rackContainer) rackContainer.style.display = viewType === 'rack' ? 'block' : 'none';
     if (historyContainer) historyContainer.style.display = viewType === 'history' ? 'block' : 'none';
+    if (keysContainer) keysContainer.style.display = viewType === 'keys' ? 'block' : 'none';
 
     if (filterStatus) {
-      filterStatus.style.display = 'inline-block';
+      filterStatus.style.display = (viewType === 'keys') ? 'none' : 'inline-block';
       if (viewType === 'history') {
         filterStatus.innerHTML = `
           <option value="ALL">Todos los Concluidos</option>
@@ -51,10 +56,18 @@ const ReservationsModule = {
       filterStatus.value = 'ALL';
     }
 
+    if (searchBox) {
+      searchBox.style.display = (viewType === 'keys') ? 'none' : 'flex';
+    }
+
     if (viewType === 'rack') {
       this.renderRackView();
     } else if (viewType === 'history') {
       this.renderHistoryTable(this.currentBookings);
+    } else if (viewType === 'keys') {
+      if (typeof HousekeepingModule !== 'undefined') {
+        HousekeepingModule.renderKeysMatrix();
+      }
     } else {
       this.renderTable(this.currentBookings);
     }
@@ -3265,7 +3278,11 @@ const ReservationsModule = {
     });
 
     const selectedOption = roomSelect.options[roomSelect.selectedIndex];
-    const basePricePerNight = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+    const rawPrice = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+    const seasonMult = (typeof RatesSeasonsModule !== 'undefined' && typeof RatesSeasonsModule.getActiveSeasonMultiplier === 'function')
+      ? RatesSeasonsModule.getActiveSeasonMultiplier(checkInVal)
+      : 1.0;
+    const basePricePerNight = Math.round(rawPrice * seasonMult);
     
     // Obtener descuento del Plan de Tarifa seleccionado (Tarea 4)
     const planSelect = document.getElementById('new-res-rate-plan');
@@ -3493,7 +3510,12 @@ const ReservationsModule = {
         }
       }
 
-      const basePricePerNight = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+      const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+      const rawPrice = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
+      const seasonMult = (typeof RatesSeasonsModule !== 'undefined' && typeof RatesSeasonsModule.getActiveSeasonMultiplier === 'function')
+        ? RatesSeasonsModule.getActiveSeasonMultiplier(checkInVal)
+        : 1.0;
+      const basePricePerNight = Math.round(rawPrice * seasonMult);
       const planSelect = document.getElementById('new-res-rate-plan');
       const selectedPlanOpt = planSelect?.options[planSelect?.selectedIndex];
       const planDiscount = selectedPlanOpt ? Number(selectedPlanOpt.getAttribute('data-discount') || 0) : 0;

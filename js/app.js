@@ -253,8 +253,7 @@ function switchView(viewId) {
   if (viewId === 'rates' && typeof RatesSeasonsModule !== 'undefined') RatesSeasonsModule.init();
   if (viewId === 'housekeeping' && typeof HousekeepingModule !== 'undefined') HousekeepingModule.loadHousekeepingBoard();
   if (viewId === 'maintenance' && typeof MaintenanceModule !== 'undefined') {
-    MaintenanceModule.loadOrders();
-    MaintenanceModule.loadIncidentsInbox();
+    MaintenanceModule.init();
   }
   if (viewId === 'consumptions' && typeof InventoryModule !== 'undefined') {
     if (!InventoryModule.salesItems || InventoryModule.salesItems.length === 0) {

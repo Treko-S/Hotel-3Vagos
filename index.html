@@ -356,6 +356,9 @@
                 <button type="button" id="btn-view-res-history" class="btn-toggle-view" onclick="ReservationsModule.switchSubView('history')" title="Ver historial de reservas finalizadas (solo lectura)">
                   <i class="fas fa-history"></i> Historial de Reservas
                 </button>
+                <button type="button" id="btn-view-res-keys" class="btn-toggle-view" onclick="ReservationsModule.switchSubView('keys')" title="Matriz de custodia de llaves físicas y tarjetas RFID">
+                  <i class="fas fa-key"></i> Custodia de Llaves & RFID
+                </button>
               </div>
               <div class="search-box">
                 <i class="fas fa-search"></i>
@@ -479,6 +482,28 @@
                   <!-- Dinámico -->
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- SUBVIEW 4: CUSTODIA DE LLAVES & TARJETAS RFID (Front Desk) -->
+          <div id="reservations-keys-container" style="display: none; padding-top: 14px;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--primary-navy); display: flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-key" style="color: var(--accent-gold);"></i> Casillero Front Desk & Matriz de Custodia de Llaves Físicas y Tarjetas RFID
+                </h4>
+                <p style="margin: 3px 0 0 0; font-size: 12px; color: var(--text-muted);">
+                  Estado en tiempo real de custodios de llaves: Huéspedes (Check-in), Recepción Mostrador y Servicio de Mucama
+                </p>
+              </div>
+              <div>
+                <button class="btn btn-outline btn-xs" onclick="HousekeepingModule.renderKeysMatrix()" title="Refrescar estado de casilleros y llaveros">
+                  <i class="fas fa-sync-alt"></i> Actualizar Llavero
+                </button>
+              </div>
+            </div>
+            <div id="hk-keys-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px;">
+              <!-- Tarjetas dinámicas de casilleros -->
             </div>
           </div>
         </div>
@@ -910,52 +935,6 @@
           <!-- Tarjetas Resumen de Ingresos por Medio de Pago -->
           <div id="cash-methods-kpis" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 24px;">
             <!-- Dinámico: Efectivo, Tarjetas POS, App Móvil (Tarjetas 24/7), Egresos/Vales, Penalidades, Ganancia Consolidada -->
-          </div>
-
-          <!-- CANCELACIONES & REEMBOLSOS PENDIENTES -->
-          <div id="cash-cancellations-panel" class="card-panel" style="margin-bottom: 24px; border-left: 4px solid #DC2626; box-shadow: var(--shadow-sm); display: none;">
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-              <div>
-                <h3 class="panel-title" style="display: flex; align-items: center; gap: 10px;">
-                  <span style="width: 34px; height: 34px; border-radius: 8px; background: rgba(220, 38, 38, 0.12); color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 16px;">
-                    <i class="fas fa-undo-alt"></i>
-                  </span>
-                  <span style="color: #991B1B;">Reembolsos Pendientes por Cancelación (Tarifa Flexible)</span>
-                </h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                  Reservas canceladas a tiempo. Mostrador reembolsa en efectivo de la gaveta; App Móvil reembolsa por transferencia bancaria sin afectar la caja física.
-                </p>
-              </div>
-              <div style="display: flex; gap: 8px; align-items: center;">
-                <span id="cash-cancellations-badge-count" class="badge" style="background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5; font-weight: 800;">
-                  0 Pendientes
-                </span>
-                <button class="btn btn-outline" style="padding: 7px 14px; font-size: 12px;" onclick="CashBillingModule.loadCancellationRefunds()" title="Actualizar lista de reembolsos">
-                  <i class="fas fa-sync-alt"></i> Actualizar
-                </button>
-              </div>
-            </div>
-
-            <div style="overflow-x: auto;">
-              <table class="custom-table">
-                <thead>
-                  <tr>
-                    <th>Código / Reserva</th>
-                    <th>Habitación</th>
-                    <th>Huésped Titular</th>
-                    <th>Plan de Tarifa</th>
-                    <th>Fecha Cancelación</th>
-                    <th style="text-align: right;">Anticipo Pagado</th>
-                    <th style="text-align: right;">Reembolso a Devolver</th>
-                    <th style="text-align: center;">Estado Reembolso</th>
-                    <th style="text-align: center;">Acción de Caja</th>
-                  </tr>
-                </thead>
-                <tbody id="cash-cancellations-tbody">
-                  <tr><td colspan="9" style="text-align: center; padding: 24px; color: var(--text-muted);">Consultando reembolsos pendientes...</td></tr>
-                </tbody>
-              </table>
-            </div>
           </div>
 
           <!-- RESERVAS CON SALDOS PENDIENTES DE COBRO -->
@@ -5684,15 +5663,15 @@
   <script src="js/dialogs.js?v=2.7"></script>
   <script src="js/folio_pdf_service.js?v=2.7"></script>
   <script src="js/modules/dashboard.js?v=2.7"></script>
-  <script src="js/modules/reservations.js?v=3.5"></script>
-  <script src="js/modules/rooms.js?v=3.5"></script>
-  <script src="js/modules/rates_seasons.js?v=3.5"></script>
-  <script src="js/modules/housekeeping.js?v=3.5"></script>
-  <script src="js/modules/maintenance.js?v=3.5"></script>
-  <script src="js/modules/inventory.js?v=3.5"></script>
-  <script src="js/modules/cash_billing.js?v=3.5"></script>
-  <script src="js/modules/guests.js?v=3.5"></script>
-  <script src="js/modules/settings.js?v=3.5"></script>
-  <script src="js/app.js?v=3.5"></script>
+  <script src="js/modules/reservations.js?v=3.6"></script>
+  <script src="js/modules/rooms.js?v=3.6"></script>
+  <script src="js/modules/rates_seasons.js?v=3.6"></script>
+  <script src="js/modules/housekeeping.js?v=3.6"></script>
+  <script src="js/modules/maintenance.js?v=3.6"></script>
+  <script src="js/modules/inventory.js?v=3.6"></script>
+  <script src="js/modules/cash_billing.js?v=3.6"></script>
+  <script src="js/modules/guests.js?v=3.6"></script>
+  <script src="js/modules/settings.js?v=3.6"></script>
+  <script src="js/app.js?v=3.6"></script>
 </body>
 </html>
