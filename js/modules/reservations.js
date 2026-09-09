@@ -3078,13 +3078,62 @@ const ReservationsModule = {
         rate_plan_type: planName
       };
 
-      const { data: newBooking, error: bookErr } = await supabaseClient
-        .from('reservas')
-        .insert(reservationPayload)
-        .select()
-        .single();
+      let newBooking = null;
+      let bookErr = null;
 
-      if (bookErr) throw bookErr;
+      try {
+        const tryRes = await supabaseClient
+          .from('reservas')
+          .insert(reservationPayload)
+          .select()
+          .single();
+        if (!tryRes.error && tryRes.data) {
+          newBooking = tryRes.data;
+        } else {
+          bookErr = tryRes.error;
+        }
+      } catch (err) {
+        bookErr = err;
+      }
+
+      // Si la columna 'rate_plan_type' o similar no existe aún en la base de datos Supabase
+      if (bookErr) {
+        console.warn('Fallback schema cache: reintentando inserción sin columnas opcionales:', bookErr.message || bookErr);
+        const fallbackPayload = {
+          codigo_reserva: codigoReserva,
+          guest_id: guestId,
+          habitacion_id: roomId,
+          check_in_previsto: checkInVal,
+          check_out_previsto: checkOutVal,
+          cantidad_huespedes: guestsCount,
+          monto_total: totalPrice,
+          canal_venta: channel,
+          estado: 'Confirmada'
+        };
+
+        const retryRes = await supabaseClient
+          .from('reservas')
+          .insert(fallbackPayload)
+          .select()
+          .single();
+
+        if (retryRes.error) {
+          throw retryRes.error;
+        }
+        newBooking = retryRes.data;
+        bookErr = null;
+      }
+
+      if (newBooking) {
+        newBooking.rate_plan_type = planName;
+        // Guardar mapeo de planes de reserva en cache local
+        try {
+          const planCache = JSON.parse(localStorage.getItem('hotel_res_plans') || '{}');
+          planCache[newBooking.id] = planName;
+          planCache[newBooking.codigo_reserva] = planName;
+          localStorage.setItem('hotel_res_plans', JSON.stringify(planCache));
+        } catch (_) {}
+      }
 
       // Inserción obligatoria de Acompañantes en public.acompanantes
       if (companionsToSave.length > 0 && newBooking?.id) {
