@@ -282,11 +282,20 @@ const MaintenanceModule = {
 
     let html = '';
     list.forEach(ord => {
-      const isPending = (ord.estado || '').toLowerCase() !== 'resuelto';
+      const isPending = (ord.estado || '').toLowerCase() !== 'resuelto' && (ord.estado || '').toLowerCase() !== 'completado';
       const roomNum = ord.habitaciones?.numero || ord.roomNumberDisplay || ord.habitacion_id || 'General';
       const shortId = typeof ord.id === 'string' && ord.id.length > 8 ? ord.id.substring(0, 8).toUpperCase() : ord.id;
       const title = ord.titulo || ord.tipo_incidencia || 'Incidencia Técnica';
-      const tech = ord.tecnico_asignado || (ord.tecnico_id ? 'Técnico Especialista' : 'Mario Gómez (Mantenimiento)');
+      let tech = ord.tecnico_asignado;
+      if (!tech && ord.descripcion && ord.descripcion.includes('[Técnico:')) {
+        const m = ord.descripcion.match(/\[Técnico:\s*([^\]]+)\]/);
+        if (m) tech = m[1];
+      }
+      if (!tech) tech = ord.tecnico_id ? 'Técnico Especialista' : 'Mario Gómez (Mantenimiento)';
+      let cleanDesc = ord.descripcion || '';
+      if (cleanDesc.includes('[Técnico:')) {
+        cleanDesc = cleanDesc.replace(/\[Técnico:\s*[^\]]+\]/, '').trim();
+      }
       const cost = ord.costo_reparacion !== undefined ? ord.costo_reparacion : (ord.costo_estimado || 0);
 
       html += `
@@ -295,7 +304,7 @@ const MaintenanceModule = {
           <td><strong style="color: var(--primary-navy);">Habitación ${roomNum}</strong></td>
           <td>
             <div style="font-weight: 600;">${sanitizeInput(title)}</div>
-            <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(ord.descripcion || '')}</div>
+            <div style="font-size: 11px; color: var(--text-muted);">${sanitizeInput(cleanDesc)}</div>
           </td>
           <td>
             <span class="badge ${ord.prioridad === 'Alta' ? 'badge-mantenimiento' : 'badge-limpieza'}">
@@ -345,6 +354,7 @@ const MaintenanceModule = {
 
       const isCommonArea = (roomId === 'areas_comunes');
       const numericRoomId = isCommonArea ? null : Number(roomId);
+      const fullDesc = tech ? `${desc} [Técnico: ${tech}]` : desc;
 
       // 1. Insertar orden en ordenes_mantenimiento con columnas compatibles con Supabase
       const { error: ordErr } = await supabaseClient.from('ordenes_mantenimiento').insert({
@@ -352,9 +362,8 @@ const MaintenanceModule = {
         titulo: isCommonArea ? `[Áreas Comunes] ${type}` : type,
         prioridad: priority,
         costo_reparacion: cost,
-        descripcion: desc,
-        tecnico_asignado: tech,
-        estado: 'En Proceso'
+        descripcion: fullDesc,
+        estado: 'Pendiente'
       });
 
       if (ordErr) throw ordErr;
@@ -423,7 +432,12 @@ const MaintenanceModule = {
       conceptInput.value = `Reparación: ${ord.titulo || 'Servicio Técnico'}`;
     }
 
-    this.populateTechniciansSelect('maint-resolve-tech-select', ord.tecnico_asignado || '');
+    let techName = ord.tecnico_asignado || '';
+    if (!techName && ord.descripcion && ord.descripcion.includes('[Técnico:')) {
+      const m = ord.descripcion.match(/\[Técnico:\s*([^\]]+)\]/);
+      if (m) techName = m[1];
+    }
+    this.populateTechniciansSelect('maint-resolve-tech-select', techName);
 
     const invInput = document.getElementById('maint-resolve-invoice');
     if (invInput) {
@@ -574,7 +588,7 @@ const MaintenanceModule = {
       // Actualizar orden en Supabase si no es puramente local
       if (!String(orderId).startsWith('HK-')) {
         await supabaseClient.from('ordenes_mantenimiento').update({
-          estado: 'Resuelto',
+          estado: 'Completado',
           costo_reparacion: cost
         }).eq('id', orderId);
       }
