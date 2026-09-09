@@ -2957,8 +2957,17 @@ const ReservationsModule = {
       const roomId = parseInt(roomSelect?.value);
       const checkInVal = document.getElementById('new-res-checkin')?.value;
       const checkOutVal = document.getElementById('new-res-checkout')?.value;
-      const guestsCount = parseInt(document.getElementById('new-res-guests-count')?.value || 1);
-      const channel = document.getElementById('new-res-channel')?.value || 'Recepción / Walk-in';
+      const rawChannel = document.getElementById('new-res-channel')?.value || 'Recepción';
+      const sanitizeCanal = (val) => {
+        if (!val) return 'Recepción';
+        const s = val.toString().toLowerCase().trim();
+        if (s.includes('whats')) return 'WhatsApp';
+        if (s.includes('app')) return 'App Móvil';
+        if (s.includes('booking') || s.includes('airbnb') || s.includes('ota') || s.includes('agencia')) return 'OTA';
+        if (s.includes('web')) return 'Web';
+        return 'Recepción';
+      };
+      const channel = sanitizeCanal(rawChannel);
       const guestName = (document.getElementById('new-res-guest-name')?.value || '').trim();
       const guestDoc = (document.getElementById('new-res-guest-doc')?.value || '').trim();
       const guestPhone = (document.getElementById('new-res-guest-phone')?.value || '').trim();
@@ -3096,9 +3105,9 @@ const ReservationsModule = {
         bookErr = err;
       }
 
-      // Si la columna 'rate_plan_type' o similar no existe aún en la base de datos Supabase
+      // Si la columna 'rate_plan_type' o similar no existe aún en la base de datos Supabase o hay conflicto de canal
       if (bookErr) {
-        console.warn('Fallback schema cache: reintentando inserción sin columnas opcionales:', bookErr.message || bookErr);
+        console.warn('Fallback schema cache / constraint: reintentando inserción con payload garantizado:', bookErr.message || bookErr);
         const fallbackPayload = {
           codigo_reserva: codigoReserva,
           guest_id: guestId,
@@ -3107,15 +3116,25 @@ const ReservationsModule = {
           check_out_previsto: checkOutVal,
           cantidad_huespedes: guestsCount,
           monto_total: totalPrice,
-          canal_venta: channel,
+          canal_venta: ['Recepción', 'WhatsApp', 'Web', 'App Móvil', 'OTA'].includes(channel) ? channel : 'Recepción',
           estado: 'Confirmada'
         };
 
-        const retryRes = await supabaseClient
+        let retryRes = await supabaseClient
           .from('reservas')
           .insert(fallbackPayload)
           .select()
           .single();
+
+        if (retryRes.error && (retryRes.error.message?.includes('canal_venta') || retryRes.error.code === '23514')) {
+          console.warn('Fallback canal_venta constraint: reintentando con canal Recepción');
+          fallbackPayload.canal_venta = 'Recepción';
+          retryRes = await supabaseClient
+            .from('reservas')
+            .insert(fallbackPayload)
+            .select()
+            .single();
+        }
 
         if (retryRes.error) {
           throw retryRes.error;
