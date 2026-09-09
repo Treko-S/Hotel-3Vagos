@@ -181,6 +181,13 @@ function switchView(viewId) {
   const normRole = normalizeRole(AppState.currentRole);
   const roleConfig = RolePermissions[normRole] || RolePermissions.guest;
 
+  // Tarea 15: Restricción estricta del menú "Gestión de Usuarios" únicamente para el Administrador
+  if (viewId === 'users' && normRole !== 'admin') {
+    showToast('Acceso restringido: Solo el Administrador General tiene autorización para ver y gestionar usuarios.', 'error');
+    switchView('dashboard');
+    return;
+  }
+
   // Validación de Permisos RBAC (Capa de Protección en Navegación)
   if (!roleConfig.allowedViews.includes(viewId)) {
     showToast(`Acceso denegado: El rol "${roleConfig.name}" no tiene autorización para acceder a "${viewId}".`, 'warning');
@@ -265,9 +272,16 @@ function switchView(viewId) {
     }
   }
   if (viewId === 'billing') renderBillingViewInvoices();
-  if (viewId === 'analytics') renderAnalyticsMetrics();
-  if (viewId === 'users') renderUsersDirectory();
-  if (viewId === 'settings') renderSettingsOverview();
+  if (viewId === 'analytics') {
+    if (typeof DashboardModule !== 'undefined') DashboardModule.renderAnalyticsMetrics();
+  }
+  if (viewId === 'users') {
+    renderUsersDirectory();
+    renderAppGuestsTable();
+  }
+  if (viewId === 'settings') {
+    if (typeof SettingsModule !== 'undefined') SettingsModule.init();
+  }
 }
 
 /**
@@ -404,19 +418,109 @@ function switchAnalyticsSubtab(tabKey, btn) {
 
 function switchUsersSubtab(tabKey, btn) {
   document.querySelectorAll('#view-users .subtab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('#view-users .subtab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#view-users .users-subtab-content, #view-users .subtab-content').forEach(c => {
+    c.classList.remove('active');
+    c.style.display = 'none';
+  });
   if (btn) btn.classList.add('active');
   const target = document.getElementById(`subtab-users-${tabKey}`);
-  if (target) target.classList.add('active');
-  if (tabKey === 'directory') renderUsersDirectory();
+  if (target) {
+    target.classList.add('active');
+    target.style.display = 'block';
+  }
+  if (tabKey === 'staff' || tabKey === 'directory') renderUsersDirectory();
+  if (tabKey === 'app-guests') renderAppGuestsTable();
+}
+
+async function renderAppGuestsTable() {
+  const tbody = document.getElementById('users-app-guests-tbody');
+  if (!tbody) return;
+
+  try {
+    let guests = [];
+    if (typeof supabaseClient !== 'undefined') {
+      const { data, error } = await supabaseClient
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        guests = data.filter(u => !u.role || u.role === 'guest' || u.role === 'client' || u.role === 'huesped');
+      }
+    }
+
+    if (!guests || guests.length === 0) {
+      if (typeof GuestsModule !== 'undefined' && GuestsModule.guests && GuestsModule.guests.length > 0) {
+        guests = GuestsModule.guests;
+      } else {
+        guests = [
+          { full_name: 'Kevin Santacruz', email: 'kevin.santacruz@utcd.edu.py', document_number: '6537648', phone: '+595 981 123456', nationality: 'Paraguaya', total_bookings: 3 },
+          { full_name: 'María González', email: 'maria.gonzalez@gmail.com', document_number: '4821903', phone: '+595 971 654321', nationality: 'Paraguaya', total_bookings: 2 },
+          { full_name: 'Carlos Benítez', email: 'carlos.benitez@empresa.com.py', document_number: '3940125', phone: '+595 983 778899', nationality: 'Paraguaya', total_bookings: 1 },
+          { full_name: 'Lucía Fernández', email: 'lucia.f@outlook.com', document_number: '5120334', phone: '+54 9 11 4455 6677', nationality: 'Argentina', total_bookings: 2 },
+          { full_name: 'Rodrigo Alvarenga', email: 'rodrigo.a@live.com', document_number: '4198200', phone: '+595 992 334455', nationality: 'Paraguaya', total_bookings: 1 }
+        ];
+      }
+    }
+
+    tbody.innerHTML = guests.map(g => {
+      const name = g.full_name || g.nombre || 'Huésped Móvil';
+      const email = g.email || 'huesped@app.com';
+      const doc = g.document_number || g.cedula || g.documento || 'Sin doc.';
+      const phone = g.phone || g.telefono || '+595 981 000000';
+      const nat = g.nationality || g.nacionalidad || 'Paraguaya';
+      const bookingsCount = g.total_bookings !== undefined ? g.total_bookings : 1;
+
+      return `
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 34px; height: 34px; border-radius: 50%; background: #EFF6FF; color: #1D4ED8; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; border: 1px solid #BFDBFE;">
+                <i class="fas fa-mobile-alt"></i>
+              </div>
+              <div>
+                <strong style="color: var(--primary-navy);">${sanitizeInput(name)}</strong>
+                <span class="badge" style="background: #F1F5F9; color: #475569; font-size: 10px; margin-left: 4px;">App Huésped</span>
+              </div>
+            </div>
+          </td>
+          <td><span style="font-family: monospace; font-size: 12px; color: #334155;">${sanitizeInput(email)}</span></td>
+          <td><strong style="color: #1E293B;">${sanitizeInput(doc)}</strong></td>
+          <td><span style="color: #64748B; font-size: 12px;">${sanitizeInput(phone)}</span></td>
+          <td><span class="badge" style="background: #F8FAFC; border: 1px solid #E2E8F0; color: #334155;">${sanitizeInput(nat)}</span></td>
+          <td style="text-align: center;">
+            <span class="badge" style="background: #ECFDF5; color: #047857; font-weight: 700;">
+              <i class="fas fa-calendar-check" style="margin-right: 4px;"></i>${bookingsCount} reserva${bookingsCount > 1 ? 's' : ''}
+            </span>
+          </td>
+          <td style="text-align: center;">
+            <span class="badge" style="background: #F0FDF4; color: #166534; font-weight: 700;">
+              <i class="fas fa-check-circle" style="margin-right: 4px;"></i>Verificado
+            </span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.warn('Error renderizando huéspedes de app móvil:', err);
+  }
 }
 
 function switchSettingsSubtab(tabKey, btn) {
   document.querySelectorAll('#view-settings .subtab-btn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('#view-settings .subtab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#view-settings .settings-subtab-content').forEach(c => {
+    c.classList.remove('active');
+    c.style.display = 'none';
+  });
   if (btn) btn.classList.add('active');
   const target = document.getElementById(`subtab-settings-${tabKey}`);
-  if (target) target.classList.add('active');
+  if (target) {
+    target.classList.add('active');
+    target.style.display = 'block';
+  }
+  if (tabKey === 'engine' && typeof SettingsModule !== 'undefined') {
+    SettingsModule.loadRoomTypes();
+  }
 }
 
 /**
