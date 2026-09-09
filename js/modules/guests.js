@@ -87,20 +87,9 @@ const GuestsModule = {
 
       const rawBookings = data || [];
 
-      // Enriquecer con reservation_companions si la reserva no tenía acompañantes en la tabla previa
+      // Normalizar acompañantes cargados desde el join con la tabla acompanantes
       for (const r of rawBookings) {
-        let companions = Array.isArray(r.acompanantes) ? [...r.acompanantes] : [];
-        if (companions.length === 0) {
-          try {
-            const { data: rComps } = await supabaseClient
-              .from('reservation_companions')
-              .select('*')
-              .or(`reservation_id.eq.${r.id},reserva_id.eq.${r.id}`);
-            if (rComps && rComps.length > 0) {
-              companions = rComps;
-            }
-          } catch (_) {}
-        }
+        const companions = Array.isArray(r.acompanantes) ? [...r.acompanantes] : [];
 
         r.normalizedCompanions = companions.map((c, idx) => ({
           id: c.id || `comp_${r.id}_${idx}`,

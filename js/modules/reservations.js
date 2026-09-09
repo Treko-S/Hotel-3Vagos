@@ -1112,7 +1112,7 @@ const ReservationsModule = {
   },
 
   /**
-   * Carga de acompañantes desde reservation_companions con fallback a acompanantes
+   * Carga de acompañantes desde la tabla acompanantes en Supabase
    */
   async loadCheckInCompanions(bookingId, booking) {
     let list = [];
@@ -1121,55 +1121,30 @@ const ReservationsModule = {
       compList.innerHTML = '<div style="text-align: center; padding: 10px; color: #64748B; font-size: 11.5px;"><i class="fas fa-spinner fa-spin"></i> Verificando acompañantes...</div>';
     }
 
-    // 1. Intentar fetch a tabla relacional reservation_companions
+    // 1. Consultar tabla acompanantes (columnas: id, reserva_id, full_name, document_number)
     try {
-      const { data: resComps, error: errComps } = await supabaseClient
-        .from('reservation_companions')
+      const { data: acomp, error: errAcomp } = await supabaseClient
+        .from('acompanantes')
         .select('*')
-        .or(`reservation_id.eq.${bookingId},reserva_id.eq.${bookingId}`);
+        .eq('reserva_id', bookingId);
 
-      if (!errComps && resComps && resComps.length > 0) {
-        list = resComps.map(c => ({
+      if (!errAcomp && acomp && acomp.length > 0) {
+        list = acomp.map(c => ({
           id: c.id,
-          reservation_id: c.reservation_id || c.reserva_id || bookingId,
-          nombre_completo: c.nombre_completo || c.full_name || '',
-          tipo_documento: c.tipo_documento || c.document_type || 'CI',
-          numero_documento: c.numero_documento || c.document_number || '',
+          reservation_id: bookingId,
+          nombre_completo: c.full_name || c.nombre_completo || '',
+          tipo_documento: c.document_type || c.tipo_documento || 'CI',
+          numero_documento: c.document_number || c.numero_documento || '',
           relationship: c.relationship || 'Acompañante',
           is_adult: c.is_adult !== false,
           isNew: false
         }));
       }
     } catch (e) {
-      console.log('reservation_companions no disponible o vacía:', e?.message || e);
+      console.log('Error al consultar acompanantes:', e?.message || e);
     }
 
-    // 2. Si viene vacía, consultar tabla acompanantes
-    if (list.length === 0) {
-      try {
-        const { data: acomp, error: errAcomp } = await supabaseClient
-          .from('acompanantes')
-          .select('*')
-          .eq('reserva_id', bookingId);
-
-        if (!errAcomp && acomp && acomp.length > 0) {
-          list = acomp.map(c => ({
-            id: c.id,
-            reservation_id: bookingId,
-            nombre_completo: c.full_name || c.nombre_completo || '',
-            tipo_documento: c.document_type || c.tipo_documento || 'CI',
-            numero_documento: c.document_number || c.numero_documento || '',
-            relationship: c.relationship || 'Acompañante',
-            is_adult: c.is_adult !== false,
-            isNew: false
-          }));
-        }
-      } catch (e) {
-        console.log('acompanantes no disponible:', e?.message || e);
-      }
-    }
-
-    // 3. Fallback adicional si booking ya contenía acompanantes precargados en memoria
+    // 2. Fallback: si booking ya contenía acompanantes precargados en memoria (del select join)
     if (list.length === 0 && booking && Array.isArray(booking.acompanantes) && booking.acompanantes.length > 0) {
       list = booking.acompanantes.map(c => ({
         id: c.id,
@@ -1377,28 +1352,12 @@ const ReservationsModule = {
       const newCompanions = currentCompanions.filter(c => c.isNew);
       if (newCompanions.length > 0) {
         for (const comp of newCompanions) {
-          // Intentar insertar en reservation_companions
-          try {
-            await supabaseClient.from('reservation_companions').insert({
-              reservation_id: bookingId,
-              reserva_id: bookingId,
-              nombre_completo: comp.nombre_completo,
-              tipo_documento: comp.tipo_documento,
-              numero_documento: comp.numero_documento
-            });
-          } catch (e) {
-            console.warn('reservation_companions insert notice:', e?.message || e);
-          }
-
-          // Intentar insertar en acompanantes para garantizar sincronización dual
+          // Insertar en tabla acompanantes (columnas existentes: reserva_id, full_name, document_number)
           try {
             await supabaseClient.from('acompanantes').insert({
               reserva_id: bookingId,
-              full_name: comp.nombre_completo,
-              document_type: comp.tipo_documento,
-              document_number: comp.numero_documento,
-              relationship: comp.relationship || 'Acompañante',
-              is_adult: comp.is_adult !== false
+              full_name: comp.nombre_completo || comp.full_name,
+              document_number: comp.numero_documento || comp.document_number
             });
           } catch (e) {
             console.warn('acompanantes insert notice:', e?.message || e);
