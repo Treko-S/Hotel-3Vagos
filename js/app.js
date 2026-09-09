@@ -257,7 +257,11 @@ function switchView(viewId) {
     MaintenanceModule.loadIncidentsInbox();
   }
   if (viewId === 'consumptions' && typeof InventoryModule !== 'undefined') {
-    InventoryModule.renderSalesCatalog();
+    if (!InventoryModule.salesItems || InventoryModule.salesItems.length === 0) {
+      InventoryModule.init();
+    } else {
+      InventoryModule.renderSalesCatalog();
+    }
   }
   if (viewId === 'cash' && typeof CashBillingModule !== 'undefined') CashBillingModule.init();
   if (viewId === 'guests' && typeof GuestsModule !== 'undefined') GuestsModule.loadGuests();
@@ -265,6 +269,9 @@ function switchView(viewId) {
   // Nuevas vistas integradas
   if (viewId === 'purchases') {
     if (typeof InventoryModule !== 'undefined') {
+      if (!InventoryModule.purchaseOrders || InventoryModule.purchaseOrders.length === 0) {
+        InventoryModule.init();
+      }
       InventoryModule.switchComprasSubTab(InventoryModule.comprasActiveSubTab || 'orders');
       InventoryModule.updateComprasKPIs();
     } else {

@@ -677,9 +677,9 @@ const ReservationsModule = {
             <div style="font-size: 12px;"><i class="far fa-calendar-check" style="color: var(--danger);"></i> ${formatDate(b.check_out_previsto)}</div>
           </td>
           <td>
-            <div style="font-weight: 600; color: var(--primary-dark);">${sanitizeInput(user.full_name || 'Huésped Registrado')}</div>
+            <div style="font-weight: 600; color: var(--primary-dark);">${sanitizeInput(this.getBookingGuest(b.id, b.codigo_reserva, user).full_name)}</div>
             <div style="font-size: 11px; color: var(--text-muted);">
-              <i class="fas fa-id-card"></i> Doc: ${sanitizeInput(user.document_number || 'S/D')}
+              <i class="fas fa-id-card"></i> Doc: ${sanitizeInput(this.getBookingGuest(b.id, b.codigo_reserva, user).document_number)}
             </div>
             ${b.acompanantes && b.acompanantes.length > 0 ? `
               <span class="badge badge-confirmada" style="font-size: 9.5px; padding: 2px 6px; cursor: help; margin-top: 3px; display: inline-block;" title="${b.acompanantes.map(a => a.full_name).join(', ')}">
@@ -1001,6 +1001,43 @@ const ReservationsModule = {
     return 'fas fa-credit-card';
   },
 
+  getBookingGuest(bookingId, bookingCode, bookingUser = null) {
+    let cached = null;
+    try {
+      const gc = JSON.parse(localStorage.getItem('hotel_booking_guests') || '{}');
+      cached = gc[bookingId] || gc[bookingCode];
+    } catch (_) {}
+
+    const isStaff = bookingUser && bookingUser.role_id && bookingUser.role_id !== 5;
+    if (cached && cached.full_name) {
+      return {
+        full_name: cached.full_name,
+        document_number: cached.document_number || (!isStaff ? (bookingUser?.document_number || 'S/D') : 'S/D'),
+        document_type: cached.document_type || (!isStaff ? (bookingUser?.document_type || 'CI') : 'CI') || 'CI',
+        phone: cached.phone || (!isStaff ? (bookingUser?.phone || 'Sin teléfono') : 'Sin teléfono'),
+        email: cached.email || (!isStaff ? (bookingUser?.email || 'Sin correo') : 'Sin correo')
+      };
+    }
+
+    if (bookingUser && !isStaff) {
+      return {
+        full_name: bookingUser.full_name || 'Huésped Titular',
+        document_number: bookingUser.document_number || 'S/D',
+        document_type: bookingUser.document_type || 'CI',
+        phone: bookingUser.phone || 'Sin teléfono',
+        email: bookingUser.email || 'Sin correo'
+      };
+    }
+
+    return {
+      full_name: 'Huésped Titular',
+      document_number: 'S/D',
+      document_type: 'CI',
+      phone: 'Sin teléfono',
+      email: 'Sin correo'
+    };
+  },
+
   checkInCompanions: [],
   currentCheckInCapacity: 1,
 
@@ -1037,9 +1074,9 @@ const ReservationsModule = {
     this.currentCheckInCapacity = detectedCapacity;
 
     // 3. HUÉSPED TITULAR
-    const user = booking.users || {};
-    const guestName = user.full_name || booking.clientes?.nombre_completo || booking.nombre_cliente || 'Huésped Titular';
-    const guestContact = user.phone || user.email || booking.clientes?.telefono || booking.clientes?.email || 'Sin contacto registrado';
+    const guestData = this.getBookingGuest(booking.id, booking.codigo_reserva, booking.users);
+    const guestName = guestData.full_name || booking.clientes?.nombre_completo || booking.nombre_cliente || 'Huésped Titular';
+    const guestContact = guestData.phone || guestData.email || booking.clientes?.telefono || booking.clientes?.email || 'Sin contacto registrado';
     const guestNameEl = document.getElementById('checkin-guest-name');
     const guestContactEl = document.getElementById('checkin-guest-contact');
     if (guestNameEl) guestNameEl.innerText = guestName;
@@ -1097,11 +1134,11 @@ const ReservationsModule = {
     const docTypeEl = document.getElementById('checkin-doc-type');
     const docNumberEl = document.getElementById('checkin-doc-number');
     if (docTypeEl) {
-      const clientDocType = user.document_type || booking.clientes?.tipo_documento || 'CI';
+      const clientDocType = guestData.document_type || 'CI';
       docTypeEl.value = clientDocType.toUpperCase().includes('PASAPORTE') ? 'PASAPORTE' : (clientDocType.toUpperCase().includes('DNI') ? 'DNI' : 'CI');
     }
     if (docNumberEl) {
-      docNumberEl.value = user.document_number || booking.clientes?.documento || booking.clientes?.ci || '6537648';
+      docNumberEl.value = (guestData.document_number && guestData.document_number !== 'S/D') ? guestData.document_number : '';
     }
 
     // 7. ENTREGA DE LLAVE
@@ -2150,10 +2187,10 @@ const ReservationsModule = {
             <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;">
               <i class="fas fa-user"></i> Titular de la Reserva
             </div>
-            <div style="font-weight: 700; color: var(--primary-dark); font-size: 13.5px;">${sanitizeInput(user.full_name || 'Huésped')}</div>
-            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Doc / RUC: <strong>${sanitizeInput(user.document_number || 'S/D')}</strong></div>
-            <div style="font-size: 11.5px; color: var(--text-muted);">Email: <span style="color: var(--primary-blue); font-weight: 600;">${sanitizeInput(user.email || 'rc652107@gmail.com')}</span></div>
-            <div style="font-size: 11.5px; color: var(--text-muted);">Tel: ${sanitizeInput(user.phone || '+595 S/N')}</div>
+            <div style="font-weight: 700; color: var(--primary-dark); font-size: 13.5px;">${sanitizeInput(this.getBookingGuest(booking.id, booking.codigo_reserva, user).full_name)}</div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">Doc / RUC: <strong>${sanitizeInput(this.getBookingGuest(booking.id, booking.codigo_reserva, user).document_number)}</strong></div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Email: <span style="color: var(--primary-blue); font-weight: 600;">${sanitizeInput(this.getBookingGuest(booking.id, booking.codigo_reserva, user).email)}</span></div>
+            <div style="font-size: 11.5px; color: var(--text-muted);">Tel: ${sanitizeInput(this.getBookingGuest(booking.id, booking.codigo_reserva, user).phone)}</div>
           </div>
 
           <div style="background: #FFF; border: 1px solid var(--border-color); padding: 12px; border-radius: var(--radius-md);">
@@ -3467,21 +3504,66 @@ const ReservationsModule = {
       const totalPrice = pricePerNight * nights;
 
       // Obtener o asignar guestId si existe
+      // Obtener o registrar oficialmente al huésped en users (rol 5)
       let guestId = null;
       try {
-        const { data: userFound } = await supabaseClient
-          .from('users')
-          .select('id')
-          .or(`email.eq.${guestEmail || 'none'},document_number.eq.${guestDoc || 'none'}`)
-          .limit(1)
-          .maybeSingle();
+        let userFound = null;
+        if (guestDoc || guestEmail) {
+          const filter = [];
+          if (guestDoc) filter.push(`document_number.eq.${guestDoc}`);
+          if (guestEmail) filter.push(`email.eq.${guestEmail}`);
+          const { data } = await supabaseClient
+            .from('users')
+            .select('id, full_name, document_number, phone, email, role_id')
+            .or(filter.join(','))
+            .limit(1)
+            .maybeSingle();
+          if (data && data.role_id === 5) {
+            userFound = data;
+          }
+        }
+
         if (userFound) {
           guestId = userFound.id;
+          await supabaseClient.from('users').update({
+            full_name: guestName || userFound.full_name,
+            document_number: guestDoc || userFound.document_number,
+            phone: guestPhone || userFound.phone
+          }).eq('id', guestId);
         } else {
-          const { data: firstUser } = await supabaseClient.from('users').select('id').limit(1).maybeSingle();
-          if (firstUser) guestId = firstUser.id;
+          // Crear nuevo usuario huésped oficial en Auth y public.users
+          const cleanDoc = guestDoc ? guestDoc.replace(/\D/g, '') : Math.floor(100000 + Math.random() * 900000);
+          const effectiveEmail = guestEmail || `huesped.${cleanDoc}@hotel3vagos.com`;
+
+          const { data: authData, error: authErr } = await supabaseClient.auth.admin.createUser({
+            email: effectiveEmail,
+            password: 'GuestPassword2026!',
+            email_confirm: true,
+            user_metadata: {
+              full_name: guestName,
+              document_type: 'CI',
+              document_number: guestDoc,
+              phone: guestPhone,
+              nationality: 'Paraguaya',
+              role_id: 5
+            }
+          });
+
+          if (!authErr && authData?.user?.id) {
+            guestId = authData.user.id;
+            await supabaseClient.from('users').update({
+              full_name: guestName,
+              document_type: 'CI',
+              document_number: guestDoc,
+              phone: guestPhone,
+              nationality: 'Paraguaya',
+              role_id: 5
+            }).eq('id', guestId);
+          }
         }
-      } catch (_) {}
+      } catch (guestErr) {
+        console.warn('Error gestionando huésped titular:', guestErr);
+      }
 
       const codigoReserva = 'RES-' + Math.floor(100000 + Math.random() * 900000);
 
@@ -3565,6 +3647,21 @@ const ReservationsModule = {
           planCache[newBooking.id] = planName;
           planCache[newBooking.codigo_reserva] = planName;
           localStorage.setItem('hotel_res_plans', JSON.stringify(planCache));
+        } catch (_) {}
+
+        // Guardar en cache local los datos reales del huésped cargados en este formulario
+        try {
+          const guestCache = JSON.parse(localStorage.getItem('hotel_booking_guests') || '{}');
+          const guestInfo = { 
+            full_name: guestName, 
+            document_number: guestDoc, 
+            document_type: 'CI',
+            phone: guestPhone, 
+            email: guestEmail 
+          };
+          if (newBooking?.id) guestCache[newBooking.id] = guestInfo;
+          if (codigoReserva) guestCache[codigoReserva] = guestInfo;
+          localStorage.setItem('hotel_booking_guests', JSON.stringify(guestCache));
         } catch (_) {}
       }
 
