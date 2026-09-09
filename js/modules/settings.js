@@ -241,6 +241,10 @@ const SettingsModule = {
       // 3. Guardar en localStorage
       localStorage.setItem('hotel_master_settings', JSON.stringify(updated));
 
+      if (typeof notifyDataChanged === 'function') {
+        notifyDataChanged('hotel_settings', { entity: 'hotel_settings' });
+      }
+
       this.applyGlobalBranding();
       showToast('Configuración general y parámetros maestros guardados con éxito', 'success');
     } catch (err) {

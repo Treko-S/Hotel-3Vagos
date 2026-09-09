@@ -333,6 +333,9 @@ const RatesSeasonsModule = {
       }
 
       closeModal('modal-season-editor');
+      if (typeof notifyDataChanged === 'function') {
+        notifyDataChanged('temporadas', { entity: 'seasons' });
+      }
       await this.loadSeasons();
 
     } catch (err) {
@@ -362,6 +365,9 @@ const RatesSeasonsModule = {
         .eq('id', id);
       if (error) throw error;
       showToast('Temporada eliminada de Supabase', 'info');
+      if (typeof notifyDataChanged === 'function') {
+        notifyDataChanged('temporadas', { entity: 'seasons' });
+      }
       await this.loadSeasons();
     } catch (err) {
       showToast('Error al eliminar: ' + err.message, 'error');
@@ -614,6 +620,9 @@ const RatesSeasonsModule = {
         });
 
         // Broadcast a la app móvil
+        if (typeof notifyDataChanged === 'function') {
+          notifyDataChanged('hotel_rate_plans', { entity: 'rate_plans' });
+        }
         await supabaseClient.channel('hotel_universal_sync').send({
           type: 'broadcast',
           event: 'rate_plans_updated',
@@ -1349,6 +1358,9 @@ const RatesSeasonsModule = {
     }
 
     closeModal('modal-promotional-package');
+    if (typeof notifyDataChanged === 'function') {
+      notifyDataChanged('promotional_packages', { entity: 'promotional_packages' });
+    }
     showToast(`Paquete "${name}" guardado exitosamente con servicios a 0 Gs.`, 'success');
     this.renderPackagesTable();
   },
@@ -1369,6 +1381,9 @@ const RatesSeasonsModule = {
 
     this.packages = this.packages.filter(p => String(p.id) !== String(packageId));
     localStorage.setItem('hotel_promotional_packages', JSON.stringify(this.packages));
+    if (typeof notifyDataChanged === 'function') {
+      notifyDataChanged('promotional_packages', { entity: 'promotional_packages' });
+    }
 
     try {
       if (typeof supabaseClient !== 'undefined') {
