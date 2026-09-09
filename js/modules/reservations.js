@@ -2336,17 +2336,6 @@ const ReservationsModule = {
       }
     }
 
-    // Configurar estado de los botones de acción en folio
-    const btnCheckout = document.getElementById('btn-folio-checkout-action');
-    if (btnCheckout) {
-      btnCheckout.style.display = (booking.estado === 'Finalizada' || booking.estado === 'Cancelada') ? 'none' : 'inline-flex';
-    }
-
-    const btnLateCheckout = document.getElementById('btn-folio-late-checkout');
-    if (btnLateCheckout) {
-      btnLateCheckout.style.display = (booking.estado === 'Finalizada' || booking.estado === 'Cancelada') ? 'none' : 'inline-flex';
-    }
-
     openModal('modal-folio');
   },
 
@@ -2738,25 +2727,28 @@ const ReservationsModule = {
       </option>`;
     }).join('');
 
-    // Fechas por defecto: hoy/mañana a 3 días con min estricto a hoy
+    // Fechas por defecto: hoy y mañana para agilizar recepción presencial
     const today = new Date();
     const todayDateStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(today) : today.toISOString().split('T')[0];
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(tomorrow) : tomorrow.toISOString().split('T')[0];
-    const dayAfter = new Date(tomorrow);
-    dayAfter.setDate(dayAfter.getDate() + 2);
-    const dayAfterStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr(dayAfter) : dayAfter.toISOString().split('T')[0];
 
     const checkInInput = document.getElementById('new-res-checkin');
     const checkOutInput = document.getElementById('new-res-checkout');
     if (checkInInput) {
       checkInInput.min = todayDateStr;
-      checkInInput.value = tomorrowStr;
+      checkInInput.value = todayDateStr;
     }
     if (checkOutInput) {
       checkOutInput.min = tomorrowStr;
-      checkOutInput.value = dayAfterStr;
+      checkOutInput.value = tomorrowStr;
+    }
+
+    // Por defecto, si el check-in es hoy, sugerir Check-in Inmediato
+    const immCheckin = document.getElementById('new-res-immediate-checkin');
+    if (immCheckin) {
+      immCheckin.checked = (checkInInput?.value === todayDateStr);
     }
 
     // Poblar Selector de Planes de Tarifa (Tarea 4)
@@ -2826,6 +2818,12 @@ const ReservationsModule = {
       if (!checkOutInput.value || checkOutInput.value <= checkInInput.value) {
         checkOutInput.value = nextDayStr;
       }
+    }
+
+    // Auto-activar o sugerir Check-in Inmediato si la reserva inicia hoy
+    const immCheckin = document.getElementById('new-res-immediate-checkin');
+    if (immCheckin && checkInInput) {
+      immCheckin.checked = (checkInInput.value === todayStr);
     }
 
     this.checkNewReservationAvailability();
@@ -3244,27 +3242,27 @@ const ReservationsModule = {
 
     if (collision) {
       feedbackEl.innerHTML = `
-        <div style="background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 12px 14px; border-radius: 8px; font-size: 12.5px;">
-          <div style="font-weight: bold; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+        <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); color: #FCA5A5; padding: 12px 14px; border-radius: 10px; font-size: 12.5px;">
+          <div style="font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: #F87171;">
             <i class="fas fa-calendar-times"></i> Conflicto de Fechas: Habitación Ocupada / Reservada
           </div>
-          <div>Ya existe la reserva <strong>${sanitizeInput(collision.codigo_reserva)}</strong> del <strong>${formatDate(collision.check_in_previsto)}</strong> al <strong>${formatDate(collision.check_out_previsto)}</strong>.</div>
-          <div style="margin-top: 4px; font-size: 12px; color: #B91C1C;">
-            <i class="fas fa-info-circle"></i> Próxima disponibilidad para esta habitación: <strong>A partir del ${formatDate(collision.check_out_previsto)}</strong>.
+          <div>Ya existe la reserva <strong style="color: #FFF;">${sanitizeInput(collision.codigo_reserva)}</strong> del <strong>${formatDate(collision.check_in_previsto)}</strong> al <strong>${formatDate(collision.check_out_previsto)}</strong>.</div>
+          <div style="margin-top: 5px; font-size: 11.5px; color: #FDA4AF;">
+            <i class="fas fa-info-circle"></i> Próxima disponibilidad: <strong>A partir del ${formatDate(collision.check_out_previsto)}</strong>.
           </div>
         </div>
       `;
       if (confirmBtn) confirmBtn.disabled = true;
     } else {
       feedbackEl.innerHTML = `
-        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; padding: 12px 14px; border-radius: 8px; font-size: 12.5px;">
-          <div style="font-weight: bold; display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
+        <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(34, 197, 94, 0.35); color: #86EFAC; padding: 12px 14px; border-radius: 10px; font-size: 12.5px;">
+          <div style="font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: #4ADE80;">
             <i class="fas fa-check-circle"></i> ¡Habitación Totalmente Disponible para estas Fechas!
           </div>
-          <div style="color: #15803D;">
-            <strong>${nights} noche${nights > 1 ? 's' : ''}</strong> (${formatGs(pricePerNight)} x ${nights}) = <strong>Total: ${formatGs(totalPrice)}</strong>
-            <span class="badge" style="background: #DCFCE7; color: #166534; margin-left: 6px; font-size: 10.5px;">Plan: ${sanitizeInput(planName)}</span>
-            ${planDiscount > 0 ? `<span style="font-size: 11px; color: #15803D; font-weight: bold;">(-${planDiscount}% OFF)</span>` : ''}
+          <div style="color: #D1FAE5; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <span><strong>${nights} noche${nights > 1 ? 's' : ''}</strong> (${formatGs(pricePerNight)} x ${nights}) = <strong style="color: var(--accent-gold); font-size: 13.5px;">Total: ${formatGs(totalPrice)}</strong></span>
+            <span class="badge" style="background: rgba(34, 197, 94, 0.2); color: #86EFAC; border: 1px solid rgba(34, 197, 94, 0.35); font-size: 10.5px;">Plan: ${sanitizeInput(planName)}</span>
+            ${planDiscount > 0 ? `<span style="font-size: 11px; color: #4ADE80; font-weight: bold;">(-${planDiscount}% OFF)</span>` : ''}
           </div>
         </div>
       `;
@@ -3487,6 +3485,9 @@ const ReservationsModule = {
 
       const codigoReserva = 'RES-' + Math.floor(100000 + Math.random() * 900000);
 
+      const immediateCheckin = document.getElementById('new-res-immediate-checkin')?.checked ?? false;
+      const initialEstado = immediateCheckin ? 'Check-in' : 'Confirmada';
+
       const reservationPayload = {
         codigo_reserva: codigoReserva,
         guest_id: guestId,
@@ -3496,7 +3497,7 @@ const ReservationsModule = {
         cantidad_huespedes: guestsCount,
         monto_total: totalPrice,
         canal_venta: channel,
-        estado: 'Confirmada',
+        estado: initialEstado,
         rate_plan_type: planName
       };
 
@@ -3530,7 +3531,7 @@ const ReservationsModule = {
           cantidad_huespedes: guestsCount,
           monto_total: totalPrice,
           canal_venta: ['Recepción', 'WhatsApp', 'Web', 'App Móvil', 'OTA'].includes(channel) ? channel : 'Recepción',
-          estado: 'Confirmada'
+          estado: initialEstado
         };
 
         let retryRes = await supabaseClient
@@ -3582,17 +3583,41 @@ const ReservationsModule = {
         }
       }
 
-      // Actualizar estado operativo de la habitación a 'Reservada'
+      // Actualizar estado operativo de la habitación (Ocupada si check-in inmediato, Reservada si futuro)
       try {
+        const targetRoomState = immediateCheckin ? 'Ocupada' : 'Reservada';
         await supabaseClient
           .from('habitaciones')
           .update({ 
-            estado: 'Reservada',
+            estado: targetRoomState,
             observaciones: justificationText ? `Justificación individual: ${justificationText}` : null
           })
           .eq('id', roomId);
       } catch (e) {
-        console.warn('No se pudo actualizar estado de habitacion a Reservada:', e);
+        console.warn('No se pudo actualizar estado de habitacion:', e);
+      }
+
+      // Si fue Check-in Inmediato: Registrar auditoría en checkins y sincronizar llaves
+      if (immediateCheckin && newBooking?.id) {
+        try {
+          await supabaseClient.from('checkins').insert({
+            reserva_id: newBooking.id,
+            habitacion_id: roomId,
+            observaciones: `Check-in inmediato en Recepción - Doc: ${guestDoc} - Huésped: ${guestName} - Acompañantes: ${companionsToSave.length}`
+          });
+        } catch (e) {
+          console.warn('Checkin log table skip:', e);
+        }
+
+        if (typeof HousekeepingModule !== 'undefined') {
+          const roomOptionText = selectedOption ? selectedOption.textContent : '';
+          const roomNum = roomOptionText.includes('Habitación') 
+            ? roomOptionText.split('-')[0].replace('Habitación', '').trim() 
+            : (newBooking.habitaciones?.numero || '');
+          if (roomNum) {
+            HousekeepingModule.changeKeyStatus(String(roomNum), 'Entregada a Huésped', guestName, 'Check-in inmediato Front Desk');
+          }
+        }
       }
 
       // Crear Folio de cuenta inicial
@@ -3633,13 +3658,20 @@ const ReservationsModule = {
       }
 
       closeModal('modal-new-reservation');
-      showToast(`¡Reserva ${codigoReserva} confirmada con éxito! (${channel})`, 'success');
+      if (immediateCheckin) {
+        showToast(`¡Reserva ${codigoReserva} y Check-in realizados con éxito! Huésped en estadía.`, 'success');
+      } else {
+        showToast(`¡Reserva ${codigoReserva} confirmada con éxito! (${channel})`, 'success');
+      }
 
       if (typeof notifyDataChanged === 'function') {
-        notifyDataChanged('reservas', { action: 'create', bookingId: newBooking.id });
+        notifyDataChanged('reservas', { action: immediateCheckin ? 'checkin' : 'create', bookingId: newBooking.id, roomId });
       }
 
       await this.loadReservations();
+      if (immediateCheckin && typeof GuestsModule !== 'undefined') {
+        await GuestsModule.loadInHouseGuests();
+      }
       await DashboardModule.loadKPIs();
       await RoomsModule.loadRooms();
 

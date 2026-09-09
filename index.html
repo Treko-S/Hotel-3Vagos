@@ -2327,49 +2327,63 @@
        ========================================================= -->
 
   <!-- Modal Nueva Reserva & Disponibilidad por Fechas -->
+  <!-- Modal Nueva Reserva & Disponibilidad por Fechas -->
   <div id="modal-new-reservation" class="modal-backdrop">
-    <div class="modal-box" style="max-width: 600px;">
-      <div class="modal-header">
-        <h3><i class="fas fa-calendar-plus" style="color: var(--primary-navy);"></i> Crear Nueva Reserva</h3>
-        <button class="modal-close" onclick="closeModal('modal-new-reservation')">&times;</button>
+    <div class="modal-box" style="max-width: 620px; width: 95%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.12); background: #0F172A; color: #F8FAFC; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);">
+      
+      <!-- Modal Header -->
+      <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; background: #1E293B; flex-shrink: 0;">
+        <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #F8FAFC; display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-calendar-plus" style="color: var(--accent-gold);"></i> Registrar Nueva Reserva
+        </h3>
+        <button class="modal-close" onclick="closeModal('modal-new-reservation')" style="color: #94A3B8; font-size: 22px; cursor: pointer; background: transparent; border: none; line-height: 1;">&times;</button>
       </div>
-        <div class="form-group" style="margin-bottom: 6px;">
+
+      <!-- Modal Body -->
+      <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
+        
+        <!-- Selector de Habitación con Botón a Ficha -->
+        <div class="form-group" style="margin-bottom: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <label style="font-weight: 600; font-size: 13px; margin-bottom: 0;"><i class="fas fa-bed"></i> Habitación</label>
-            <button type="button" class="btn btn-sm" onclick="ReservationsModule.openRoomPreviewModal()" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 3px 10px; font-size: 11.5px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; transition: all 0.2s;">
+            <label style="font-weight: 600; font-size: 13px; color: #E2E8F0; margin-bottom: 0;">
+              <i class="fas fa-bed" style="color: #38BDF8;"></i> Habitación
+            </label>
+            <button type="button" class="btn btn-sm" onclick="ReservationsModule.openRoomPreviewModal()" style="background: rgba(59, 130, 246, 0.15); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.35); padding: 4px 10px; font-size: 11.5px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 600; transition: all 0.2s;">
               <i class="fas fa-calendar-alt"></i> Ver Ficha & Calendario
             </button>
           </div>
-          <select id="new-res-room" class="form-control" onchange="ReservationsModule.onRoomChange()">
+          <select id="new-res-room" class="form-control" onchange="ReservationsModule.onRoomChange()" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px; font-size: 13px;">
             <!-- Dinámico -->
           </select>
         </div>
 
         <!-- Tarjeta Preview Enriquecida de la Habitación Cargada (Inline) -->
-        <div id="new-res-room-inline-card" style="margin-bottom: 14px;"></div>
+        <div id="new-res-room-inline-card" style="margin-bottom: 16px;"></div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-sign-in-alt" style="color: var(--success);"></i> Check-in</label>
-            <input type="date" id="new-res-checkin" class="form-control" onchange="ReservationsModule.onCheckInChange()">
+        <!-- Fechas Check-in y Check-out -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-sign-in-alt" style="color: #22C55E;"></i> Check-in</label>
+            <input type="date" id="new-res-checkin" class="form-control" onchange="ReservationsModule.onCheckInChange()" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
           </div>
-          <div class="form-group">
-            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-sign-out-alt" style="color: var(--danger);"></i> Check-out</label>
-            <input type="date" id="new-res-checkout" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-sign-out-alt" style="color: #EF4444;"></i> Check-out</label>
+            <input type="date" id="new-res-checkout" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
           </div>
         </div>
 
         <!-- Feedback de Disponibilidad en Tiempo Real -->
         <div id="new-res-availability-feedback" style="margin-bottom: 16px;"></div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-users"></i> Cantidad Huéspedes</label>
-            <input type="number" id="new-res-guests-count" class="form-control" value="1" min="1" max="6" onchange="ReservationsModule.onGuestsCountChange()" oninput="ReservationsModule.onGuestsCountChange()">
+        <!-- Huéspedes y Canal de Venta -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-users" style="color: #60A5FA;"></i> Cantidad Huéspedes</label>
+            <input type="number" id="new-res-guests-count" class="form-control" value="1" min="1" max="6" onchange="ReservationsModule.onGuestsCountChange()" oninput="ReservationsModule.onGuestsCountChange()" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
           </div>
-          <div class="form-group">
-            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-concierge-bell"></i> Canal de Venta</label>
-            <select id="new-res-channel" class="form-control">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-concierge-bell" style="color: var(--accent-gold);"></i> Canal de Venta</label>
+            <select id="new-res-channel" class="form-control" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
               <option value="Recepción">Recepción / Walk-in</option>
               <option value="WhatsApp">WhatsApp Corporativo</option>
               <option value="Recepción">Reserva Telefónica</option>
@@ -2381,65 +2395,87 @@
           </div>
         </div>
 
-        <!-- Selector de Plan de Tarifa Asociado (Tarea 4) -->
+        <!-- Selector de Plan de Tarifa Asociado -->
         <div class="form-group" style="margin-bottom: 14px;">
-          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-layer-group" style="color: var(--accent-gold);"></i> Plan de Tarifa Contratado</label>
-          <select id="new-res-rate-plan" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()">
+          <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-layer-group" style="color: var(--accent-gold);"></i> Plan de Tarifa Contratado</label>
+          <select id="new-res-rate-plan" class="form-control" onchange="ReservationsModule.checkNewReservationAvailability()" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
             <!-- Dinámico desde RatesSeasonsModule.ratePlans -->
           </select>
         </div>
 
         <!-- Justificación Obligatoria para Habitación Doble / Matrimonial con 1 Huésped -->
-        <div id="new-res-double-justification-container" style="display: none; margin-bottom: 14px; background: #FFFBEB; border: 1px solid #FCD34D; border-radius: 8px; padding: 12px;">
-          <label style="font-weight: 700; font-size: 12.5px; color: #B45309; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+        <div id="new-res-double-justification-container" style="display: none; margin-bottom: 14px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 12px;">
+          <label style="font-weight: 700; font-size: 12.5px; color: #FBBF24; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
             <i class="fas fa-exclamation-triangle"></i> Justificación de uso individual en Habitación Doble / Matrimonial (Obligatorio)
           </label>
-          <select id="new-res-double-justification-select" class="form-control" style="font-size: 13px;" onchange="ReservationsModule.onJustificationSelect(this.value)">
+          <select id="new-res-double-justification-select" class="form-control" style="font-size: 13px; background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;" onchange="ReservationsModule.onJustificationSelect(this.value)">
             <option value="Preferencia por cama matrimonial amplia y confort">Preferencia por cama matrimonial amplia y confort</option>
             <option value="Viaje de negocios corporativo individual">Viaje de negocios corporativo individual</option>
             <option value="Acompañante canceló viaje">Acompañante canceló viaje</option>
             <option value="OTRO">Otro motivo (especificar abajo)</option>
           </select>
-          <input type="text" id="new-res-double-justification-custom" class="form-control" placeholder="Especifique el motivo de uso individual..." style="display: none; margin-top: 8px; font-size: 13px;">
+          <input type="text" id="new-res-double-justification-custom" class="form-control" placeholder="Especifique el motivo de uso individual..." style="display: none; margin-top: 8px; font-size: 13px; background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
         </div>
 
         <!-- Contenedor dinámico de acompañantes obligatorios si guestsCount >= 2 -->
-        <div id="new-res-companions-container" style="display: none; margin-bottom: 14px; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 10px; padding: 14px;">
-          <div style="font-weight: 700; font-size: 13px; color: var(--primary-navy); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+        <div id="new-res-companions-container" style="display: none; margin-bottom: 14px; background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 14px;">
+          <div style="font-weight: 700; font-size: 13px; color: #F8FAFC; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
             <span><i class="fas fa-user-friends" style="color: var(--accent-gold);"></i> Registro Obligatorio de Acompañante(s)</span>
-            <span class="badge" style="background: #E0E7FF; color: #3730A3; font-size: 10.5px; font-weight: 700;">Requerido por Ley</span>
+            <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #A5B4FC; font-size: 10.5px; font-weight: 700;">Requerido por Ley</span>
           </div>
           <div id="new-res-companions-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
         </div>
 
-        <div class="form-group">
-          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-user"></i> Nombre del Huésped Titular</label>
-          <input type="text" id="new-res-guest-name" class="form-control" placeholder="Ej: Juan Pérez González">
+        <!-- Datos del Huésped Titular -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-user" style="color: #60A5FA;"></i> Nombre del Huésped Titular</label>
+          <input type="text" id="new-res-guest-name" class="form-control" placeholder="Ej: Juan Pérez González" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div class="form-group">
-            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-id-card"></i> Doc / Cédula</label>
-            <input type="text" id="new-res-guest-doc" class="form-control" placeholder="Ej: 4.567.890">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-id-card" style="color: #38BDF8;"></i> Doc / Cédula</label>
+            <input type="text" id="new-res-guest-doc" class="form-control" placeholder="Ej: 4.567.890" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
           </div>
-          <div class="form-group">
-            <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-phone"></i> Teléfono</label>
-            <input type="text" id="new-res-guest-phone" class="form-control" placeholder="Ej: 0981 123456">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-phone" style="color: #34D399;"></i> Teléfono</label>
+            <input type="text" id="new-res-guest-phone" class="form-control" placeholder="Ej: 0981 123456" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
           </div>
         </div>
 
-        <div class="form-group">
-          <label style="font-weight: 600; font-size: 13px;"><i class="fas fa-envelope"></i> Correo Electrónico</label>
-          <input type="email" id="new-res-guest-email" class="form-control" placeholder="cliente@email.com">
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-weight: 600; font-size: 13px; color: #E2E8F0;"><i class="fas fa-envelope" style="color: #A78BFA;"></i> Correo Electrónico</label>
+          <input type="email" id="new-res-guest-email" class="form-control" placeholder="cliente@email.com" style="background: #1E293B; border: 1px solid rgba(255,255,255,0.15); color: #F8FAFC; border-radius: 8px;">
         </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeModal('modal-new-reservation')">Cancelar</button>
-        <button id="new-res-confirm-btn" class="btn btn-primary" onclick="ReservationsModule.confirmNewReservation()">
+
+        <!-- Opción de Check-in Inmediato al Generar la Reserva (Reemplaza Check-in por Check-out) -->
+        <div style="background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 10px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+          <div>
+            <div style="font-weight: 700; font-size: 13px; color: #4ADE80; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-key"></i> Realizar Check-in Inmediato (Huésped Presente)
+            </div>
+            <div style="font-size: 11.5px; color: #94A3B8; margin-top: 2px;">
+              Asigna la habitación como Ocupada al instante para que pase directamente a <strong>Check-out</strong> cuando el cliente se retire.
+            </div>
+          </div>
+          <label style="margin: 0; cursor: pointer; display: flex; align-items: center;">
+            <input type="checkbox" id="new-res-immediate-checkin" checked style="width: 18px; height: 18px; accent-color: #22C55E; cursor: pointer;">
+          </label>
+        </div>
+
+      </div> <!-- /modal-body -->
+
+      <!-- Modal Footer -->
+      <div class="modal-footer" style="padding: 14px 20px; border-top: 1px solid rgba(255, 255, 255, 0.08); background: #0F172A; display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-shrink: 0;">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-new-reservation')" style="color: #94A3B8; border: 1px solid rgba(255,255,255,0.18); padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; background: transparent;">
+          Cancelar
+        </button>
+        <button type="button" id="new-res-confirm-btn" class="btn btn-primary" onclick="ReservationsModule.confirmNewReservation()" style="background: var(--accent-gold); color: #0F172A; font-weight: 700; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);">
           <i class="fas fa-check-circle"></i> Confirmar Reserva
         </button>
       </div>
-    </div>
+
+    </div> <!-- /modal-box -->
   </div>
 
   <!-- Modal Ficha Técnica de Habitación & Mini Calendario de Ocupación -->
@@ -3347,12 +3383,6 @@
           </button>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button id="btn-folio-late-checkout" class="btn btn-outline btn-sm" onclick="ReservationsModule.openLateCheckoutModal(ReservationsModule.currentActiveFolioBooking?.id)" title="Modificar estadía o aplicar Late Check-out" style="border-color: #3B82F6; color: #1D4ED8;">
-            <i class="fas fa-clock"></i> Late Check-out / Extender
-          </button>
-          <button id="btn-folio-checkout-action" class="btn btn-warning btn-sm" onclick="closeModal('modal-folio'); ReservationsModule.openCheckOutModal(ReservationsModule.currentActiveFolioBooking?.id)" title="Cobrar y realizar Check-out en Caja Mostrador" style="background: #D97706; color: #fff; border-color: #B45309;">
-            <i class="fas fa-cash-register"></i> Cobrar en Caja & Check-out
-          </button>
           <button id="btn-folio-send-email" class="btn btn-gold btn-sm" onclick="ReservationsModule.sendFolioEmailCurrent()" title="Enviar copia legal oficial por correo al huésped vía Brevo">
             <i class="fas fa-paper-plane"></i> Enviar Comprobante Digital
           </button>
