@@ -48,7 +48,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="css/styles.css?v=2.7">
+  <link rel="stylesheet" href="css/styles.css?v=3.0">
 </head>
 <body>
 
@@ -2566,6 +2566,9 @@
           </button>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btn-folio-late-checkout" class="btn btn-outline btn-sm" onclick="ReservationsModule.openLateCheckoutModal(ReservationsModule.currentActiveFolioBooking?.id)" title="Modificar estadía o aplicar Late Check-out" style="border-color: #3B82F6; color: #1D4ED8;">
+            <i class="fas fa-clock"></i> Late Check-out / Extender
+          </button>
           <button id="btn-folio-checkout-action" class="btn btn-warning btn-sm" onclick="closeModal('modal-folio'); ReservationsModule.openCheckOutModal(ReservationsModule.currentActiveFolioBooking?.id)" title="Cobrar y realizar Check-out en Caja Mostrador" style="background: #D97706; color: #fff; border-color: #B45309;">
             <i class="fas fa-cash-register"></i> Cobrar en Caja & Check-out
           </button>
@@ -2574,6 +2577,80 @@
           </button>
           <button class="btn btn-primary btn-sm" onclick="closeModal('modal-folio')">Cerrar</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Gestión de Estadía: Late Check-out / Extensión & Reacomodo de Rack -->
+  <div id="modal-late-checkout" class="modal-backdrop">
+    <div class="modal-box" style="max-width: 520px; padding: 24px; border-radius: var(--radius-xl);">
+      <div class="modal-header" style="border-bottom: 1px solid #E2E8F0; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); color: #2563EB; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+            <i class="fas fa-calendar-alt"></i>
+          </div>
+          <div>
+            <h3 style="margin: 0; font-size: 17px; color: var(--primary-navy);">Gestionar Estadía & Late Check-out</h3>
+            <p style="margin: 0; font-size: 11px; color: var(--text-muted);">Extensión de noches, salida tardía y reacomodo en el Rack</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('modal-late-checkout')">&times;</button>
+      </div>
+
+      <div class="modal-body" style="padding: 0;">
+        <input type="hidden" id="late-co-booking-id">
+        <input type="hidden" id="late-co-room-id">
+        <input type="hidden" id="late-co-current-checkout">
+
+        <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <strong id="late-co-res-code" style="color: var(--primary-navy); font-size: 13px;">#RES-0000</strong>
+            <span id="late-co-room-badge" class="badge" style="background: #E0E7FF; color: #3730A3;">Hab. 103</span>
+          </div>
+          <div id="late-co-guest-info" style="font-size: 12px; color: var(--text-muted);">Huésped: Kevin Santacruz • Doc: 6537648</div>
+          <div id="late-co-current-dates" style="font-size: 11.5px; font-weight: 600; color: #059669; margin-top: 4px;">Estadía actual: 09/09/2026 al 11/09/2026</div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label style="font-size: 12px; font-weight: 700; color: var(--primary-navy); display: block; margin-bottom: 6px;">
+            <i class="far fa-calendar-plus" style="color: #2563EB;"></i> Nueva Fecha de Check-out (Salida)
+          </label>
+          <input type="date" id="late-co-new-date" class="form-control" style="width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid #CBD5E1;" onchange="ReservationsModule.onLateCheckoutDateChange()">
+          <small style="color: var(--text-muted); font-size: 10.5px;">Selecciona una fecha posterior para extender noches o anterior si el huésped reprogramó su salida.</small>
+        </div>
+
+        <div id="late-co-availability-feedback" style="margin-bottom: 14px;"></div>
+
+        <div class="form-group" style="margin-bottom: 14px; background: #F1F5F9; padding: 10px 12px; border-radius: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--primary-navy); margin: 0;">
+            <input type="checkbox" id="late-co-hour-check" onchange="ReservationsModule.toggleLateCheckoutHour()">
+            <span>Solicitud de Late Check-out Horario (Salida demorada después de las 11:00 AM)</span>
+          </label>
+          <div id="late-co-hour-details" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #CBD5E1;">
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <div style="flex: 1;">
+                <label style="font-size: 11px; color: var(--text-muted);">Hora pactada de salida:</label>
+                <select id="late-co-hour-select" class="form-control" style="width: 100%; padding: 4px 8px; font-size: 12px;">
+                  <option value="13:00">13:00 (1:00 PM)</option>
+                  <option value="15:00" selected>15:00 (3:00 PM)</option>
+                  <option value="17:00">17:00 (5:00 PM)</option>
+                  <option value="19:00">19:00 (7:00 PM)</option>
+                </select>
+              </div>
+              <div style="flex: 1;">
+                <label style="font-size: 11px; color: var(--text-muted);">Cargo adicional Gs. (0 = Cortesía):</label>
+                <input type="number" id="late-co-fee" class="form-control" value="0" step="10000" style="width: 100%; padding: 4px 8px; font-size: 12px;">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #E2E8F0; padding-top: 14px; margin-top: 16px;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="closeModal('modal-late-checkout')">Cancelar</button>
+        <button type="button" id="btn-save-late-checkout" class="btn btn-primary btn-sm" onclick="ReservationsModule.saveLateCheckout()" style="background: #2563EB; border-color: #1D4ED8; color: #fff;">
+          <i class="fas fa-save"></i> Guardar y Reacomodar Rack
+        </button>
       </div>
     </div>
   </div>
@@ -4635,7 +4712,7 @@
   <script src="js/dialogs.js?v=2.7"></script>
   <script src="js/folio_pdf_service.js?v=2.7"></script>
   <script src="js/modules/dashboard.js?v=2.7"></script>
-  <script src="js/modules/reservations.js?v=2.9"></script>
+  <script src="js/modules/reservations.js?v=3.0"></script>
   <script src="js/modules/rooms.js?v=2.7"></script>
   <script src="js/modules/rates_seasons.js?v=2.7"></script>
   <script src="js/modules/housekeeping.js?v=2.7"></script>

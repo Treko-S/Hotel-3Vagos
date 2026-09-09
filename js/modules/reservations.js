@@ -78,6 +78,17 @@ const ReservationsModule = {
     this.renderRackView();
   },
 
+  parseLocalDate(val) {
+    if (!val) return null;
+    if (val instanceof Date) {
+      return new Date(val.getFullYear(), val.getMonth(), val.getDate());
+    }
+    const clean = String(val).split('T')[0].trim();
+    const parts = clean.split('-');
+    if (parts.length < 3) return null;
+    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  },
+
   async renderRackView() {
     const theadDays = document.getElementById('rack-thead-days');
     const tbodyRooms = document.getElementById('rack-tbody-rooms');
@@ -143,7 +154,10 @@ const ReservationsModule = {
       ];
     }
 
-    // 3. Render Filas por Habitación
+    // 3. Render Filas por Habitación con Spanning Continuo
+    const monthStart = new Date(this.rackYear, this.rackMonth, 1);
+    const monthEnd = new Date(this.rackYear, this.rackMonth, daysInMonth);
+
     let tbodyHtml = '';
     rooms.forEach(room => {
       const roomNum = room.numero;
@@ -154,7 +168,7 @@ const ReservationsModule = {
         <td class="rack-td-room">
           <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
-              <span style="font-size: 14px; font-weight: 800; color: var(--primary-navy);">Hab. ${roomNum}</span>
+              <span style="font-size: 13.5px; font-weight: 800; color: var(--primary-navy);">Hab. ${roomNum}</span>
               <div style="font-size: 10px; color: var(--text-muted);">${typeName}</div>
             </div>
             <i class="fas fa-bed" style="color: var(--primary-gold); font-size: 13px; opacity: 0.7;"></i>
@@ -162,47 +176,140 @@ const ReservationsModule = {
         </td>
       `;
 
-      for (let day = 1; day <= daysInMonth; day++) {
-        const cellDate = new Date(this.rackYear, this.rackMonth, day);
-        const dateStr = `${this.rackYear}-${String(this.rackMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const isToday = isCurrentMonth && (today.getDate() === day);
+      // A. Filtrar reservas válidas no canceladas para esta habitación en el mes visible
+      const roomBookings = (this.currentBookings || []).filter(b => {
+        if (b.habitacion_id != room.id && b.habitaciones?.numero != roomNum) return false;
+        const st = (b.estado || '').toLowerCase().trim();
+        // Canceladas quedan 100% excluidas liberando la habitación
+        if (st === 'cancelada') return false;
 
-        // Buscar si hay reserva que ocupe esta fecha y habitación (reservas canceladas liberan el rack)
-        const matchedRes = this.currentBookings.find(b => {
-          if (b.habitacion_id != room.id && b.habitaciones?.numero != roomNum) return false;
-          if ((b.estado || '').toLowerCase() === 'cancelada') return false;
+        const dIn = this.parseLocalDate(b.check_in_previsto || b.fecha_entrada);
+        let dOut = this.parseLocalDate(b.check_out_previsto || b.fecha_salida);
+        if (!dIn || !dOut) return false;
 
-          const checkInRaw = b.check_in_previsto || b.fecha_entrada;
-          const checkOutRaw = b.check_out_previsto || b.fecha_salida;
-          if (!checkInRaw || !checkOutRaw) return false;
-
-          const checkIn = new Date(checkInRaw);
-          const checkOut = new Date(checkOutRaw);
-          const cIn = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
-          const cOut = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
-          return (cellDate >= cIn && cellDate < cOut);
-        });
-
-        if (matchedRes) {
-          const checkInDateObj = new Date(matchedRes.check_in_previsto || matchedRes.fecha_entrada);
-          const isCheckInDay = (checkInDateObj.getDate() === day && checkInDateObj.getMonth() === this.rackMonth);
-          const guestName = matchedRes.users?.full_name || 'Huésped';
-          const resState = (matchedRes.estado || 'Confirmada').toLowerCase();
-          const stateClass = resState.includes('check-in') ? 'checkin' : (resState.includes('finaliz') ? 'finalizada' : 'confirmada');
-
-          tbodyHtml += `
-            <td class="rack-td-day ${isToday ? 'today' : ''}" style="background: rgba(16, 185, 129, 0.05); padding: 0;">
-              <div class="rack-res-bar ${stateClass}" onclick="ReservationsModule.openResModalDetail('${matchedRes.id}')" title="Reserva #${matchedRes.codigo_reserva || matchedRes.id} - ${guestName} (${matchedRes.estado})">
-                ${isCheckInDay ? `<i class="fas fa-user-check" style="margin-right: 4px; font-size: 10px;"></i> ${guestName.split(' ')[0]}` : ''}
-              </div>
-            </td>
-          `;
-        } else {
-          tbodyHtml += `
-            <td class="rack-td-day ${isToday ? 'today' : ''}" onclick="ReservationsModule.openQuickReservationFromRack('${room.id}', '${dateStr}')" title="Día libre. Clic para reservar Hab. ${roomNum}">
-            </td>
-          `;
+        // Soporte para Early Check-out: Si finalizó antes de lo previsto, acortar a fecha real
+        if (b.check_out_real) {
+          dOut = this.parseLocalDate(b.check_out_real);
+        } else if (b.fecha_checkout) {
+          dOut = this.parseLocalDate(b.fecha_checkout);
         }
+
+        // Verificar si se solapa con el mes actual
+        return (dIn <= monthEnd && dOut >= monthStart);
+      }).map(b => {
+        const dIn = this.parseLocalDate(b.check_in_previsto || b.fecha_entrada);
+        let dOut = this.parseLocalDate(b.check_out_previsto || b.fecha_salida);
+        if (b.check_out_real) dOut = this.parseLocalDate(b.check_out_real);
+        else if (b.fecha_checkout) dOut = this.parseLocalDate(b.fecha_checkout);
+
+        let startDay = (dIn < monthStart) ? 1 : dIn.getDate();
+        let endDay = (dOut > monthEnd) ? daysInMonth : dOut.getDate();
+
+        if (startDay > daysInMonth) startDay = daysInMonth;
+        if (endDay < 1) endDay = 1;
+        if (endDay < startDay) endDay = startDay;
+
+        return {
+          booking: b,
+          dIn,
+          dOut,
+          startDay,
+          endDay
+        };
+      });
+
+      // B. Ordenar reservas cronológicamente
+      roomBookings.sort((a, b) => a.startDay - b.startDay);
+
+      // C. Prevenir colisiones de columnas en reservas contiguas (Checkout día X y Checkin día X)
+      for (let i = 0; i < roomBookings.length - 1; i++) {
+        const curr = roomBookings[i];
+        const next = roomBookings[i + 1];
+        if (curr.endDay >= next.startDay) {
+          curr.endDay = Math.max(curr.startDay, next.startDay - 1);
+        }
+      }
+
+      // D. Generar celdas asegurando que el total de columnas sea exactamente daysInMonth
+      let currentDay = 1;
+
+      for (const item of roomBookings) {
+        if (item.endDay < currentDay) continue;
+
+        // Celdas libres previas a la reserva
+        while (currentDay < item.startDay) {
+          const dateStr = `${this.rackYear}-${String(this.rackMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+          const isToday = isCurrentMonth && (today.getDate() === currentDay);
+          tbodyHtml += `
+            <td class="rack-td-day ${isToday ? 'today' : ''}" onclick="ReservationsModule.openQuickReservationFromRack('${room.id}', '${dateStr}')" title="Día libre (${currentDay}/${this.rackMonth + 1}). Clic para reservar Hab. ${roomNum}">
+            </td>
+          `;
+          currentDay++;
+        }
+
+        if (currentDay > daysInMonth) break;
+
+        // Celda estirada con colspan que abarca la estadía completa de la reserva
+        const startCol = Math.max(currentDay, item.startDay);
+        const endCol = Math.min(item.endDay, daysInMonth);
+        const span = Math.max(1, endCol - startCol + 1);
+
+        const b = item.booking;
+        const user = b.users || b.clientes || {};
+        const guestName = user.full_name || b.nombre_cliente || 'Huésped Titular';
+        const guestDoc = user.document_number || b.documento_cliente || user.ruc || 'Sin Doc';
+        const resCode = b.codigo_reserva || `RES-${b.id}`;
+        const estado = (b.estado || 'Confirmada').trim();
+        const stLower = estado.toLowerCase();
+
+        let stateClass = 'confirmada';
+        let statusIcon = 'fa-calendar-check';
+        let statusBadgeLabel = 'Garantizada';
+
+        if (stLower.includes('check-in') || stLower.includes('estad') || stLower.includes('casa')) {
+          stateClass = 'checkin';
+          statusIcon = 'fa-key';
+          statusBadgeLabel = 'En Estadía';
+        } else if (stLower.includes('finaliz') || stLower.includes('conclui')) {
+          stateClass = 'finalizada';
+          statusIcon = 'fa-flag-checkered';
+          statusBadgeLabel = 'Finalizada';
+        }
+
+        const checkInFmt = formatDate(b.check_in_previsto || b.fecha_entrada);
+        const checkOutFmt = formatDate(b.check_out_previsto || b.fecha_salida);
+        const tooltip = `Reserva: #${resCode}\nHuésped: ${guestName}\nDocumento: ${guestDoc}\nEstadía: ${checkInFmt} al ${checkOutFmt}\nEstado: ${estado}\n(Clic para abrir Folio y Gestionar)`;
+
+        tbodyHtml += `
+          <td colspan="${span}" class="rack-td-booking">
+            <div class="rack-res-bar ${stateClass}" onclick="ReservationsModule.openResModalDetail('${b.id}')" title="${tooltip}">
+              <div class="rack-res-content">
+                <div class="rack-res-top">
+                  <span class="rack-res-guest"><i class="fas ${statusIcon}"></i> ${sanitizeInput(guestName)}</span>
+                  <span class="rack-res-badge-doc"><i class="far fa-id-card"></i> Doc: ${sanitizeInput(guestDoc)}</span>
+                </div>
+                <div class="rack-res-bottom">
+                  <span class="rack-res-code">#${sanitizeInput(resCode)}</span>
+                  <span class="rack-res-status-pill">${statusBadgeLabel}</span>
+                  <span class="rack-res-dates">${checkInFmt.slice(0, 5)} - ${checkOutFmt.slice(0, 5)}</span>
+                </div>
+              </div>
+            </div>
+          </td>
+        `;
+
+        currentDay = endCol + 1;
+      }
+
+      // Celdas libres posteriores
+      while (currentDay <= daysInMonth) {
+        const dateStr = `${this.rackYear}-${String(this.rackMonth + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+        const isToday = isCurrentMonth && (today.getDate() === currentDay);
+        tbodyHtml += `
+          <td class="rack-td-day ${isToday ? 'today' : ''}" onclick="ReservationsModule.openQuickReservationFromRack('${room.id}', '${dateStr}')" title="Día libre (${currentDay}/${this.rackMonth + 1}). Clic para reservar Hab. ${roomNum}">
+          </td>
+        `;
+        currentDay++;
       }
 
       tbodyHtml += `</tr>`;
@@ -215,14 +322,210 @@ const ReservationsModule = {
     this.openNewReservationModal();
     const roomSelect = document.getElementById('new-res-room');
     const checkInInput = document.getElementById('new-res-checkin');
+    const checkOutInput = document.getElementById('new-res-checkout');
     if (roomSelect && roomId) roomSelect.value = roomId;
-    if (checkInInput && dateStr) checkInInput.value = dateStr;
+    if (checkInInput && dateStr) {
+      checkInInput.value = dateStr;
+      if (checkOutInput) {
+        const d = this.parseLocalDate(dateStr);
+        if (d) {
+          d.setDate(d.getDate() + 1);
+          const nextDayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          checkOutInput.value = nextDayStr;
+        }
+      }
+      this.calculateNewResPrice();
+    }
   },
 
   openResModalDetail(bookingId) {
     const booking = this.currentBookings.find(b => b.id == bookingId);
     if (!booking) return;
     this.openFolioModal(booking.id);
+  },
+
+  // ==========================================
+  // GESTIÓN DE LATE CHECK-OUT & REACOMODO RACK
+  // ==========================================
+  openLateCheckoutModal(bookingId) {
+    const booking = this.currentBookings.find(b => b.id == bookingId);
+    if (!booking) return;
+
+    const elBookingId = document.getElementById('late-co-booking-id');
+    const elRoomId = document.getElementById('late-co-room-id');
+    const elCurrentCheckout = document.getElementById('late-co-current-checkout');
+    if (elBookingId) elBookingId.value = booking.id;
+    if (elRoomId) elRoomId.value = booking.habitacion_id;
+
+    const currentOut = (booking.check_out_previsto || booking.fecha_salida || '').split('T')[0];
+    if (elCurrentCheckout) elCurrentCheckout.value = currentOut;
+
+    const resCode = booking.codigo_reserva || `RES-${booking.id}`;
+    const roomNum = booking.habitaciones?.numero || 'N/A';
+    const user = booking.users || booking.clientes || {};
+    const guestName = user.full_name || booking.nombre_cliente || 'Huésped';
+    const guestDoc = user.document_number || booking.documento_cliente || user.ruc || 'Sin Doc';
+
+    const codeEl = document.getElementById('late-co-res-code');
+    const roomBadgeEl = document.getElementById('late-co-room-badge');
+    const guestInfoEl = document.getElementById('late-co-guest-info');
+    const currentDatesEl = document.getElementById('late-co-current-dates');
+
+    if (codeEl) codeEl.innerText = `#${resCode}`;
+    if (roomBadgeEl) roomBadgeEl.innerText = `Hab. ${roomNum}`;
+    if (guestInfoEl) guestInfoEl.innerText = `Huésped: ${guestName} • Doc: ${guestDoc}`;
+    if (currentDatesEl) currentDatesEl.innerText = `Estadía actual: ${formatDate(booking.check_in_previsto || booking.fecha_entrada)} al ${formatDate(currentOut)}`;
+
+    const dateInput = document.getElementById('late-co-new-date');
+    if (dateInput) {
+      dateInput.value = currentOut;
+      dateInput.min = (booking.check_in_previsto || booking.fecha_entrada || '').split('T')[0];
+    }
+
+    const hourCheck = document.getElementById('late-co-hour-check');
+    if (hourCheck) hourCheck.checked = false;
+    const hourDetails = document.getElementById('late-co-hour-details');
+    if (hourDetails) hourDetails.style.display = 'none';
+
+    const feedbackEl = document.getElementById('late-co-availability-feedback');
+    if (feedbackEl) feedbackEl.innerHTML = '';
+
+    openModal('modal-late-checkout');
+  },
+
+  toggleLateCheckoutHour() {
+    const check = document.getElementById('late-co-hour-check');
+    const details = document.getElementById('late-co-hour-details');
+    if (details) details.style.display = check?.checked ? 'block' : 'none';
+  },
+
+  onLateCheckoutDateChange() {
+    const bookingId = document.getElementById('late-co-booking-id')?.value;
+    const roomId = document.getElementById('late-co-room-id')?.value;
+    const currentOut = document.getElementById('late-co-current-checkout')?.value;
+    const newOut = document.getElementById('late-co-new-date')?.value;
+    const feedback = document.getElementById('late-co-availability-feedback');
+    const btnSave = document.getElementById('btn-save-late-checkout');
+
+    if (!newOut || !feedback) return;
+
+    const booking = this.currentBookings.find(b => b.id == bookingId);
+    if (!booking) return;
+
+    const checkIn = (booking.check_in_previsto || booking.fecha_entrada || '').split('T')[0];
+    if (newOut <= checkIn) {
+      feedback.innerHTML = `
+        <div style="background: #FEF2F2; color: #991B1B; padding: 8px 12px; border-radius: 6px; font-size: 11.5px;">
+          <i class="fas fa-exclamation-triangle"></i> La fecha de salida debe ser posterior a la fecha de entrada (${formatDate(checkIn)}).
+        </div>
+      `;
+      if (btnSave) btnSave.disabled = true;
+      return;
+    }
+
+    // Si se extienden noches, verificar disponibilidad para evitar colisión en la habitación
+    if (newOut > currentOut) {
+      const dInExt = new Date(currentOut + 'T12:00:00');
+      const dOutExt = new Date(newOut + 'T11:00:00');
+
+      const collision = this.currentBookings.find(b => {
+        if (b.id == bookingId || b.habitacion_id != roomId) return false;
+        const st = (b.estado || '').toLowerCase().trim();
+        if (st === 'cancelada' || st === 'finalizada') return false;
+
+        const bIn = b.check_in_previsto ? new Date(b.check_in_previsto + 'T14:00:00') : null;
+        const bOut = b.check_out_previsto ? new Date(b.check_out_previsto + 'T11:00:00') : null;
+        if (!bIn || !bOut) return false;
+
+        return (dInExt < bOut && dOutExt > bIn);
+      });
+
+      if (collision) {
+        feedback.innerHTML = `
+          <div style="background: #FEF2F2; color: #991B1B; padding: 8px 12px; border-radius: 6px; font-size: 11.5px;">
+            <i class="fas fa-times-circle"></i> <strong>Conflicto en Habitación:</strong> Ya existe la reserva <strong>#${sanitizeInput(collision.codigo_reserva || collision.id)}</strong> (${formatDate(collision.check_in_previsto)} al ${formatDate(collision.check_out_previsto)}). No es posible extender a esa fecha.
+          </div>
+        `;
+        if (btnSave) btnSave.disabled = true;
+        return;
+      }
+    }
+
+    const d1 = new Date(checkIn + 'T12:00:00');
+    const d2 = new Date(newOut + 'T12:00:00');
+    const diffNights = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
+
+    feedback.innerHTML = `
+      <div style="background: #F0FDF4; color: #166534; padding: 8px 12px; border-radius: 6px; font-size: 11.5px; border: 1px solid #BBF7D0;">
+        <i class="fas fa-check-circle"></i> ¡Habitación disponible! Nueva duración: <strong>${diffNights} noche${diffNights > 1 ? 's' : ''}</strong>. El Rack de ocupación se reacomodará automáticamente.
+      </div>
+    `;
+    if (btnSave) btnSave.disabled = false;
+  },
+
+  async saveLateCheckout() {
+    const bookingId = document.getElementById('late-co-booking-id')?.value;
+    const newOut = document.getElementById('late-co-new-date')?.value;
+    const hourCheck = document.getElementById('late-co-hour-check')?.checked;
+    const lateFee = Number(document.getElementById('late-co-fee')?.value || 0);
+
+    const btnSave = document.getElementById('btn-save-late-checkout');
+    if (btnSave) {
+      btnSave.disabled = true;
+      btnSave.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+    }
+
+    try {
+      const booking = this.currentBookings.find(b => b.id == bookingId);
+      if (!booking) throw new Error('Reserva no encontrada');
+
+      const checkIn = (booking.check_in_previsto || booking.fecha_entrada || '').split('T')[0];
+      const d1 = new Date(checkIn + 'T12:00:00');
+      const d2 = new Date(newOut + 'T12:00:00');
+      const newNights = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
+
+      const oldNights = Math.max(1, Math.round((new Date((booking.check_out_previsto || booking.fecha_salida) + 'T12:00:00') - d1) / (1000 * 60 * 60 * 24)));
+      const oldTotal = Number(booking.monto_total || 0);
+      const nightlyRate = Math.round(oldTotal / oldNights) || 150000;
+      const newTotal = (nightlyRate * newNights) + (hourCheck ? lateFee : 0);
+
+      const updateData = {
+        check_out_previsto: newOut,
+        monto_total: newTotal
+      };
+
+      const { error: resErr } = await supabaseClient
+        .from('reservas')
+        .update(updateData)
+        .eq('id', bookingId);
+      if (resErr) throw resErr;
+
+      // Actualizar folios si existe
+      const folio = (booking.folios && typeof booking.folios === 'object') ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) : {};
+      if (folio.id) {
+        const diffTotal = newTotal - oldTotal;
+        const newSaldo = Math.max(0, Number(folio.saldo_pendiente || 0) + diffTotal);
+        await supabaseClient.from('folios').update({
+          saldo_pendiente: newSaldo,
+          total_alojamiento: newTotal
+        }).eq('id', folio.id);
+      }
+
+      closeModal('modal-late-checkout');
+      closeModal('modal-folio');
+      showToast(`¡Estadía reacomodada hasta el ${formatDate(newOut)}! El Rack de ocupación se ha actualizado.`, 'success');
+
+      await this.loadReservations();
+
+    } catch (err) {
+      console.error('Error al guardar Late Check-out:', err);
+      showToast('Error al modificar estadía: ' + err.message, 'error');
+    } finally {
+      if (btnSave) {
+        btnSave.disabled = false;
+        btnSave.innerHTML = '<i class="fas fa-save"></i> Guardar y Reacomodar Rack';
+      }
+    }
   },
 
   setupEventListeners() {
@@ -1071,10 +1374,19 @@ const ReservationsModule = {
         console.warn('facturas insert skip:', e);
       }
 
-      // 3. Actualizar reserva a 'Finalizada'
+      // 3. Actualizar reserva a 'Finalizada' y soportar Early Check-out
+      const todayStr = (typeof getLocalDateStr === 'function') ? getLocalDateStr() : new Date().toISOString().split('T')[0];
+      const prevCheckOut = (booking.check_out_previsto || booking.fecha_salida || '').split('T')[0];
+      
+      const updateResData = { estado: 'Finalizada' };
+      // Si la salida se realiza antes de la fecha prevista (Early Check-out), liberamos las noches restantes ajustando la salida a hoy
+      if (prevCheckOut && todayStr < prevCheckOut) {
+        updateResData.check_out_previsto = todayStr;
+      }
+
       await supabaseClient
         .from('reservas')
-        .update({ estado: 'Finalizada' })
+        .update(updateResData)
         .eq('id', bookingId);
 
       // 4. Cambiar habitación a 'Sucia' para que Housekeeping la limpie e inspeccione
@@ -1777,10 +2089,15 @@ const ReservationsModule = {
       }
     }
 
-    // Configurar estado del botón de cobro y check-out en folio
+    // Configurar estado de los botones de acción en folio
     const btnCheckout = document.getElementById('btn-folio-checkout-action');
     if (btnCheckout) {
       btnCheckout.style.display = (booking.estado === 'Finalizada' || booking.estado === 'Cancelada') ? 'none' : 'inline-flex';
+    }
+
+    const btnLateCheckout = document.getElementById('btn-folio-late-checkout');
+    if (btnLateCheckout) {
+      btnLateCheckout.style.display = (booking.estado === 'Finalizada' || booking.estado === 'Cancelada') ? 'none' : 'inline-flex';
     }
 
     openModal('modal-folio');
