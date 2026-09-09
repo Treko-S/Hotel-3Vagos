@@ -68,23 +68,61 @@ const GuestsModule = {
   },
 
   /**
-   * Carga únicamente los huéspedes que están actualmente en el hotel (estado = 'En Estadía')
+   * Carga los huéspedes que están actualmente en el hotel (estado 'Check-in' o 'En Estadía')
+   * con soporte integral para acompañantes relacionales (reservation_companions / acompanantes)
    */
   async loadInHouseGuests() {
     try {
       const tbody = document.getElementById('guests-inhouse-tbody');
       const badgeCount = document.getElementById('badge-inhouse-count');
 
+      // Buscar reservas activas en Check-in o En Estadía
       const { data, error } = await supabaseClient
         .from('reservas')
-        .select('*, users(*), habitaciones(*), folios(*)')
-        .eq('estado', 'En Estadía')
+        .select('*, users(*), habitaciones(*, tipos_habitacion(*)), folios(*), acompanantes(*)')
+        .in('estado', ['Check-in', 'En Estadía', 'En estadía', 'Ocupada'])
         .order('id', { ascending: false });
 
       if (error) throw error;
 
-      this.inHouseList = data || [];
-      if (badgeCount) badgeCount.innerText = this.inHouseList.length;
+      const rawBookings = data || [];
+
+      // Enriquecer con reservation_companions si la reserva no tenía acompañantes en la tabla previa
+      for (const r of rawBookings) {
+        let companions = Array.isArray(r.acompanantes) ? [...r.acompanantes] : [];
+        if (companions.length === 0) {
+          try {
+            const { data: rComps } = await supabaseClient
+              .from('reservation_companions')
+              .select('*')
+              .or(`reservation_id.eq.${r.id},reserva_id.eq.${r.id}`);
+            if (rComps && rComps.length > 0) {
+              companions = rComps;
+            }
+          } catch (_) {}
+        }
+
+        r.normalizedCompanions = companions.map((c, idx) => ({
+          id: c.id || `comp_${r.id}_${idx}`,
+          reserva_id: r.id,
+          nombre_completo: c.nombre_completo || c.full_name || `Acompañante ${idx + 1}`,
+          tipo_documento: c.tipo_documento || c.document_type || 'CI',
+          numero_documento: c.numero_documento || c.document_number || 'S/D',
+          relationship: c.relationship || 'Acompañante',
+          is_adult: c.is_adult !== false
+        }));
+      }
+
+      this.inHouseList = rawBookings;
+
+      // Conteo total de personas físicas alojadas (Titulares + Acompañantes)
+      let totalPhysicalGuests = 0;
+      this.inHouseList.forEach(r => {
+        totalPhysicalGuests += 1; // Huésped titular
+        totalPhysicalGuests += (r.normalizedCompanions || []).length;
+      });
+
+      if (badgeCount) badgeCount.innerText = totalPhysicalGuests;
 
       this.renderInHouseTable(this.inHouseList);
     } catch (err) {
@@ -106,7 +144,7 @@ const GuestsModule = {
           <td colspan="7" style="text-align: center; padding: 36px; color: var(--text-muted);">
             <i class="fas fa-bed" style="font-size: 28px; margin-bottom: 10px; display: block; opacity: 0.5; color: #10B981;"></i>
             <strong>No hay huéspedes alojados actualmente en el hotel</strong><br>
-            <span style="font-size: 12px;">Las habitaciones ocupadas con check-in activo figurarán aquí automáticamente.</span>
+            <span style="font-size: 12px;">Las habitaciones ocupadas con check-in activo figurarán aquí automáticamente con sus acompañantes.</span>
           </td>
         </tr>
       `;
@@ -117,6 +155,7 @@ const GuestsModule = {
     list.forEach(r => {
       const u = r.users || {};
       const hab = r.habitaciones || {};
+      const tipoHab = hab.tipos_habitacion?.nombre || hab.tipo_nombre || 'Habitación';
       const folio = Array.isArray(r.folios) ? (r.folios[0] || {}) : (r.folios || {});
       const initial = (u.full_name || 'H').charAt(0).toUpperCase();
       const phone = u.phone || 'S/D';
@@ -124,34 +163,41 @@ const GuestsModule = {
       const docType = u.document_type || 'CI';
       const docNum = u.document_number || 'N/D';
       const saldo = Number(folio.saldo_pendiente ?? Math.max(0, (r.monto_total || 0) - (r.anticipo_pagado || 0)));
+      const companions = r.normalizedCompanions || [];
 
+      // 1. FILA DEL HUÉSPED TITULAR
       html += `
-        <tr>
+        <tr style="background: rgba(255, 255, 255, 0.02); border-top: 2px solid rgba(255, 255, 255, 0.08);">
           <td>
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
               <span class="badge" style="background: rgba(16, 185, 129, 0.18); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.35); font-weight: 800; font-size: 13px;">
                 Hab. ${hab.numero || '-'}
               </span>
               <div>
-                <strong style="color: #F8FAFC; font-size: 12.5px;">${sanitizeInput(hab.tipo_nombre || 'Habitación')}</strong>
-                <div style="font-size: 11px; color: #94A3B8;">Piso ${hab.piso || 1}</div>
+                <strong style="color: #F8FAFC; font-size: 12px;">${sanitizeInput(tipoHab)}</strong>
+                <div style="font-size: 10.5px; color: #94A3B8;">Piso ${hab.piso || 1}</div>
               </div>
+            </div>
+            <div style="margin-top: 4px;">
+              <span class="badge" style="background: rgba(59, 130, 246, 0.18); color: #60A5FA; border: 1px solid rgba(96, 165, 250, 0.3); font-size: 9.5px; font-weight: 700;">
+                <i class="fas fa-user-check"></i> Titular Principal
+              </span>
             </div>
           </td>
           <td>
             <div style="display: flex; align-items: center; gap: 10px;">
-              <div style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #1E3A8A, #3B82F6); color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px;">
+              <div style="width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, #1E3A8A, #3B82F6); color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">
                 ${initial}
               </div>
               <div>
-                <strong style="color: #F8FAFC; font-size: 13px;">${sanitizeInput(u.full_name || 'Huésped')}</strong>
+                <strong style="color: #F8FAFC; font-size: 13px;">${sanitizeInput(u.full_name || 'Huésped Titular')}</strong>
                 <div style="font-size: 11px; color: #94A3B8;"><i class="far fa-envelope"></i> ${sanitizeInput(u.email || 'Sin correo')}</div>
               </div>
             </div>
           </td>
           <td>
             <strong style="color: #F8FAFC; font-size: 12.5px;">${sanitizeInput(docType)}: ${sanitizeInput(docNum)}</strong>
-            <div style="font-size: 11px; color: #10B981;"><i class="fas fa-check-circle"></i> Pasajero Acreditado</div>
+            <div style="font-size: 11px; color: #10B981;"><i class="fas fa-check-circle"></i> Titular Acreditado</div>
           </td>
           <td>
             <div style="font-size: 12px; color: #F8FAFC;">
@@ -184,6 +230,69 @@ const GuestsModule = {
           </td>
         </tr>
       `;
+
+      // 2. FILAS SUBORDINADAS PARA CADA ACOMPAÑANTE VINCULADO A LA MISMA HABITACIÓN (Auditoría / Registro Policial)
+      companions.forEach((comp, cIdx) => {
+        const compInitial = (comp.nombre_completo || 'A').charAt(0).toUpperCase();
+        html += `
+          <tr style="background: rgba(15, 23, 42, 0.45); border-left: 3px solid #A855F7;">
+            <td style="padding-left: 20px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="badge" style="background: rgba(168, 85, 247, 0.15); color: #C084FC; border: 1px solid rgba(192, 132, 252, 0.35); font-weight: 700; font-size: 11px;">
+                  <i class="fas fa-link"></i> Hab. ${hab.numero || '-'}
+                </span>
+                <span class="badge" style="background: rgba(99, 102, 241, 0.15); color: #A5B4FC; font-size: 10px;">
+                  Acompañante #${cIdx + 1}
+                </span>
+              </div>
+              <div style="font-size: 10.5px; color: #94A3B8; margin-top: 3px;">
+                Compartida con Titular
+              </div>
+            </td>
+            <td>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #6366F1, #A855F7); color: #FFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; flex-shrink: 0;">
+                  ${compInitial}
+                </div>
+                <div>
+                  <strong style="color: #F1F5F9; font-size: 12.5px;">${sanitizeInput(comp.nombre_completo)}</strong>
+                  <div style="font-size: 11px; color: #94A3B8;">
+                    Acompañante de <strong>${sanitizeInput(u.full_name || 'Huésped Titular')}</strong>
+                  </div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <strong style="color: #F8FAFC; font-size: 12px;">${sanitizeInput(comp.tipo_documento)}: ${sanitizeInput(comp.numero_documento)}</strong>
+              <div style="font-size: 11px; color: #34D399; font-weight: 600;">
+                <i class="fas fa-shield-alt"></i> Registro Policial OK
+              </div>
+            </td>
+            <td>
+              <div style="font-size: 11.5px; color: #CBD5E1;">
+                <i class="fas fa-calendar-check" style="color: #A855F7;"></i> ${formatDate(r.check_in_real || r.fecha_checkin || r.check_in_previsto)} al ${formatDate(r.fecha_checkout || r.check_out_previsto)}
+              </div>
+              <div style="font-size: 10.5px; color: #64748B;">Misma vigencia de estadía</div>
+            </td>
+            <td>
+              <div style="font-size: 11.5px; color: #94A3B8;">
+                <i class="fas fa-user-friends" style="color: #818CF8;"></i> Contacto del Titular
+                <div style="font-size: 11px; color: #CBD5E1;">${sanitizeInput(phone)}</div>
+              </div>
+            </td>
+            <td>
+              <span class="badge" style="background: rgba(255, 255, 255, 0.05); color: #94A3B8; font-size: 10.5px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                Folio Hab. ${hab.numero || '-'}
+              </span>
+            </td>
+            <td style="text-align: center;">
+              <button class="btn-action btn-action-folio" onclick="ReservationsModule.openFolioModal('${r.id}')" title="Ver Folio de la Habitación">
+                <i class="fas fa-file-invoice-dollar"></i> Folio
+              </button>
+            </td>
+          </tr>
+        `;
+      });
     });
 
     tbody.innerHTML = html;
@@ -198,7 +307,14 @@ const GuestsModule = {
       const doc = (u.document_number || '').toLowerCase();
       const num = String(hab.numero || '').toLowerCase();
       const code = (r.codigo_reserva || '').toLowerCase();
-      return query === '' || name.includes(query) || doc.includes(query) || num.includes(query) || code.includes(query);
+
+      // Búsqueda también en acompañantes
+      const companionsMatch = (r.normalizedCompanions || []).some(c => 
+        (c.nombre_completo || '').toLowerCase().includes(query) ||
+        (c.numero_documento || '').toLowerCase().includes(query)
+      );
+
+      return query === '' || name.includes(query) || doc.includes(query) || num.includes(query) || code.includes(query) || companionsMatch;
     });
     this.renderInHouseTable(filtered);
   },

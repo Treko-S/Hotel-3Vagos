@@ -1001,7 +1001,10 @@ const ReservationsModule = {
     return 'fas fa-credit-card';
   },
 
-  openCheckInModal(bookingId) {
+  checkInCompanions: [],
+  currentCheckInCapacity: 1,
+
+  async openCheckInModal(bookingId) {
     const booking = this.currentBookings.find(b => b.id === bookingId);
     if (!booking) return;
 
@@ -1025,7 +1028,15 @@ const ReservationsModule = {
     const nightsEl = document.getElementById('checkin-nights-badge');
     if (nightsEl) nightsEl.innerText = `${diffDays} noche${diffDays > 1 ? 's' : ''}`;
 
-    // 2. HUÉSPED TITULAR & ACOMPAÑANTES
+    // 2. DETECCIÓN DE CAPACIDAD DE LA HABITACIÓN / RESERVA
+    const typeName = (booking.habitaciones?.tipos_habitacion?.nombre || booking.habitaciones?.tipo_nombre || '').toLowerCase();
+    let detectedCapacity = Number(booking.cantidad_huespedes || booking.habitaciones?.tipos_habitacion?.capacidad || booking.habitaciones?.capacidad || 1);
+    if (detectedCapacity <= 1 && (typeName.includes('doble') || typeName.includes('matrimonial') || typeName.includes('twin') || typeName.includes('dos camas') || typeName.includes('triple') || typeName.includes('familiar') || typeName.includes('cuadruple'))) {
+      detectedCapacity = typeName.includes('cuadruple') || typeName.includes('familiar') ? 4 : (typeName.includes('triple') ? 3 : 2);
+    }
+    this.currentCheckInCapacity = detectedCapacity;
+
+    // 3. HUÉSPED TITULAR
     const user = booking.users || {};
     const guestName = user.full_name || booking.clientes?.nombre_completo || booking.nombre_cliente || 'Huésped Titular';
     const guestContact = user.phone || user.email || booking.clientes?.telefono || booking.clientes?.email || 'Sin contacto registrado';
@@ -1034,29 +1045,11 @@ const ReservationsModule = {
     if (guestNameEl) guestNameEl.innerText = guestName;
     if (guestContactEl) guestContactEl.innerText = guestContact;
 
-    // Acompañantes registrados legalmente
-    const compContainer = document.getElementById('checkin-companions-container');
-    const compList = document.getElementById('checkin-companions-list');
-    if (compContainer && compList) {
-      const companions = booking.acompanantes || [];
-      if (companions.length > 0) {
-        compContainer.style.display = 'block';
-        compList.innerHTML = companions.map((c, idx) => `
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #e2e8f0; font-size: 11.5px;">
-            <div>
-              <strong>${sanitizeInput(c.full_name || 'Acompañante ' + (idx + 1))}</strong>
-              <span style="color: var(--text-muted); font-size: 10.5px;">(${c.is_adult === false ? 'Menor' : 'Adulto'}${c.relationship ? ' - ' + sanitizeInput(c.relationship) : ''})</span>
-            </div>
-            <span class="badge badge-confirmada" style="font-size: 10px;">${sanitizeInput(c.document_type || 'Doc')}: ${sanitizeInput(c.document_number || 'N/D')}</span>
-          </div>
-        `).join('');
-      } else {
-        compContainer.style.display = 'block';
-        compList.innerHTML = '<span style="color: #64748B; font-size: 11.5px; font-style: italic;">Huésped individual (sin acompañantes adicionales registrados).</span>';
-      }
-    }
+    // 4. GESTIÓN Y FETCH DE ACOMPAÑANTES RELACIONALES (reservation_companions / acompanantes)
+    this.toggleAddCompanionForm(false);
+    await this.loadCheckInCompanions(booking.id, booking);
 
-    // 3. FINANZAS (Total, Pagado / Seña Descontada, Saldo Pendiente)
+    // 5. FINANZAS (Total, Pagado / Seña Descontada, Saldo Pendiente)
     const folio = (booking.folios && typeof booking.folios === 'object') 
       ? (Array.isArray(booking.folios) ? (booking.folios[0] || {}) : booking.folios) 
       : {};
@@ -1095,13 +1088,12 @@ const ReservationsModule = {
       pendingBox.style.background = (pending <= 0) ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)';
     }
 
-    // Se elimina el mensaje redundante de cobro pendiente en front desk
     if (alertEl) {
       alertEl.innerHTML = '';
       alertEl.style.display = 'none';
     }
 
-    // 4. DOCUMENTACIÓN LEGAL PRE-LLENADA
+    // 6. DOCUMENTACIÓN LEGAL PRE-LLENADA
     const docTypeEl = document.getElementById('checkin-doc-type');
     const docNumberEl = document.getElementById('checkin-doc-number');
     if (docTypeEl) {
@@ -1112,11 +1104,234 @@ const ReservationsModule = {
       docNumberEl.value = user.document_number || booking.clientes?.documento || booking.clientes?.ci || '6537648';
     }
 
-    // 5. ENTREGA DE LLAVE
+    // 7. ENTREGA DE LLAVE
     const keyChk = document.getElementById('checkin-key-checkbox');
     if (keyChk) keyChk.checked = true;
 
     openModal('modal-checkin');
+  },
+
+  /**
+   * Carga de acompañantes desde reservation_companions con fallback a acompanantes
+   */
+  async loadCheckInCompanions(bookingId, booking) {
+    let list = [];
+    const compList = document.getElementById('checkin-companions-list');
+    if (compList) {
+      compList.innerHTML = '<div style="text-align: center; padding: 10px; color: #64748B; font-size: 11.5px;"><i class="fas fa-spinner fa-spin"></i> Verificando acompañantes...</div>';
+    }
+
+    // 1. Intentar fetch a tabla relacional reservation_companions
+    try {
+      const { data: resComps, error: errComps } = await supabaseClient
+        .from('reservation_companions')
+        .select('*')
+        .or(`reservation_id.eq.${bookingId},reserva_id.eq.${bookingId}`);
+
+      if (!errComps && resComps && resComps.length > 0) {
+        list = resComps.map(c => ({
+          id: c.id,
+          reservation_id: c.reservation_id || c.reserva_id || bookingId,
+          nombre_completo: c.nombre_completo || c.full_name || '',
+          tipo_documento: c.tipo_documento || c.document_type || 'CI',
+          numero_documento: c.numero_documento || c.document_number || '',
+          relationship: c.relationship || 'Acompañante',
+          is_adult: c.is_adult !== false,
+          isNew: false
+        }));
+      }
+    } catch (e) {
+      console.log('reservation_companions no disponible o vacía:', e?.message || e);
+    }
+
+    // 2. Si viene vacía, consultar tabla acompanantes
+    if (list.length === 0) {
+      try {
+        const { data: acomp, error: errAcomp } = await supabaseClient
+          .from('acompanantes')
+          .select('*')
+          .eq('reserva_id', bookingId);
+
+        if (!errAcomp && acomp && acomp.length > 0) {
+          list = acomp.map(c => ({
+            id: c.id,
+            reservation_id: bookingId,
+            nombre_completo: c.full_name || c.nombre_completo || '',
+            tipo_documento: c.document_type || c.tipo_documento || 'CI',
+            numero_documento: c.document_number || c.numero_documento || '',
+            relationship: c.relationship || 'Acompañante',
+            is_adult: c.is_adult !== false,
+            isNew: false
+          }));
+        }
+      } catch (e) {
+        console.log('acompanantes no disponible:', e?.message || e);
+      }
+    }
+
+    // 3. Fallback adicional si booking ya contenía acompanantes precargados en memoria
+    if (list.length === 0 && booking && Array.isArray(booking.acompanantes) && booking.acompanantes.length > 0) {
+      list = booking.acompanantes.map(c => ({
+        id: c.id,
+        reservation_id: bookingId,
+        nombre_completo: c.full_name || c.nombre_completo || '',
+        tipo_documento: c.document_type || c.tipo_documento || 'CI',
+        numero_documento: c.document_number || c.numero_documento || '',
+        relationship: c.relationship || 'Acompañante',
+        is_adult: c.is_adult !== false,
+        isNew: false
+      }));
+    }
+
+    this.checkInCompanions = list;
+    this.renderCheckInCompanionsList();
+  },
+
+  /**
+   * Renderiza la lista visual de acompañantes y actualiza advertencias y badges
+   */
+  renderCheckInCompanionsList() {
+    const compContainer = document.getElementById('checkin-companions-container');
+    const compList = document.getElementById('checkin-companions-list');
+    const capBadge = document.getElementById('checkin-capacity-badge');
+    const warningBox = document.getElementById('checkin-companion-warning');
+
+    if (capBadge) {
+      const cap = this.currentCheckInCapacity || 1;
+      capBadge.innerText = `Capacidad: ${cap} persona${cap > 1 ? 's' : ''}`;
+    }
+
+    if (compContainer) compContainer.style.display = 'block';
+
+    const companions = this.checkInCompanions || [];
+    const needsCompanion = (this.currentCheckInCapacity >= 2);
+
+    // Advertencia de regla de negocio
+    if (warningBox) {
+      if (needsCompanion && companions.length === 0) {
+        warningBox.style.display = 'block';
+      } else {
+        warningBox.style.display = 'none';
+      }
+    }
+
+    if (!compList) return;
+
+    if (companions.length > 0) {
+      compList.innerHTML = companions.map((c, idx) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; margin-bottom: 5px; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; font-size: 11.5px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #EEF2FF; color: #4F46E5; font-weight: 700; font-size: 10.5px;">
+              ${idx + 1}
+            </span>
+            <div>
+              <strong style="color: #1E293B; font-size: 12px;">${sanitizeInput(c.nombre_completo || 'Acompañante ' + (idx + 1))}</strong>
+              <div style="color: #64748B; font-size: 10.5px; display: flex; align-items: center; gap: 6px; margin-top: 1px;">
+                <span class="badge" style="background: #F1F5F9; color: #475569; font-size: 9.5px; padding: 1px 5px;">${sanitizeInput(c.tipo_documento || 'CI')}</span>
+                <strong style="color: #334155;">${sanitizeInput(c.numero_documento || 'Sin doc')}</strong>
+                ${c.isNew ? '<span class="badge" style="background: #DCFCE7; color: #166534; font-size: 9.5px; border: 1px solid #BBF7D0;"><i class="fas fa-plus"></i> Presencial</span>' : '<span class="badge badge-confirmada" style="font-size: 9.5px;"><i class="fas fa-check"></i> En Base de Datos</span>'}
+              </div>
+            </div>
+          </div>
+          <div>
+            ${c.isNew ? `
+              <button type="button" onclick="ReservationsModule.removeCompanionPresencial(${idx})" class="btn btn-sm" style="padding: 2px 7px; font-size: 11px; background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; border-radius: 6px; cursor: pointer;" title="Quitar acompañante">
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            ` : `
+              <span class="badge" style="background: rgba(16, 185, 129, 0.1); color: #059669; font-size: 10px; font-weight: 600;"><i class="fas fa-shield-alt"></i> Registro Policial OK</span>
+            `}
+          </div>
+        </div>
+      `).join('');
+    } else {
+      if (needsCompanion) {
+        compList.innerHTML = `
+          <div style="background: #FFFBEB; border: 1px dashed #F59E0B; border-radius: 8px; padding: 12px; text-align: center; color: #B45309; font-size: 11.5px;">
+            <i class="fas fa-user-friends" style="font-size: 16px; margin-bottom: 5px; display: block; color: #D97706;"></i>
+            <strong>Habitación para 2 o más personas sin acompañantes registrados en la App.</strong><br>
+            <span style="font-size: 11px; color: #78350F;">Haga clic en <strong>'+ Añadir Acompañante'</strong> para ingresar los datos del pasajero presencialmente en recepción.</span>
+          </div>
+        `;
+      } else {
+        compList.innerHTML = '<span style="color: #64748B; font-size: 11.5px; font-style: italic; display: block; padding: 6px 0;">Huésped individual (sin acompañantes adicionales requeridos).</span>';
+      }
+    }
+  },
+
+  /**
+   * Alterna la visibilidad del formulario rápido presencial
+   */
+  toggleAddCompanionForm(show) {
+    const formEl = document.getElementById('checkin-add-companion-form');
+    if (!formEl) return;
+    const isVisible = (show !== undefined) ? show : (formEl.style.display !== 'block');
+    formEl.style.display = isVisible ? 'block' : 'none';
+
+    if (isVisible) {
+      const nameInput = document.getElementById('checkin-new-comp-name');
+      const docInput = document.getElementById('checkin-new-comp-docnum');
+      if (nameInput) {
+        nameInput.value = '';
+        setTimeout(() => nameInput.focus(), 80);
+      }
+      if (docInput) docInput.value = '';
+    }
+  },
+
+  /**
+   * Registra un acompañante presencialmente desde recepción
+   */
+  addCompanionPresencial() {
+    const nameInput = document.getElementById('checkin-new-comp-name');
+    const typeSelect = document.getElementById('checkin-new-comp-doctype');
+    const docInput = document.getElementById('checkin-new-comp-docnum');
+
+    const name = (nameInput?.value || '').trim();
+    const docType = typeSelect?.value || 'CI';
+    const docNum = (docInput?.value || '').trim();
+
+    if (!name) {
+      showToast('Por favor, ingrese el Nombre y Apellido del acompañante', 'warning');
+      nameInput?.focus();
+      return;
+    }
+    if (!docNum) {
+      showToast('Por favor, ingrese el Número de Documento del acompañante', 'warning');
+      docInput?.focus();
+      return;
+    }
+
+    if (!this.checkInCompanions) this.checkInCompanions = [];
+
+    this.checkInCompanions.push({
+      id: 'temp_' + Date.now(),
+      reservation_id: this.activeCheckInBooking?.id,
+      nombre_completo: name,
+      full_name: name,
+      tipo_documento: docType,
+      document_type: docType,
+      numero_documento: docNum,
+      document_number: docNum,
+      relationship: 'Acompañante',
+      is_adult: true,
+      isNew: true
+    });
+
+    this.renderCheckInCompanionsList();
+    this.toggleAddCompanionForm(false);
+    showToast(`✓ Acompañante ${name} agregado para acreditación policial.`, 'success');
+  },
+
+  /**
+   * Elimina un acompañante ingresado presencialmente antes de confirmar
+   */
+  removeCompanionPresencial(idx) {
+    if (this.checkInCompanions && this.checkInCompanions[idx]) {
+      this.checkInCompanions.splice(idx, 1);
+      this.renderCheckInCompanionsList();
+      showToast('Acompañante removido', 'info');
+    }
   },
 
   async confirmCheckIn() {
@@ -1133,7 +1348,65 @@ const ReservationsModule = {
         return;
       }
 
-      // 1. Actualizar reserva a 'Check-in'
+      // =========================================================================
+      // REGLA DE NEGOCIO ESTRICTA: No se debe permitir confirmar el Check-in
+      // si la capacidad de la reserva es para 2 o más personas y los datos de los
+      // acompañantes están vacíos (para registro policial y auditoría).
+      // =========================================================================
+      const capacity = this.currentCheckInCapacity || Number(booking?.cantidad_huespedes || booking?.habitaciones?.tipos_habitacion?.capacidad || 1);
+      const currentCompanions = this.checkInCompanions || [];
+
+      if (capacity >= 2 && currentCompanions.length === 0) {
+        const warnBox = document.getElementById('checkin-companion-warning');
+        if (warnBox) {
+          warnBox.style.display = 'block';
+          warnBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        this.toggleAddCompanionForm(true);
+        showToast(`⚠️ Registro Policial Requerido: Esta reserva tiene capacidad para ${capacity} personas. Debe ingresar los datos del acompañante antes de confirmar el Check-in.`, 'error');
+        return; // BLOQUEO PREVENTIVO
+      }
+
+      const btnConfirm = document.getElementById('btn-confirm-checkin');
+      if (btnConfirm) {
+        btnConfirm.disabled = true;
+        btnConfirm.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Registrando Check-in...';
+      }
+
+      // 1. Guardar en Base de Datos los acompañantes nuevos agregados en mostrador
+      const newCompanions = currentCompanions.filter(c => c.isNew);
+      if (newCompanions.length > 0) {
+        for (const comp of newCompanions) {
+          // Intentar insertar en reservation_companions
+          try {
+            await supabaseClient.from('reservation_companions').insert({
+              reservation_id: bookingId,
+              reserva_id: bookingId,
+              nombre_completo: comp.nombre_completo,
+              tipo_documento: comp.tipo_documento,
+              numero_documento: comp.numero_documento
+            });
+          } catch (e) {
+            console.warn('reservation_companions insert notice:', e?.message || e);
+          }
+
+          // Intentar insertar en acompanantes para garantizar sincronización dual
+          try {
+            await supabaseClient.from('acompanantes').insert({
+              reserva_id: bookingId,
+              full_name: comp.nombre_completo,
+              document_type: comp.tipo_documento,
+              document_number: comp.numero_documento,
+              relationship: comp.relationship || 'Acompañante',
+              is_adult: comp.is_adult !== false
+            });
+          } catch (e) {
+            console.warn('acompanantes insert notice:', e?.message || e);
+          }
+        }
+      }
+
+      // 2. Actualizar reserva a 'Check-in'
       const { error: bookErr } = await supabaseClient
         .from('reservas')
         .update({ estado: 'Check-in' })
@@ -1141,7 +1414,7 @@ const ReservationsModule = {
 
       if (bookErr) throw bookErr;
 
-      // 2. Actualizar habitación a 'Ocupada'
+      // 3. Actualizar habitación a 'Ocupada'
       const { error: roomErr } = await supabaseClient
         .from('habitaciones')
         .update({ estado: 'Ocupada' })
@@ -1149,18 +1422,18 @@ const ReservationsModule = {
 
       if (roomErr) throw roomErr;
 
-      // 3. Registrar auditoría de check-in
+      // 4. Registrar auditoría de check-in
       try {
         await supabaseClient.from('checkins').insert({
           reserva_id: bookingId,
           habitacion_id: roomId,
-          observaciones: `Documento: ${docType} ${docNumber} - Llave entregada`
+          observaciones: `Documento: ${docType} ${docNumber} - Llave entregada - Acompañantes registrados: ${currentCompanions.length}`
         });
       } catch (e) {
         console.warn('Checkin log table skip:', e);
       }
 
-      // 4. Sincronizar Matriz de Custodia de Llaves automáticamente
+      // 5. Sincronizar Matriz de Custodia de Llaves automáticamente
       if (typeof HousekeepingModule !== 'undefined') {
         const roomNum = booking?.habitaciones?.numero || document.getElementById('checkin-room-number')?.innerText?.split(' ')[0] || '';
         const clientName = booking?.clientes?.nombre_completo || booking?.nombre_cliente || 'Huésped Titular';
@@ -1170,16 +1443,31 @@ const ReservationsModule = {
       }
 
       closeModal('modal-checkin');
-      showToast('¡Check-in realizado con éxito! Habitación marcada como Ocupada y llave asignada al huésped.', 'success');
-      if (typeof notifyDataChanged === 'function') notifyDataChanged('reservas', { action: 'checkin', bookingId, roomId });
+      showToast('¡Check-in realizado con éxito! Pasajeros acreditados y habitación asignada.', 'success');
+      
+      if (typeof notifyDataChanged === 'function') {
+        notifyDataChanged('reservas', { action: 'checkin', bookingId, roomId });
+      }
 
+      // Recargar reservas y folios
       await this.loadReservations();
+
+      // Recargar módulo Huéspedes In-House inmediatamente
+      if (typeof GuestsModule !== 'undefined') {
+        await GuestsModule.loadInHouseGuests();
+      }
       if (typeof DashboardModule !== 'undefined') await DashboardModule.loadKPIs();
       if (typeof RoomsModule !== 'undefined') await RoomsModule.loadRooms();
 
     } catch (err) {
       console.error('Error al realizar Check-in:', err);
       showToast('Error al procesar check-in: ' + err.message, 'error');
+    } finally {
+      const btnConfirm = document.getElementById('btn-confirm-checkin');
+      if (btnConfirm) {
+        btnConfirm.disabled = false;
+        btnConfirm.innerHTML = '<i class="fas fa-check-circle"></i> Confirmar Ingreso y Entregar Llave';
+      }
     }
   },
 

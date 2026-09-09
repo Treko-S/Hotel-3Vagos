@@ -1923,13 +1923,55 @@
             <span id="checkin-guest-contact" style="font-size: 11.5px; color: #475569; text-align: right;">+595 981 000000</span>
           </div>
 
-          <!-- Acompañantes Registrados Legalmente -->
-          <div id="checkin-companions-container" style="margin-top: 10px; border-top: 1px dashed #CBD5E1; padding-top: 8px;">
-            <label style="font-weight: 600; font-size: 11.5px; color: #334155; display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
-              <i class="fas fa-users" style="color: var(--accent-gold);"></i> Pasajeros Acompañantes:
-            </label>
-            <div id="checkin-companions-list" style="max-height: 100px; overflow-y: auto;">
+          <!-- Acompañantes Registrados Legalmente & Formulario Rápido -->
+          <div id="checkin-companions-container" style="margin-top: 10px; border-top: 1px dashed #CBD5E1; padding-top: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <label style="font-weight: 700; font-size: 12px; color: #334155; display: flex; align-items: center; gap: 6px; margin: 0;">
+                <i class="fas fa-users" style="color: var(--accent-gold);"></i> Pasajeros Acompañantes:
+                <span id="checkin-capacity-badge" class="badge" style="background: #E0E7FF; color: #3730A3; font-size: 10px; font-weight: 700;">Capacidad: 1 persona</span>
+              </label>
+              <button type="button" class="btn btn-outline btn-sm" id="btn-add-companion-checkin" onclick="ReservationsModule.toggleAddCompanionForm()" style="padding: 3px 10px; font-size: 11px; border-color: #3B82F6; color: #1D4ED8; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fas fa-user-plus"></i> + Añadir Acompañante
+              </button>
+            </div>
+
+            <!-- Alerta visual si la regla de negocio exige datos de acompañante -->
+            <div id="checkin-companion-warning" style="display: none; background: #FEF2F2; border: 1px solid #FECACA; border-radius: 8px; padding: 8px 12px; font-size: 11.5px; color: #991B1B; margin-bottom: 8px;">
+              <i class="fas fa-exclamation-triangle"></i> <strong>Registro Policial Requerido:</strong> Esta reserva es para 2 o más personas. Es obligatorio ingresar los datos del acompañante antes de confirmar el Check-in.
+            </div>
+
+            <!-- Lista Dinámica de Acompañantes -->
+            <div id="checkin-companions-list" style="max-height: 140px; overflow-y: auto; margin-bottom: 8px;">
               <!-- Se puebla dinámicamente -->
+            </div>
+
+            <!-- Formulario Rápido Presencial para Añadir Acompañante -->
+            <div id="checkin-add-companion-form" style="display: none; background: #FFFFFF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 12px; margin-top: 6px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);">
+              <div style="font-size: 11px; font-weight: 700; color: #1E40AF; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fas fa-id-card-alt"></i> Registro Rápido Presencial de Acompañante</span>
+                <button type="button" onclick="ReservationsModule.toggleAddCompanionForm(false)" style="background: none; border: none; font-size: 14px; color: #64748B; cursor: pointer;">&times;</button>
+              </div>
+              <div style="display: grid; grid-template-columns: 1.5fr 1fr 1fr auto; gap: 8px; align-items: flex-end;">
+                <div class="form-group" style="margin: 0;">
+                  <label style="font-size: 10.5px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Nombre y Apellido *</label>
+                  <input type="text" id="checkin-new-comp-name" class="form-control" placeholder="Ej: Maria Gomez" style="font-size: 12px; padding: 5px 8px;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label style="font-size: 10.5px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">Tipo Doc.</label>
+                  <select id="checkin-new-comp-doctype" class="form-control" style="font-size: 12px; padding: 5px 8px;">
+                    <option value="CI">Cédula (CI)</option>
+                    <option value="PASAPORTE">Pasaporte</option>
+                    <option value="DNI">DNI Extranjero</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                  <label style="font-size: 10.5px; font-weight: 600; color: #475569; display: block; margin-bottom: 3px;">N° Documento *</label>
+                  <input type="text" id="checkin-new-comp-docnum" class="form-control" placeholder="Ej: 5432100" style="font-size: 12px; padding: 5px 8px;">
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" onclick="ReservationsModule.addCompanionPresencial()" style="background: #10B981; border-color: #059669; height: 32px; font-size: 11px; font-weight: 700; white-space: nowrap;">
+                  <i class="fas fa-check"></i> Registrar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -4712,14 +4754,14 @@
   <script src="js/dialogs.js?v=2.7"></script>
   <script src="js/folio_pdf_service.js?v=2.7"></script>
   <script src="js/modules/dashboard.js?v=2.7"></script>
-  <script src="js/modules/reservations.js?v=3.0"></script>
+  <script src="js/modules/reservations.js?v=3.2"></script>
   <script src="js/modules/rooms.js?v=2.7"></script>
   <script src="js/modules/rates_seasons.js?v=2.7"></script>
   <script src="js/modules/housekeeping.js?v=2.7"></script>
   <script src="js/modules/maintenance.js?v=2.7"></script>
   <script src="js/modules/inventory.js?v=2.7"></script>
   <script src="js/modules/cash_billing.js?v=2.7"></script>
-  <script src="js/modules/guests.js?v=2.7"></script>
-  <script src="js/app.js?v=2.7"></script>
+  <script src="js/modules/guests.js?v=3.2"></script>
+  <script src="js/app.js?v=3.2"></script>
 </body>
 </html>
