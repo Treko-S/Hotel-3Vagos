@@ -2045,7 +2045,7 @@ const InventoryModule = {
     }
   },
 
-  savePayment() {
+  async savePayment() {
     const sel = document.getElementById('payment-order-select');
     const selVal = sel?.value || '';
     const provider = document.getElementById('payment-provider-display')?.value.trim() || 'Proveedor';
@@ -2064,25 +2064,32 @@ const InventoryModule = {
 
     // INTEGRACIÓN DIRECTA CON CAJA REGISTRADORA (BLOQUEO ESTRICTO SI CAJA CERRADA)
     if (method.includes('Efectivo')) {
-      if (typeof CashBillingModule !== 'undefined' && !CashBillingModule.isCashOpen()) {
-        showToast('⚠️ La caja física está CERRADA. Debe realizar la apertura de caja en mostrador antes de emitir pagos en efectivo a proveedores.', 'error');
-        return;
-      }
-      if (typeof CashBillingModule !== 'undefined' && CashBillingModule.registrarEgresoProveedor) {
-        CashBillingModule.registrarEgresoProveedor({
-          monto: amount,
-          motivo: concept,
-          responsable,
-          comprobante: voucher,
-          ordenId,
-          proveedor: provider
-        });
+      if (typeof CashBillingModule !== 'undefined') {
+        if (!CashBillingModule.currentSession) {
+          await CashBillingModule.loadActiveSession();
+        }
+        if (!CashBillingModule.isCashOpen()) {
+          showToast('⚠️ La caja física está CERRADA. Debe realizar la apertura de caja en mostrador antes de emitir pagos en efectivo a proveedores.', 'error');
+          return;
+        }
+        if (CashBillingModule.registrarEgresoProveedor) {
+          await CashBillingModule.registrarEgresoProveedor({
+            monto: amount,
+            motivo: concept,
+            responsable,
+            comprobante: voucher,
+            ordenId,
+            proveedor: provider
+          });
+        }
       }
     }
 
-    // Actualizar estado de orden
+    // Actualizar estado de orden o recepción
     const order = this.purchaseOrders.find(o => o.id === orderId);
     if (order) order.status = 'Pagada';
+    const reception = this.purchaseReceptions?.find(r => r.id === orderId);
+    if (reception) reception.status = 'Pagada';
 
     const newPayment = {
       id: voucher,

@@ -1021,18 +1021,17 @@ const ReservationsModule = {
       cached = gc[bookingId] || gc[bookingCode];
     } catch (_) {}
 
-    const isStaff = bookingUser && bookingUser.role_id && bookingUser.role_id !== 5;
     if (cached && cached.full_name) {
       return {
         full_name: cached.full_name,
-        document_number: cached.document_number || (!isStaff ? (bookingUser?.document_number || 'S/D') : 'S/D'),
-        document_type: cached.document_type || (!isStaff ? (bookingUser?.document_type || 'CI') : 'CI') || 'CI',
-        phone: cached.phone || (!isStaff ? (bookingUser?.phone || 'Sin teléfono') : 'Sin teléfono'),
-        email: cached.email || (!isStaff ? (bookingUser?.email || 'Sin correo') : 'Sin correo')
+        document_number: cached.document_number || bookingUser?.document_number || 'S/D',
+        document_type: cached.document_type || bookingUser?.document_type || 'CI',
+        phone: cached.phone || bookingUser?.phone || 'Sin teléfono',
+        email: cached.email || bookingUser?.email || 'Sin correo'
       };
     }
 
-    if (bookingUser && !isStaff) {
+    if (bookingUser) {
       return {
         full_name: bookingUser.full_name || 'Huésped Titular',
         document_number: bookingUser.document_number || 'S/D',
@@ -3510,7 +3509,7 @@ const ReservationsModule = {
         }
       }
 
-      const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+      // selectedOption ya fue obtenido arriba para capacidad
       const rawPrice = selectedOption ? Number(selectedOption.getAttribute('data-price') || 150000) : 150000;
       const seasonMult = (typeof RatesSeasonsModule !== 'undefined' && typeof RatesSeasonsModule.getActiveSeasonMultiplier === 'function')
         ? RatesSeasonsModule.getActiveSeasonMultiplier(checkInVal)
@@ -3525,8 +3524,7 @@ const ReservationsModule = {
       const nights = Math.max(1, Math.round((new Date(checkOutVal) - new Date(checkInVal)) / (1000 * 60 * 60 * 24)));
       const totalPrice = pricePerNight * nights;
 
-      // Obtener o asignar guestId si existe
-      // Obtener o registrar oficialmente al huésped en users (rol 5)
+      // Obtener o registrar oficialmente al huésped en users
       let guestId = null;
       try {
         let userFound = null;
@@ -3540,7 +3538,7 @@ const ReservationsModule = {
             .or(filter.join(','))
             .limit(1)
             .maybeSingle();
-          if (data && data.role_id === 5) {
+          if (data) {
             userFound = data;
           }
         }
@@ -3581,10 +3579,31 @@ const ReservationsModule = {
               nationality: 'Paraguaya',
               role_id: 5
             }).eq('id', guestId);
+          } else {
+            // Si el usuario ya existe en Auth/Users
+            const { data: existingUser } = await supabaseClient
+              .from('users')
+              .select('id')
+              .or(`email.eq.${effectiveEmail}${guestEmail ? `,email.eq.${guestEmail}` : ''}${guestDoc ? `,document_number.eq.${guestDoc}` : ''}`)
+              .limit(1)
+              .maybeSingle();
+            if (existingUser) {
+              guestId = existingUser.id;
+            }
           }
         }
       } catch (guestErr) {
         console.warn('Error gestionando huésped titular:', guestErr);
+      }
+
+      // Salvaguarda final: bajo ninguna circunstancia guest_id debe ser null (NOT-NULL constraint)
+      if (!guestId) {
+        if (AppState.currentUser?.id) {
+          guestId = AppState.currentUser.id;
+        } else {
+          const { data: anyUser } = await supabaseClient.from('users').select('id').limit(1).maybeSingle();
+          if (anyUser) guestId = anyUser.id;
+        }
       }
 
       const codigoReserva = 'RES-' + Math.floor(100000 + Math.random() * 900000);

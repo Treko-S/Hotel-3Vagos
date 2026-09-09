@@ -167,7 +167,11 @@ const RatesSeasonsModule = {
 
       // Si RoomsModule ya está cargado, refrescar la tabla para reflejar la tarifa de temporada activa
       if (typeof RoomsModule !== 'undefined' && RoomsModule.rooms && RoomsModule.rooms.length > 0) {
-        RoomsModule.renderRoomsTable(RoomsModule.rooms);
+        if (typeof RoomsModule.renderRoomsTable === 'function') {
+          RoomsModule.renderRoomsTable(RoomsModule.rooms);
+        } else if (typeof RoomsModule.renderRooms === 'function') {
+          RoomsModule.renderRooms(RoomsModule.rooms);
+        }
       }
 
     } catch (err) {
@@ -555,7 +559,8 @@ const RatesSeasonsModule = {
     closeModal('modal-rate-plan-editor');
 
     if (typeof RoomsModule !== 'undefined' && RoomsModule.rooms && RoomsModule.rooms.length > 0) {
-      RoomsModule.renderRoomsTable();
+      if (typeof RoomsModule.renderRoomsTable === 'function') RoomsModule.renderRoomsTable();
+      else if (typeof RoomsModule.renderRooms === 'function') RoomsModule.renderRooms(RoomsModule.rooms);
     }
   },
 
@@ -578,7 +583,8 @@ const RatesSeasonsModule = {
     showToast(`Plan "${p.name}" eliminado`, 'info');
 
     if (typeof RoomsModule !== 'undefined' && RoomsModule.rooms && RoomsModule.rooms.length > 0) {
-      RoomsModule.renderRoomsTable();
+      if (typeof RoomsModule.renderRoomsTable === 'function') RoomsModule.renderRoomsTable();
+      else if (typeof RoomsModule.renderRooms === 'function') RoomsModule.renderRooms(RoomsModule.rooms);
     }
   },
 
@@ -591,7 +597,8 @@ const RatesSeasonsModule = {
       showToast(`Plan ${p.name} ${p.active ? 'activado' : 'pausado'}`, 'info');
 
       if (typeof RoomsModule !== 'undefined' && RoomsModule.rooms && RoomsModule.rooms.length > 0) {
-        RoomsModule.renderRoomsTable();
+        if (typeof RoomsModule.renderRoomsTable === 'function') RoomsModule.renderRoomsTable();
+        else if (typeof RoomsModule.renderRooms === 'function') RoomsModule.renderRooms(RoomsModule.rooms);
       }
     }
   },

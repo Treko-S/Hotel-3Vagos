@@ -118,6 +118,10 @@ const RoomsModule = {
     }
   },
 
+  renderRoomsTable(rooms) {
+    this.renderRooms(rooms || this.rooms);
+  },
+
   renderRooms(list) {
     const tbody = document.getElementById('rooms-table-body');
     if (!tbody) return;

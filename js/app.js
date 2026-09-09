@@ -118,6 +118,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 1. Inicializar Módulo de Seguridad y Autenticación por Dispositivo
   await AuthModule.init();
 
+  // 1.1 Pre-cargar sesión activa de caja para disponibilidad transversal en recepciones/compras
+  if (typeof CashBillingModule !== 'undefined' && typeof CashBillingModule.loadActiveSession === 'function') {
+    CashBillingModule.loadActiveSession().catch(() => {});
+  }
+
   // 2. Suscribirse a cambios en tiempo real en Supabase para habitaciones y reservas
   initRealtimeSubscriptions();
 });
@@ -263,7 +268,10 @@ function switchView(viewId) {
     }
   }
   if (viewId === 'cash' && typeof CashBillingModule !== 'undefined') CashBillingModule.init();
-  if (viewId === 'guests' && typeof GuestsModule !== 'undefined') GuestsModule.loadGuests();
+  if (viewId === 'guests' && typeof GuestsModule !== 'undefined') {
+    GuestsModule.loadInHouseGuests();
+    GuestsModule.loadGuests();
+  }
 
   // Nuevas vistas integradas
   if (viewId === 'purchases') {

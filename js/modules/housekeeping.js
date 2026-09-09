@@ -1245,8 +1245,8 @@ const HousekeepingModule = {
    * - Nombre de la mucama fijado en readonly por seguridad y autoría
    */
   openCleaningChecklist(roomId) {
-    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
-    if (currentRole === 'gobernanta') {
+    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'admin';
+    if (currentRole === 'gobernanta' && currentRole !== 'admin' && currentRole !== 'administrador') {
       showToast('Acceso restringido: La Jefa de Limpieza supervisa el progreso pero no realiza acciones dentro del panel de mucamas.', 'warning');
       return;
     }
@@ -1258,7 +1258,6 @@ const HousekeepingModule = {
 
     const orders = this.getOrders();
     const order = orders[String(room.id)] || { priority: 2, maid: 'Rosa Almada (Mucama)' };
-    const currentRole = (typeof AppState !== 'undefined' && AppState.currentRole) ? AppState.currentRole : 'administrador';
     const currentUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : null;
 
     document.getElementById('hk-modal-room-id').value = room.id;

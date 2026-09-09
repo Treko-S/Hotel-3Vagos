@@ -76,7 +76,7 @@ const MaintenanceModule = {
     }
   },
 
-  openOrderFromIncident(incidentId) {
+  async openOrderFromIncident(incidentId) {
     try {
       const raw = localStorage.getItem('hotel_hk_incidents');
       const incidents = raw ? JSON.parse(raw) : [];
@@ -343,10 +343,13 @@ const MaintenanceModule = {
       const cost = Number(document.getElementById('maint-cost')?.value) || 0;
       const desc = document.getElementById('maint-desc')?.value.trim() || 'Revisión técnica solicitada';
 
+      const isCommonArea = (roomId === 'areas_comunes');
+      const numericRoomId = isCommonArea ? null : Number(roomId);
+
       // 1. Insertar orden en ordenes_mantenimiento con columnas compatibles con Supabase
       const { error: ordErr } = await supabaseClient.from('ordenes_mantenimiento').insert({
-        habitacion_id: roomId,
-        titulo: type,
+        habitacion_id: numericRoomId,
+        titulo: isCommonArea ? `[Áreas Comunes] ${type}` : type,
         prioridad: priority,
         costo_reparacion: cost,
         descripcion: desc,
@@ -357,10 +360,12 @@ const MaintenanceModule = {
       if (ordErr) throw ordErr;
 
       // 2. Bloquear habitación a 'Mantenimiento'
-      await supabaseClient.from('habitaciones').update({
-        estado: 'Mantenimiento',
-        observaciones: `En mantenimiento técnico: ${type}. Técnico: ${tech}. Prioridad ${priority}.`
-      }).eq('id', roomId);
+      if (!isCommonArea && numericRoomId) {
+        await supabaseClient.from('habitaciones').update({
+          estado: 'Mantenimiento',
+          observaciones: `En mantenimiento técnico: ${type}. Técnico: ${tech}. Prioridad ${priority}.`
+        }).eq('id', numericRoomId);
+      }
 
       closeModal('modal-new-maintenance');
       showToast(`✓ Orden de mantenimiento asignada a ${tech} y habitación bloqueada`, 'warning');
