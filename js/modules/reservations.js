@@ -46,7 +46,6 @@ const ReservationsModule = {
           <option value="CONFIRMADA">Confirmadas</option>
           <option value="GARANTIZADA">Garantizadas (con Seña/Pago)</option>
           <option value="CHECK-IN">En Estadía (Check-in)</option>
-          <option value="CANCELADA">Canceladas</option>
         `;
       }
       filterStatus.value = 'ALL';
@@ -323,8 +322,11 @@ const ReservationsModule = {
     const tbody = document.getElementById('reservations-table-body');
     if (!tbody) return;
 
-    // Excluir reservaciones que ya terminaron (Finalizada) de la lista activa de recepción
-    const activeList = (list || []).filter(b => (b.estado || '').toLowerCase() !== 'finalizada');
+    // Excluir reservaciones inactivas/concluidas (Finalizada o Cancelada) de la lista activa de recepción
+    const activeList = (list || []).filter(b => {
+      const st = (b.estado || '').toLowerCase();
+      return st !== 'finalizada' && st !== 'cancelada';
+    });
 
     if (activeList.length === 0) {
       tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 36px; color: var(--text-muted);"><i class="fas fa-calendar-times" style="font-size: 24px; margin-bottom: 8px; display: block; opacity: 0.5;"></i>No se encontraron reservas activas con los criterios seleccionados.</td></tr>`;
@@ -490,8 +492,9 @@ const ReservationsModule = {
 
     // Filtro para la vista de Lista Activa
     const filtered = this.currentBookings.filter(b => {
-      // Excluir reservaciones finalizadas
-      if ((b.estado || '').toLowerCase() === 'finalizada') return false;
+      // Excluir reservaciones concluidas o canceladas (pertenecen exclusivamente al Historial)
+      const stLower = (b.estado || '').toLowerCase();
+      if (stLower === 'finalizada' || stLower === 'cancelada') return false;
 
       const code = (b.codigo_reserva || '').toLowerCase();
       const hab = b.habitaciones ? (b.habitaciones.numero || '').toLowerCase() : '';
@@ -2660,8 +2663,9 @@ const ReservationsModule = {
         });
       }
 
-      showToast('Reserva cancelada con éxito. Notificación remitida y habitación liberada.', 'success');
+      showToast('Reserva cancelada con éxito. Habitación liberada y trasladada al Historial de Reservas.', 'success');
       await this.loadReservations();
+      this.switchSubView('history');
       if (typeof DashboardModule !== 'undefined') {
         await DashboardModule.loadKPIs?.();
       }
