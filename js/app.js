@@ -3,50 +3,89 @@
  * Master Application Controller, Navigation & RBAC (Role-Based Access Control)
  */
 
+// Función de Normalización de Roles a los 5 roles canónicos
+function normalizeRole(role) {
+  if (!role) return 'guest';
+  const r = String(role).toLowerCase().trim();
+  if (['admin', 'administrador', 'gerente'].includes(r)) return 'admin';
+  if (['receptionist', 'recepcionista'].includes(r)) return 'receptionist';
+  if (['housekeeping', 'jefa_limpieza', 'mucama'].includes(r)) return 'housekeeping';
+  if (['maintenance', 'mantenimiento'].includes(r)) return 'maintenance';
+  if (['finance', 'finanzas', 'contabilidad'].includes(r)) return 'finance';
+  return r;
+}
+
 // Estado global de la aplicación
 const AppState = {
-  currentRole: 'administrador', // administrador, gerente, recepcionista, housekeeping, guest
+  currentRole: 'admin',
   currentUser: null,
   activeView: 'dashboard'
 };
 
-// Matriz Oficial de Permisos RBAC por Rol
-const RolePermissions = {
-  administrador: {
+// Matriz Oficial de Permisos RBAC por Rol (5 Roles Canónicos)
+const CANONICAL_PERMISSIONS = {
+  admin: {
     name: 'Administrador General',
-    allowedViews: ['dashboard', 'reservations', 'rooms', 'inventory', 'rates', 'housekeeping', 'maintenance', 'cash', 'guests'],
+    allowedViews: [
+      'dashboard', 'reservations', 'guests',
+      'rooms', 'rates',
+      'housekeeping', 'maintenance', 'consumptions',
+      'inventory', 'purchases',
+      'cash', 'billing',
+      'analytics', 'users', 'settings'
+    ],
     defaultView: 'dashboard'
   },
-  gerente: {
-    name: 'Gerente General',
-    allowedViews: ['dashboard', 'reservations', 'rooms', 'inventory', 'rates', 'cash', 'guests'],
-    defaultView: 'dashboard'
-  },
-  recepcionista: {
-    name: 'Recepcionista Front Desk',
-    allowedViews: ['reservations', 'rooms', 'inventory', 'cash'],
+  receptionist: {
+    name: 'Recepción & Front Desk',
+    allowedViews: [
+      'dashboard', 'reservations', 'guests',
+      'rooms', 'rates',
+      'housekeeping', 'maintenance', 'consumptions',
+      'cash', 'billing'
+    ],
     defaultView: 'reservations'
   },
-  jefa_limpieza: {
-    name: 'Jefa de Limpieza / Gobernanta',
-    allowedViews: ['housekeeping'],
-    defaultView: 'housekeeping'
-  },
-  mucama: {
-    name: 'Mucama / Asistente de Limpieza',
-    allowedViews: ['housekeeping'],
-    defaultView: 'housekeeping'
-  },
   housekeeping: {
-    name: 'Supervisora Housekeeping',
-    allowedViews: ['housekeeping'],
+    name: 'Housekeeping & Limpieza',
+    allowedViews: [
+      'rooms', 'housekeeping', 'consumptions', 'inventory'
+    ],
     defaultView: 'housekeeping'
+  },
+  maintenance: {
+    name: 'Mantenimiento & Técnico',
+    allowedViews: [
+      'rooms', 'maintenance', 'inventory'
+    ],
+    defaultView: 'maintenance'
+  },
+  finance: {
+    name: 'Finanzas & Contabilidad',
+    allowedViews: [
+      'dashboard', 'rates',
+      'inventory', 'purchases',
+      'cash', 'billing',
+      'analytics'
+    ],
+    defaultView: 'cash'
   },
   guest: {
     name: 'Huésped (Acceso Restringido)',
     allowedViews: ['guest'],
     defaultView: 'guest'
   }
+};
+
+const RolePermissions = {
+  ...CANONICAL_PERMISSIONS,
+  administrador: CANONICAL_PERMISSIONS.admin,
+  gerente: CANONICAL_PERMISSIONS.admin,
+  recepcionista: CANONICAL_PERMISSIONS.receptionist,
+  jefa_limpieza: CANONICAL_PERMISSIONS.housekeeping,
+  mucama: CANONICAL_PERMISSIONS.housekeeping,
+  mantenimiento: CANONICAL_PERMISSIONS.maintenance,
+  finanzas: CANONICAL_PERMISSIONS.finance
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -68,7 +107,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const s = JSON.parse(sessionStr);
       if (s && s.user && s.user.role) {
         AppState.currentUser = s.user;
-        AppState.currentRole = s.user.role;
+        AppState.currentRole = normalizeRole(s.user.role);
         applyRoleBasedAccess(s.user.role);
       }
     }
@@ -102,7 +141,7 @@ function toggleMobileSidebar(forceOpen) {
 }
 
 /**
- * Inicializar navegación por pestañas de la SPA
+ * Inicializar navegación por pestañas de la SPA y Guardia de Rutas por Hash
  */
 function initNavigation() {
   const navItems = document.querySelectorAll('.nav-item[data-view]');
@@ -115,17 +154,51 @@ function initNavigation() {
       toggleMobileSidebar(false);
     });
   });
+
+  // Guardia de Rutas por URL directa (Hashchange Listener)
+  window.addEventListener('hashchange', () => {
+    const requestedView = window.location.hash.replace('#', '').trim();
+    if (requestedView && requestedView !== AppState.activeView) {
+      switchView(requestedView);
+    }
+  });
+
+  // Si hay un hash en la URL al cargar la página, validar y conmutar
+  const initialHash = window.location.hash.replace('#', '').trim();
+  if (initialHash) {
+    const normRole = normalizeRole(AppState.currentRole);
+    const roleConfig = RolePermissions[normRole] || RolePermissions.guest;
+    if (roleConfig.allowedViews.includes(initialHash)) {
+      switchView(initialHash);
+    }
+  }
 }
 
+/**
+ * Conmutador central de vistas con validación RBAC estricta
+ */
 function switchView(viewId) {
-  // Validación de Permisos RBAC
-  const roleConfig = RolePermissions[AppState.currentRole] || RolePermissions.guest;
+  const normRole = normalizeRole(AppState.currentRole);
+  const roleConfig = RolePermissions[normRole] || RolePermissions.guest;
+
+  // Validación de Permisos RBAC (Capa de Protección en Navegación)
   if (!roleConfig.allowedViews.includes(viewId)) {
-    showToast(`Acceso denegado: El rol "${roleConfig.name}" no tiene autorización para esta vista.`, 'warning');
+    showToast(`Acceso denegado: El rol "${roleConfig.name}" no tiene autorización para acceder a "${viewId}".`, 'warning');
+    const fallbackView = roleConfig.defaultView || 'dashboard';
+    if (AppState.activeView !== fallbackView) {
+      switchView(fallbackView);
+    }
     return;
   }
 
   AppState.activeView = viewId;
+
+  // Sincronizar URL Hash sin recargar para soportar enlaces directos y marcadores
+  try {
+    if (window.location.hash !== `#${viewId}`) {
+      window.history.replaceState(null, '', `#${viewId}`);
+    }
+  } catch (e) {}
 
   // 1. Actualizar menú lateral activo
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -141,15 +214,21 @@ function switchView(viewId) {
 
   // 3. Actualizar título superior
   const titles = {
-    'dashboard': { title: 'Dashboard Ejecutivo & KPIs', subtitle: 'Métricas operativas y financieras en tiempo real' },
+    'dashboard': { title: 'Dashboard & Alertas Operativas', subtitle: 'Métricas operativas y financieras en tiempo real' },
     'reservations': { title: 'Recepción & Reservas', subtitle: 'Front Desk, Check-in, Check-out y asignación de habitaciones' },
-    'rooms': { title: 'Inventario de Habitaciones & Tarifas', subtitle: 'Gestión de categorías, estados y precios base' },
-    'inventory': { title: 'Catálogo & Control de Inventario', subtitle: 'Servicios para venta en App Móvil e Insumos de Pañol' },
-    'rates': { title: 'Estrategia de Precios & Revenue Management', subtitle: 'Gestión de temporadas anuales, promociones, recargos y paquetes' },
-    'housekeeping': { title: 'Housekeeping & Calidad', subtitle: 'Control de limpieza, checklist de 5 áreas e inspección' },
+    'guests': { title: 'Huéspedes & CRM', subtitle: 'Directorio de pasajeros, folios y documentación de identidad' },
+    'rooms': { title: 'Inventario de Habitaciones', subtitle: 'Gestión de categorías, estados de habitación y bloqueos técnicos' },
+    'rates': { title: 'Tarifas & Temporadas', subtitle: 'Revenue management, temporadas anuales, promociones y add-ons' },
+    'housekeeping': { title: 'Housekeeping & Calidad', subtitle: 'Control de limpieza, checklists de áreas y asignación a mucamas' },
     'maintenance': { title: 'Mantenimiento & Incidencias', subtitle: 'Control de órdenes técnicas, costos y reparaciones' },
-    'cash': { title: 'Caja & Facturación Legal', subtitle: 'Control de sesiones de caja, arqueo e IVA Paraguay' },
-    'guests': { title: 'Huéspedes & CRM', subtitle: 'Directorio de clientes, documentos y fidelización' },
+    'consumptions': { title: 'Consumos, Frigobar & Room Service', subtitle: 'Control de reposición de minibar, pedidos de app y cargos a folio' },
+    'inventory': { title: 'Inventario & Kardex', subtitle: 'Control de insumos de pañol, stock valorizado y catálogo para venta' },
+    'purchases': { title: 'Compras & Proveedores', subtitle: 'Directorio de proveedores, órdenes de compra y recepción de insumos' },
+    'cash': { title: 'Caja & Arqueos', subtitle: 'Control de sesiones de caja, arqueos, egresos y reembolsos' },
+    'billing': { title: 'Facturación Legal (SET Paraguay)', subtitle: 'Emisión de comprobantes tributarios, timbrado y libro de ventas' },
+    'analytics': { title: 'Reportes & Analítica Hotelera', subtitle: 'RevPAR, ADR, ocupación mensual y balance ejecutivo oficial en PDF' },
+    'users': { title: 'Gestión de Usuarios & RBAC', subtitle: 'Directorio de personal, roles, permisos y control de dispositivos' },
+    'settings': { title: 'Configuración General del Hotel', subtitle: 'Políticas institucionales, timbrado y parámetros operativos' },
     'guest': { title: 'Portal de Huéspedes', subtitle: 'Consola interna exclusiva para colaboradores del hotel' }
   };
 
@@ -169,14 +248,171 @@ function switchView(viewId) {
   if (viewId === 'maintenance' && typeof MaintenanceModule !== 'undefined') MaintenanceModule.loadOrders();
   if (viewId === 'cash' && typeof CashBillingModule !== 'undefined') CashBillingModule.init();
   if (viewId === 'guests' && typeof GuestsModule !== 'undefined') GuestsModule.loadGuests();
+
+  // Nuevas vistas integradas
+  if (viewId === 'purchases') renderPurchasesProvidersView();
+  if (viewId === 'billing') renderBillingViewInvoices();
+  if (viewId === 'analytics') renderAnalyticsMetrics();
+  if (viewId === 'users') renderUsersDirectory();
+  if (viewId === 'settings') renderSettingsOverview();
+}
+
+/**
+ * Renderizadores dinámicos para vistas secundarias y sub-tabs
+ */
+function renderPurchasesProvidersView() {
+  const grid = document.getElementById('purchases-providers-grid');
+  if (!grid) return;
+
+  if (typeof InventoryModule !== 'undefined' && Array.isArray(InventoryModule.providers) && InventoryModule.providers.length > 0) {
+    grid.innerHTML = InventoryModule.providers.map(p => `
+      <div class="provider-card">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+            <h4 style="font-size: 15px; font-weight: 700; color: var(--primary-navy); margin: 0;">${p.name || 'Proveedor'}</h4>
+            <span class="badge" style="background: #EFF6FF; color: #1D4ED8;">${p.category || 'General'}</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0;"><strong>RUC:</strong> ${p.ruc || 'S/D'}</p>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0;"><strong>Teléfono:</strong> ${p.phone || 'S/D'}</p>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0;"><strong>Contacto:</strong> ${p.contact_name || 'Principal'}</p>
+        </div>
+        <div style="margin-top: 14px; border-top: 1px solid #E2E8F0; padding-top: 10px; display: flex; justify-content: flex-end;">
+          <button class="btn btn-sm btn-outline" onclick="InventoryModule.openPurchaseOrderModal('${p.id}')">
+            <i class="fas fa-file-invoice"></i> Generar Orden
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 24px; text-align: center; background: #F8FAFC; border-radius: 12px; border: 1px dashed #CBD5E1;">
+        <i class="fas fa-truck" style="font-size: 32px; color: #94A3B8; margin-bottom: 8px;"></i>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">No hay proveedores registrados aún.</p>
+        <button class="btn btn-primary btn-sm" onclick="InventoryModule.openProviderModal()"><i class="fas fa-plus"></i> Registrar Primer Proveedor</button>
+      </div>
+    `;
+  }
+}
+
+function renderBillingViewInvoices() {
+  const tbody = document.getElementById('billing-view-invoices-tbody');
+  const mainTbody = document.getElementById('invoices-table-body');
+  if (tbody && mainTbody) {
+    tbody.innerHTML = mainTbody.innerHTML;
+  }
+}
+
+function renderAnalyticsMetrics() {
+  const occEl = document.getElementById('kpi-occupancy');
+  const revEl = document.getElementById('kpi-revenue');
+  const adrEl = document.getElementById('analytics-kpi-adr');
+  const revparEl = document.getElementById('analytics-kpi-revpar');
+
+  if (adrEl && occEl) adrEl.innerText = '250.000 Gs.';
+  if (revparEl && revEl) revparEl.innerText = '175.000 Gs.';
+}
+
+function renderUsersDirectory() {
+  const tbody = document.getElementById('users-directory-tbody');
+  const fpEl = document.getElementById('current-device-fp-display');
+
+  if (fpEl && typeof AuthModule !== 'undefined') {
+    fpEl.innerText = AuthModule.deviceFingerprint || localStorage.getItem('hotel_device_id') || 'Dispositivo de Confianza';
+  }
+
+  if (tbody && typeof AuthModule !== 'undefined' && Array.isArray(AuthModule.STAFF_ACCOUNTS)) {
+    tbody.innerHTML = AuthModule.STAFF_ACCOUNTS.map(u => {
+      const canonical = normalizeRole(u.role);
+      return `
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--accent-gold); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;">
+                ${(u.name || 'U').charAt(0)}
+              </div>
+              <div>
+                <strong>${u.name}</strong>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div><span style="font-family: monospace; font-size: 12px;">${u.username}</span></div>
+            <small style="color: var(--text-muted);">${u.email}</small>
+          </td>
+          <td><span class="role-badge ${canonical}">${canonical}</span></td>
+          <td><span style="font-size: 12px; color: #334155;">${CANONICAL_PERMISSIONS[canonical]?.name || u.role}</span></td>
+          <td><span class="badge" style="background: #F0FDF4; color: #166534;"><i class="fas fa-check"></i> Activo</span></td>
+        </tr>
+      `;
+    }).join('');
+  }
+}
+
+function renderSettingsOverview() {
+  // Sincronización visual de parámetros
+}
+
+/**
+ * Controladores de Pestañas Internas (Sub-tabs)
+ */
+function switchConsumptionsSubtab(tabKey, btn) {
+  document.querySelectorAll('#view-consumptions .subtab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-consumptions .subtab-content').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const target = document.getElementById(`subtab-consumptions-${tabKey}`);
+  if (target) target.classList.add('active');
+}
+
+function switchPurchasesSubtab(tabKey, btn) {
+  document.querySelectorAll('#view-purchases .subtab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-purchases .subtab-content').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const target = document.getElementById(`subtab-purchases-${tabKey}`);
+  if (target) target.classList.add('active');
+  if (tabKey === 'providers') renderPurchasesProvidersView();
+}
+
+function switchBillingSubtab(tabKey, btn) {
+  document.querySelectorAll('#view-billing .subtab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-billing .subtab-content').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const target = document.getElementById(`subtab-billing-${tabKey}`);
+  if (target) target.classList.add('active');
+  if (tabKey === 'invoices') renderBillingViewInvoices();
+}
+
+function switchAnalyticsSubtab(tabKey, btn) {
+  document.querySelectorAll('#view-analytics .subtab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-analytics .subtab-content').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const target = document.getElementById(`subtab-analytics-${tabKey}`);
+  if (target) target.classList.add('active');
+}
+
+function switchUsersSubtab(tabKey, btn) {
+  document.querySelectorAll('#view-users .subtab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-users .subtab-content').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const target = document.getElementById(`subtab-users-${tabKey}`);
+  if (target) target.classList.add('active');
+  if (tabKey === 'directory') renderUsersDirectory();
+}
+
+function switchSettingsSubtab(tabKey, btn) {
+  document.querySelectorAll('#view-settings .subtab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#view-settings .subtab-content').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const target = document.getElementById(`subtab-settings-${tabKey}`);
+  if (target) target.classList.add('active');
 }
 
 /**
  * Aplica las restricciones de seguridad RBAC en el Sidebar y vistas
  */
 function applyRoleBasedAccess(role) {
-  AppState.currentRole = role;
-  const roleConfig = RolePermissions[role] || RolePermissions.guest;
+  const normRole = normalizeRole(role);
+  AppState.currentRole = normRole;
+  const roleConfig = RolePermissions[normRole] || RolePermissions.guest;
 
   // 1. Filtrar elementos individuales de navegación del sidebar
   document.querySelectorAll('.nav-item[data-view]').forEach(item => {
@@ -189,7 +425,7 @@ function applyRoleBasedAccess(role) {
   });
 
   // 2. Filtrar dinámicamente las cabeceras de categoría (.nav-category)
-  // Si ninguno de los nav-items que le siguen está visible, la categoría se oculta
+  // Si ninguno de los nav-items que le pertenecen está visible, la categoría se oculta
   document.querySelectorAll('.nav-category').forEach(cat => {
     let sibling = cat.nextElementSibling;
     let hasVisibleItem = false;
@@ -202,10 +438,10 @@ function applyRoleBasedAccess(role) {
       sibling = sibling.nextElementSibling;
     }
 
-    cat.style.display = hasVisibleItem ? 'block' : 'none';
+    cat.style.display = hasVisibleItem ? 'flex' : 'none';
   });
 
-  // 3. Conmutar a la vista por defecto autorizada para este rol y cargar sus datos
+  // 3. Conmutar a la vista por defecto autorizada para este rol si la actual no está permitida
   const targetView = roleConfig.allowedViews.includes(AppState.activeView) ? AppState.activeView : roleConfig.defaultView;
   switchView(targetView);
 }

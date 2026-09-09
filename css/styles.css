@@ -1995,8 +1995,197 @@ html[data-user-role="jefa_limpieza"] .nav-category:first-of-type {
 .btn-report-pdf:hover {
   background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 12px rgba(37, 99, 255, 0.35);
 }
+
+/* =========================================================
+   REESTRUCTURACIÓN SIDEBAR & CATEGORÍAS EJECUTIVAS
+   ========================================================= */
+.nav-category {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #94A3B8;
+  padding: 14px 14px 5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: opacity 0.2s ease;
+}
+
+.nav-category::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  color: #CBD5E1;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+  transform: translateX(3px);
+}
+
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(212, 175, 55, 0.22) 0%, rgba(212, 175, 55, 0.04) 100%);
+  color: var(--accent-gold-light);
+  border-left-color: var(--accent-gold);
+  font-weight: 600;
+}
+
+.nav-item.active i {
+  color: var(--accent-gold);
+}
+
+/* =========================================================
+   SISTEMA DE SUB-TABS INTERNAS DE LUJO
+   ========================================================= */
+.luxury-subtabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #E2E8F0;
+  padding: 0 4px 0 4px;
+  margin-bottom: 22px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  background: #FFFFFF;
+  border-radius: 12px 12px 0 0;
+}
+
+.luxury-subtabs::-webkit-scrollbar {
+  display: none;
+}
+
+.subtab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748B;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.subtab-btn i {
+  font-size: 14px;
+  color: #94A3B8;
+  transition: color 0.2s ease;
+}
+
+.subtab-btn:hover {
+  color: var(--primary-navy);
+  background: rgba(241, 245, 249, 0.7);
+}
+
+.subtab-btn:hover i {
+  color: var(--primary-blue);
+}
+
+.subtab-btn.active {
+  color: var(--primary-navy);
+  font-weight: 700;
+  border-bottom-color: var(--accent-gold);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.subtab-btn.active i {
+  color: var(--accent-gold);
+}
+
+.subtab-content {
+  display: none;
+  animation: fadeInSubtab 0.25s ease-out;
+}
+
+.subtab-content.active {
+  display: block;
+}
+
+@keyframes fadeInSubtab {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================================
+   BADGES DE ROLES Y CONTROL DE ACCESO
+   ========================================================= */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.role-badge.admin {
+  background: rgba(212, 175, 55, 0.18);
+  color: #B45309;
+  border: 1px solid rgba(212, 175, 55, 0.4);
+}
+
+.role-badge.receptionist {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.role-badge.housekeeping {
+  background: rgba(14, 165, 233, 0.15);
+  color: #0369A1;
+  border: 1px solid rgba(14, 165, 233, 0.35);
+}
+
+.role-badge.maintenance {
+  background: rgba(249, 115, 22, 0.15);
+  color: #C2410C;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+}
+
+.role-badge.finance {
+  background: rgba(139, 92, 246, 0.15);
+  color: #6D28D9;
+  border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.rbac-denied-box {
+  background: #FEF2F2;
+  border: 1px solid #FCA5A5;
+  border-radius: 12px;
+  padding: 30px;
+  text-align: center;
+  max-width: 500px;
+  margin: 50px auto;
+}
+
 
 
 

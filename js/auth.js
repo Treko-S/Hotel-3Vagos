@@ -51,8 +51,22 @@ const AuthModule = {
       email: "housekeeping@hotel3vagos.com",
       username: "housekeeping",
       name: "Elena Morales",
-      role: "jefa_limpieza",
+      role: "housekeeping",
       passwordHash: "43b520eee83e83ee1aeac02520d15d731cb6ff4ed196be818b5be9278f2ded36" // housekeeping123 + salt
+    },
+    {
+      email: "mantenimiento@hotel3vagos.com",
+      username: "mantenimiento",
+      name: "Carlos Villalba",
+      role: "maintenance",
+      passwordHash: "1d530d2a524af8560fbf36ddb7a759059cae0382eec7639cf9dceaa67384cf11" // mantenimiento123 + salt
+    },
+    {
+      email: "finanzas@hotel3vagos.com",
+      username: "finanzas",
+      name: "Lic. Federico Giménez",
+      role: "finance",
+      passwordHash: "ee1a493c41ca25ee4a1dc55ea447ff599d578a87c7a100ca2598809cfab13187" // finanzas123 + salt
     },
     {
       email: "guest@hotel3vagos.com",
@@ -321,10 +335,18 @@ const AuthModule = {
     if (nameEl) nameEl.innerText = user.name;
 
     const roleNames = {
+      'admin': 'Administrador General',
       'administrador': 'Administrador General',
       'gerente': 'Gerente General',
+      'receptionist': 'Recepcionista Front Desk',
       'recepcionista': 'Recepcionista Front Desk',
       'housekeeping': 'Supervisora Housekeeping',
+      'jefa_limpieza': 'Jefa de Limpieza / Gobernanta',
+      'mucama': 'Mucama / Housekeeping',
+      'maintenance': 'Encargado Técnico / Mantenimiento',
+      'mantenimiento': 'Encargado Técnico / Mantenimiento',
+      'finance': 'Jefe de Finanzas & Compras',
+      'finanzas': 'Jefe de Finanzas & Compras',
       'guest': 'Huésped (Acceso Restringido)'
     };
 
